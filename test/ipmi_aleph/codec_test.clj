@@ -39,7 +39,7 @@
 
 (deftest presence
   (testing "Test PING"
-    (let [payload (byte-array (:rmcp-ping rmcp-payloads))]
+    (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:rmcp-ping rmcp-payloads))))]
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
@@ -50,197 +50,195 @@
                 :message-tag 196,
                 :reserved 0,
                 :data-length 0}}}
-              (decode rmcp-header payload)))))
+             (decode rmcp-header payload)))))
   (testing "Test PONG"
-    (let [payload (byte-array (:rmcp-pong rmcp-payloads))]
-      (is (=  {:version 6,
-                :reserved 0,
-                :sequence 255,
-                :class
-                {:iana-enterprise-number 4542,
-                 :message-type
-                 {:rmcp-presence-type 64,
-                  :message-tag 196,
-                  :reserved [0 0 0 0 0 0],
-                  :data-length 16,
-                  :oem-enterprise-number 4542,
-                  :oem-defined 0,
-                  :supported-entities 129,
-                  :supported-interactions 0}}
-}
-             (decode rmcp-header payload false))))))
-
-(deftest test-rakp
-  (testing "RAKP1 encoding"
-    (let [rakp1 (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :rmcp-rakp-1))))]
+    (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:rmcp-pong rmcp-payloads))))]
       (is (=  {:version 6,
                :reserved 0,
                :sequence 255,
                :class
-               {:payload
-                {:payload
-                 {:session-id [0 0 0 0],
-                  :session-seq [0 0 0 0],
-                  :reserved2 [0 0],
-                  :payload-type {:encrypted? false, :authenticated? false, :type 18},
-                  :remote-console-random-number
-                  [20 175 49 49 232 117 165 238 44 47 22 246 128 211 82 6],
-                  :user-name "ADMIN",
-                  :requested-max-priv-level
-                  {:reserved 0, :user-lookup true, :requested-max-priv-level 4},
-                  :message-tag 0,
-                  :managed-system-session-id 1154,
-                  :reserved1 [0 0 0],
-                  :message-length 33},
-                 :type :ipmi-2-0-session},
-                :type :ipmi-session}}
+               {:iana-enterprise-number 4542,
+                :message-type
+                {:rmcp-presence-type 64,
+                 :message-tag 196,
+                 :reserved [0 0 0 0 0 0],
+                 :data-length 16,
+                 :oem-enterprise-number 4542,
+                 :oem-defined 0,
+                 :supported-entities 129,
+                 :supported-interactions 0}}}
+              (decode rmcp-header payload))))))
 
-              (decode rmcp-header rakp1)))))
+(deftest test-rakp
+  (testing "RAKP1 encoding"
+    (let [rakp1 (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :rmcp-rakp-1))))]
+      (is (= {:version 6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-payload
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:session-id [0 0 0 0],
+                 :session-seq [0 0 0 0],
+                 :reserved2 [0 0],
+                 :payload-type {:encrypted? false, :authenticated? false, :type 18},
+                 :remote-console-random-number
+                 [20 175 49 49 232 117 165 238 44 47 22 246 128 211 82 6],
+                 :user-name "ADMIN",
+                 :requested-max-priv-level
+                 {:reserved 0, :user-lookup true, :requested-max-priv-level 4},
+                 :message-tag 0,
+                 :managed-system-session-id 1154,
+                 :reserved1 [0 0 0],
+                 :message-length 33},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
+
+             (decode rmcp-header rakp1)))))
   #_(testing "RAKP2 encoding"
       (is (= {}
              (decode rmcp-header rakp2 false)))))
 (deftest test-open-session
   (testing "open session request"
     (let [request (byte-array (rmcp-payloads :open-session-request))]
-      (is (= {:version 6,
-              :reserved 0,
-              :sequence 255,
-              :class
-              {:payload
-               {:payload
-                {:session-id [0 0 0 0],
-                 :session-seq [0 0 0 0],
-                 :payload-type {:encrypted? false, :authenticated? false, :type 16},
-                 :authentication-payload
-                 {:type 0,
-                  :reserved [0 0 0],
-                  :length 8,
-                  :algo {:reserved 0, :algorithm 1}},
-                 :integrity-payload
-                 {:type 1,
-                  :reserved [0 0 0],
-                  :length 8,
-                  :algo {:reserved 0, :algorithm 1}},
-                 :remote-session-id 2762187424,
-                 :message-tag 0,
-                 :reserved 0,
-                 :message-length 32,
-                 :confidentiality-payload
-                 {:type 2,
-                  :reserved [0 0 0],
-                  :length 8,
-                  :algo {:reserved 0, :algorithm 1}},
-                 :privilege-level {:reserved 0, :max-priv-level 0}},
-                :type :ipmi-2-0-session},
-               :type :ipmi-session}}
+      (is (=  {:version 6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-payload
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id [0 0 0 0],
+                  :session-seq [0 0 0 0],
+                  :payload-type {:encrypted? false, :authenticated? false, :type 16},
+                  :authentication-payload
+                  {:type 0,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :integrity-payload
+                  {:type 1,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :remote-session-id 2762187424,
+                  :message-tag 0,
+                  :reserved 0,
+                  :message-length 32,
+                  :confidentiality-payload
+                  {:type 2,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :privilege-level {:reserved 0, :max-priv-level 0}},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
 
-             (decode rmcp-header request false)))))
+              (decode rmcp-header request false)))))
   (testing "open session response"
     (let [response (byte-array (rmcp-payloads :open-session-response))]
-      (is (=   {:version 6,
-                :reserved 0,
-                :sequence 255,
-                :class
-                {:payload
-                 {:payload
-                  {:session-id [0 0 0 0],
-                   :session-seq [0 0 0 0],
-                   :payload-type {:encrypted? false, :authenticated? false, :type 17},
-                   :authentication-payload
-                   {:type 0,
-                    :reserved [0 0 0],
-                    :length 8,
-                    :algo {:reserved 0, :algorithm 1}},
-                   :integrity-payload
-                   {:type 1,
-                    :reserved [0 0 0],
-                    :length 8,
-                    :algo {:reserved 0, :algorithm 1}},
-                   :status-code 0,
-                   :remote-session-id 2762187424,
-                   :message-tag 0,
-                   :managed-system-session-id 2181300224,
-                   :reserved 0,
-                   :message-length 36,
-                   :confidentiality-payload
-                   {:type 2,
-                    :reserved [0 0 0],
-                    :length 8,
-                    :algo {:reserved 0, :algorithm 1}},
-                   :privilege-level {:reserved 0, :max-priv-level 0}},
-                  :type :ipmi-2-0-session},
-                 :type :ipmi-session}}
-               (decode rmcp-header response false))))))
+      (is (=  {:version 6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-payload
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id [0 0 0 0],
+                  :session-seq [0 0 0 0],
+                  :payload-type {:encrypted? false, :authenticated? false, :type 17},
+                  :authentication-payload
+                  {:type 0,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :integrity-payload
+                  {:type 1,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :status-code 0,
+                  :remote-session-id 2762187424,
+                  :message-tag 0,
+                  :managed-system-session-id 2181300224,
+                  :reserved 0,
+                  :message-length 36,
+                  :confidentiality-payload
+                  {:type 2,
+                   :reserved [0 0 0],
+                   :length 8,
+                   :algo {:reserved 0, :algorithm 1}},
+                  :privilege-level {:reserved 0, :max-priv-level 0}},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
+              (decode rmcp-header response false))))))
 
 (deftest test-channel-authentication
   (testing "Get Channel Auth Cap Request"
     (let [request (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :get-channel-auth-cap-req))))]
-      (is (=  {:version 6,
-               :reserved 0,
-               :sequence 255,
-               :class
-               {:payload
-                {:payload
-                 {:session-seq [0 0 0 0],
-                  :session-id [0 0 0 0],
-                  :message-length 9,
-                  :ipmb-payload
-                  {:version-compatibility
-                   {:version-compatibility true, :reserved 0, :channel 14},
-                   :command 56,
-                   :source-lun 0,
-                   :source-address 129,
-                   :checksum 181,
-                   :header-checksum 200,
-                   :target-address 32,
-                   :network-function {:function 6, :target-lun 0},
-                   :privilege-level {:reserved 0, :privilege-level 4}}},
-                 :type :ipmi-1-5-session},
-                :type :ipmi-session}}
-              (decode rmcp-header request false)))))
-  (testing "Get Channel Auth Cap Response"
-    (let [response (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
-              :class
-              {:payload
-               {:payload
+              :rmcp-payload
+              {:ipmi-session-payload
+               {:ipmi-1-5-payload
                 {:session-seq [0 0 0 0],
                  :session-id [0 0 0 0],
-                 :message-length 16,
+                 :message-length 9,
                  :ipmb-payload
-                 {:oem-id [0 0 0],
-                  :oem-aux-data 0,
-                  :auth-compatibility
-                  {:reserved 0,
-                   :key-generation false,
-                   :per-message-auth false,
-                   :user-level-auth false,
-                   :non-null-user-names true,
-                   :null-user-names false,
-                   :anonymous-login-enabled false},
-                  :version-compatibility
-                  {:version-compatibility true,
-                   :reserved false,
-                   :oem-proprietary-auth false,
-                   :password-key true,
-                   :md5-support true,
-                   :md2-support true,
-                   :no-auth-support true},
+                 {:version-compatibility
+                  {:version-compatibility true, :reserved 0, :channel 14},
                   :command 56,
-                  :channel {:reserved 0, :channel-num 1},
                   :source-lun 0,
-                  :source-address 32,
-                  :supported-connections
-                  {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
-                  :checksum 9,
-                  :header-checksum 99,
-                  :target-address 129,
-                  :network-function {:function 7, :target-lun 0},
-                  :command-completion-code 0}},
+                  :source-address 129,
+                  :checksum 181,
+                  :header-checksum 200,
+                  :target-address 32,
+                  :network-function {:function 6, :target-lun 0},
+                  :privilege-level {:reserved 0, :privilege-level 4}}},
                 :type :ipmi-1-5-session},
                :type :ipmi-session}}
-
-             (decode rmcp-header response false))))))
+             (decode rmcp-header request false)))))
+  (testing "Get Channel Auth Cap Response"
+    (let [response (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
+      (is (=   {:version 6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-payload
+                {:ipmi-session-payload
+                 {:ipmi-1-5-payload
+                  {:session-seq [0 0 0 0],
+                   :session-id [0 0 0 0],
+                   :message-length 16,
+                   :ipmb-payload
+                   {:oem-id [0 0 0],
+                    :oem-aux-data 0,
+                    :auth-compatibility
+                    {:reserved 0,
+                     :key-generation false,
+                     :per-message-auth false,
+                     :user-level-auth false,
+                     :non-null-user-names true,
+                     :null-user-names false,
+                     :anonymous-login-enabled false},
+                    :version-compatibility
+                    {:version-compatibility true,
+                     :reserved false,
+                     :oem-proprietary-auth false,
+                     :password-key true,
+                     :md5-support true,
+                     :md2-support true,
+                     :no-auth-support true},
+                    :command 56,
+                    :channel {:reserved 0, :channel-num 1},
+                    :source-lun 0,
+                    :source-address 32,
+                    :supported-connections
+                    {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
+                    :checksum 9,
+                    :header-checksum 99,
+                    :target-address 129,
+                    :network-function {:function 7, :target-lun 0},
+                    :command-completion-code 0}},
+                  :type :ipmi-1-5-session},
+                 :type :ipmi-session}}
+               (decode rmcp-header response false))))))
 

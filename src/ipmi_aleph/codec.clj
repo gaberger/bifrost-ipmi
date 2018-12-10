@@ -2,15 +2,14 @@
   (:require [gloss.core :refer [defcodec compile-frame bit-map
                                 ordered-map header finite-frame
                                 string enum]]
-            #_[gloss.io]
             [clojure.string :as str]
             [clojure.datafy :as d]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
 
-(timbre/refer-timbre)
-(timbre/merge-config! {:appenders {:println {:enabled? true}}})
-(timbre/merge-config!
+(log/refer-timbre)
+(log/merge-config! {:appenders {:println {:enabled? true}}})
+(log/merge-config!
  {:appenders
   {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
@@ -20,12 +19,12 @@
   header and the data."
   [frame-fn]
   (fn [h]
-    (log/info (d/datafy (frame-fn h)))
+    (log/debug (d/datafy (frame-fn h)))
     (compile-frame
      (frame-fn h)
      identity
      (fn [data]
-       (log/debug data)
+       (log/debug "header:" header " data: " data)
        (merge h data)))))
 
 (defcodec get-channel-auth-cap-req
@@ -153,12 +152,12 @@
 (comment "Page 123")
 (defcodec ipmi-1-5-session
   {:type :ipmi-1-5-session
-   :payload (compile-frame
-             (ordered-map
-              :session-seq [:ubyte :ubyte :ubyte :ubyte]
-              :session-id  [:ubyte :ubyte :ubyte :ubyte]
-              :message-length :ubyte
-              :ipmb-payload ipmb-message))})
+   :ipmi-1-5-payload (compile-frame
+                      (ordered-map
+                       :session-seq [:ubyte :ubyte :ubyte :ubyte]
+                       :session-id  [:ubyte :ubyte :ubyte :ubyte]
+                       :message-length :ubyte
+                       :ipmb-payload ipmb-message))})
 
 (defcodec rmcp-plus-rakp-1
   (ordered-map
@@ -207,23 +206,23 @@
 (defcodec ipmi-2-0-session
   {:type :ipmi-2-0-session
 
-   :payload (compile-frame (header rmcp-plus-header
-                                   (build-merge-header-with-data
-                                    #(get-rmcp-message-type %))
-                                   (fn [b]
-                                     b)))})
+   :ipmi-2-0-payload (compile-frame (header rmcp-plus-header
+                                            (build-merge-header-with-data
+                                             #(get-rmcp-message-type %))
+                                            (fn [b]
+                                              b)))})
 (defcodec authentication-type
   (enum :ubyte {:ipmi-1-5-session 0x00
                 :ipmi-2-0-session 0x06}))
 
 (defcodec ipmi-session
   {:type :ipmi-session
-   :payload (compile-frame
-             (header
-              authentication-type
-              {:ipmi-1-5-session ipmi-1-5-session
-               :ipmi-2-0-session ipmi-2-0-session}
-              :type))})
+   :ipmi-session-payload (compile-frame
+                          (header
+                           authentication-type
+                           {:ipmi-1-5-session ipmi-1-5-session
+                            :ipmi-2-0-session ipmi-2-0-session}
+                           :type))})
 
 (defcodec presence-ping
   (ordered-map :message-tag :ubyte
@@ -241,48 +240,57 @@
                 :reserved (repeat 6 :ubyte)))
 
 (defn get-rmcp-presence-type [h]
-  (println (str "g-r-p-t" h))
   (condp = (:rmcp-presence-type h)
     0x40 presence-pong
-    0x80 presence-ping
-    ))
+    0x80 presence-ping))
 
 (defcodec rmcp-presence-type
-    {:rmcp-presence-type :ubyte})
+  {:rmcp-presence-type :ubyte})
 
 (defcodec rmcp-message-header
   (header rmcp-presence-type
           (build-merge-header-with-data
            #(get-rmcp-presence-type %))
           (fn [b]
-            (prn b)
             b)))
 
 (defcodec rmcp-presence-body
   (ordered-map
    :iana-enterprise-number :uint32
-   :message-type rmcp-message-header
-   ))
+   :message-type rmcp-message-header))
 
 (defcodec class-of-message
   (enum :ubyte {:rmcp-presence-body 0x06
                 :ipmi-session 0x07}))
 
+(defn get-rmcp-class [h]
+  (log/debug "get-rmcp-class" h)
+  (condp = h
+    :rmcp-presence-body rmcp-presence-body
+    :ipmi-session ipmi-session))
+
 (defcodec rmcp-class-header
   (header
    class-of-message
-     {:rmcp-presence-body rmcp-presence-body
-      :ipmi-session ipmi-session}
-     :type))
+   (build-merge-header-with-data
+    #(get-rmcp-class %))
+   (fn [b]
+     (log/debug "rmcp-encoder " b)
+     b)))
 
 (defcodec rmcp-header
   (ordered-map :version :ubyte ; 0x06
                :reserved :ubyte ; 0x00
                :sequence :ubyte
-               :class
-
+               :rmcp-payload
 
                rmcp-class-header))
 
+#_(gloss.io/decode rmcp-header (byte-array (:rmcp-ping ipmi-aleph.codec-test/rmcp-payloads)))
 
+#_(gloss.io/encode rmcp-class-header {:rmcp-payload {:iana-enterprise-number 4244
+                                                     :message-type {:rmcp-presence-type  128
+                                                                    :message-tag 128
+                                                                    :reserved 0
+                                                                    :data-length 0}}})
 
