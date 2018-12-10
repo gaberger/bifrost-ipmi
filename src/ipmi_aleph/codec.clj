@@ -8,9 +8,9 @@
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
 
-(timbre/refer-timbre)
-(timbre/merge-config! {:appenders {:println {:enabled? true}}})
-(timbre/merge-config!
+(log/refer-timbre)
+(log/merge-config! {:appenders {:println {:enabled? true}}})
+(log/merge-config!
  {:appenders
   {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
