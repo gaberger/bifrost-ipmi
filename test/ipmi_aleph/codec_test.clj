@@ -6,7 +6,7 @@
 
 (def rmcp-payloads
   {:rmcp-ping [0x06 0x00 0xff 0x06 0x00 0x00 0x11 0xbe 0x80 0xc4 0x00 0x00]
-   :rmcp-pong [0x06 0x00 0xff 0x06 0x00 0x00 0x11 0xbe 0x40 0xc4 0x00 0x10 0x00 0x00 0x11 0xbe 0x00 0x00 0x00 0x00 0x81 0x00 0x00 0x00 0x00 0x00 0x00 0x00]
+   :rmcp-pong [0x06 0x00 0xff 0x06 0x00 0x00 0x11 0xbe 0x40 0xc4 0x00 0x10 0x00 0x00 0x11 0xbe 0 0 0 0 81 0 0 0 0 0 0 0]
    :get-channel-auth-cap-req  [0x06 0x00 0xff 0x07 0x00 0x00 0x00 0x00 0x00 0x00
                                0x00 0x00 0x00 0x09 0x20 0x18 0xc8 0x81 0x00 0x38
                                0x8e 0x04 0xb5]
@@ -37,37 +37,43 @@
                  0xd9 0xfe 0x9c 0x8d 0x76 0x27 0x1c 0xfc 0x45 0x97 0x83 0x4b
                  0x7d 0x79 0x74 0x7d]})
 
-(deftest presence
+(deftest test-rmcp-presence
   (testing "Test PING"
     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:rmcp-ping rmcp-payloads))))]
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
-              :class
-              {:iana-enterprise-number 4542,
-               :message-type
-               {:rmcp-presence-type 128,
-                :message-tag 196,
-                :reserved 0,
-                :data-length 0}}}
-             (decode rmcp-header payload)))))
+              :rmcp-class
+              {:asf-payload
+               {:iana-enterprise-number 4542,
+                :asf-message-header
+                {:asf-message-type 128,
+                 :message-tag 196,
+                 :reserved 0,
+                 :data-length 0}},
+               :type :asf-session}}
+             (decode rmcp-header payload false)))))
   (testing "Test PONG"
     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:rmcp-pong rmcp-payloads))))]
-      (is (=  {:version 6,
+          ;payload (byte-array (:rmcp-pong rmcp-payloads))]
+      (is (=  {:version 6,          
                :reserved 0,
                :sequence 255,
-               :class
-               {:iana-enterprise-number 4542,
-                :message-type
-                {:rmcp-presence-type 64,
-                 :message-tag 196,
-                 :reserved [0 0 0 0 0 0],
-                 :data-length 16,
-                 :oem-enterprise-number 4542,
-                 :oem-defined 0,
-                 :supported-entities 129,
-                 :supported-interactions 0}}}
-              (decode rmcp-header payload))))))
+               :rmcp-class
+               {:asf-payload
+                {:iana-enterprise-number 4542,
+                 :asf-message-header
+                 {:asf-message-type 64,
+                  :reserved2 [0 0 0 0 0 0],
+                  :data-length 16,
+                  :oem-defined 0,
+                  :supported-interactions 0,
+                  :message-tag 196,
+                  :reserved1 0,
+                  :oem-iana-number 4542,
+                  :supported-entities 81}},
+                :type :asf-session}}
+               (decode rmcp-header payload))))))
 
 (deftest test-rakp
   (testing "RAKP1 encoding"
@@ -75,7 +81,7 @@
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
-              :rmcp-payload
+              :rmcp-class
               {:ipmi-session-payload
                {:ipmi-2-0-payload
                 {:session-id [0 0 0 0],
@@ -104,7 +110,7 @@
       (is (=  {:version 6,
                :reserved 0,
                :sequence 255,
-               :rmcp-payload
+               :rmcp-class
                {:ipmi-session-payload
                 {:ipmi-2-0-payload
                  {:session-id [0 0 0 0],
@@ -139,7 +145,7 @@
       (is (=  {:version 6,
                :reserved 0,
                :sequence 255,
-               :rmcp-payload
+               :rmcp-class
                {:ipmi-session-payload
                 {:ipmi-2-0-payload
                  {:session-id [0 0 0 0],
@@ -177,7 +183,7 @@
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
-              :rmcp-payload
+              :rmcp-class
               {:ipmi-session-payload
                {:ipmi-1-5-payload
                 {:session-seq [0 0 0 0],
@@ -202,7 +208,7 @@
       (is (=   {:version 6,
                 :reserved 0,
                 :sequence 255,
-                :rmcp-payload
+                :rmcp-class
                 {:ipmi-session-payload
                  {:ipmi-1-5-payload
                   {:session-seq [0 0 0 0],

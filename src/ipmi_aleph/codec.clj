@@ -19,7 +19,6 @@
   header and the data."
   [frame-fn]
   (fn [h]
-    (log/debug (d/datafy (frame-fn h)))
     (compile-frame
      (frame-fn h)
      identity
@@ -215,6 +214,43 @@
   (enum :ubyte {:ipmi-1-5-session 0x00
                 :ipmi-2-0-session 0x06}))
 
+(defcodec asf-presence-ping
+  (ordered-map :message-tag :ubyte
+               :reserved :ubyte
+               :data-length :ubyte))
+
+(defcodec asf-presence-pong
+  (ordered-map
+   :message-tag :ubyte
+   :reserved1 :ubyte
+   :data-length :ubyte
+   :oem-iana-number :uint32
+   :oem-defined :uint32
+   :supported-entities :ubyte
+   :supported-interactions :ubyte
+   :reserved2 (repeat 6 :ubyte)))
+
+(defn get-asf-message-type [h]
+  (condp = (:asf-message-type h)
+    0x40 asf-presence-pong
+    0x80 asf-presence-ping))
+
+(defcodec asf-message-type
+  {:asf-message-type :ubyte})
+
+(defcodec asf-message-header
+  (header asf-message-type
+          (build-merge-header-with-data
+           #(get-asf-message-type %))
+          (fn [b]
+            b)))
+
+(defcodec asf-session
+  {:type :asf-session
+   :asf-payload (compile-frame (ordered-map
+                                :iana-enterprise-number :uint32
+                                :asf-message-header asf-message-header))})
+
 (defcodec ipmi-session
   {:type :ipmi-session
    :ipmi-session-payload (compile-frame
@@ -224,69 +260,25 @@
                             :ipmi-2-0-session ipmi-2-0-session}
                            :type))})
 
-(defcodec presence-ping
-  (ordered-map :message-tag :ubyte
-               :reserved :ubyte
-               :data-length :ubyte))
-
-(defcodec presence-pong
-  (ordered-map  :message-tag :ubyte
-                :reserved :ubyte
-                :data-length :ubyte
-                :oem-enterprise-number :uint32
-                :oem-defined :uint32
-                :supported-entities :ubyte
-                :supported-interactions :ubyte
-                :reserved (repeat 6 :ubyte)))
-
-(defn get-rmcp-presence-type [h]
-  (condp = (:rmcp-presence-type h)
-    0x40 presence-pong
-    0x80 presence-ping))
-
-(defcodec rmcp-presence-type
-  {:rmcp-presence-type :ubyte})
-
-(defcodec rmcp-message-header
-  (header rmcp-presence-type
-          (build-merge-header-with-data
-           #(get-rmcp-presence-type %))
-          (fn [b]
-            b)))
-
-(defcodec rmcp-presence-body
-  (ordered-map
-   :iana-enterprise-number :uint32
-   :message-type rmcp-message-header))
-
 (defcodec class-of-message
-  (enum :ubyte {:rmcp-presence-body 0x06
+  (enum :ubyte {:asf-session 0x06
                 :ipmi-session 0x07}))
-
-(defn get-rmcp-class [h]
-  (log/debug "get-rmcp-class" h)
-  (condp = h
-    :rmcp-presence-body rmcp-presence-body
-    :ipmi-session ipmi-session))
 
 (defcodec rmcp-class-header
   (header
    class-of-message
-   (build-merge-header-with-data
-    #(get-rmcp-class %))
-   (fn [b]
-     (log/debug "rmcp-encoder " b)
-     b)))
+   {:asf-session asf-session
+    :ipmi-session ipmi-session}
+   :type))
 
 (defcodec rmcp-header
   (ordered-map :version :ubyte ; 0x06
                :reserved :ubyte ; 0x00
                :sequence :ubyte
-               :rmcp-payload
+               :rmcp-class rmcp-class-header))
 
-               rmcp-class-header))
-
-#_(gloss.io/decode rmcp-header (byte-array (:rmcp-ping ipmi-aleph.codec-test/rmcp-payloads)))
+#_(-> (gloss.io/decode rmcp-header (byte-array  [6 0 255 6 0 0 17 190 128 196 0 0]))
+      println)
 
 #_(gloss.io/encode rmcp-class-header {:rmcp-payload {:iana-enterprise-number 4244
                                                      :message-type {:rmcp-presence-type  128

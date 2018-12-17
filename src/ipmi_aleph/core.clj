@@ -8,7 +8,16 @@
             [buddy.core.codecs :as codecs]
             [gloss.io :refer [decode encode]]
             [ipmi-aleph.codec :refer :all]
-            [ipmi-aleph.handlers :as h]))
+            [ipmi-aleph.handlers :as h]
+            [clojure.string :as str]
+            [taoensso.timbre :as log]
+            [taoensso.timbre.appenders.core :as appenders]))
+
+(log/refer-timbre)
+(log/merge-config! {:appenders {:println {:enabled? true}}})
+#_(log/merge-config!
+   {:appenders
+    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 (def server-port 623)
 
@@ -43,28 +52,31 @@
 (defn start-udp-server
   []
   (println "Starting Server on port " server-port)
+  (log/debug "Starting Server")
   (let [accumulator   (atom {})
-        server-socket @(udp/socket {:port server-port})]
+        server-socket @(udp/socket {:port server-port
+                                        ;:socket-address (java.net.InetSocketAddress/createUnresolved "192.168.100.141" server-port)
+                                    })]
     (->> server-socket
-         (s/map parse-ipmi-packet-callback)
-         (s/consume (fn [response]
-                      (s/put! server-socket (encode rmcp-header response)))))
-  server-socket))
+         #_(s/map parse-ipmi-packet-callback)
+         #_(s/consume (fn [response]
+                        (s/put! server-socket (encode rmcp-header response))))
+         (s/consume (fn [payload]
+                      (log/debug "Got payload " payload)
+                      (let [sender (:sender payload)
+                            address (-> (.getAddress sender) (.getHostAddress))
+                            port (.getPort sender)
+                            message (decode rmcp-header (:message payload))
+                            message-tag (get-in message [:rmcp-class :asf-payload :asf-message-header :message-tag])]
+                        (log/debug "Sending UDP request to host: " address "on port: " port)
+                        (s/put! server-socket {:host address
+                                               :port port
+                                               :message (encode rmcp-header (h/presence-pong message-tag))})))))
+    server-socket))
 
-     ;(s/put! client-socket
-    ;{
-    ; :port server-port
-    ;:message (str metric ":" value)}))
-    ; (s/put! (presence-pong))
-    ;     (bs/print-bytes)
-    ;     (s/consume #(prn 'message! %))
-    ;     )
-         ;(s/consume
-          ;(fn [[metric value]]
-           ; (swap! accumulator update metric #(+ (or % 0) value)))))
-    ;; If `stream` is closed, close the associated socket.
-    ;(s/on-drained stream #(s/close! server-socket))
-    ;#_stream
+
+
+;(s/on-drained stream #(s/close! server-socket))
 
 
 
@@ -74,7 +86,7 @@
 
 
 ;(def server (start-udp-server))
+;(s/close! server)
 ;(send-ipmi-init! (client-socket))
 ;@(s/take! server)
-;(s/close! server)
 

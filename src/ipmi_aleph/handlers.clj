@@ -1,20 +1,23 @@
 (ns ipmi-aleph.handlers)
 
 (defn presence-pong [tag]
-  {:version 6,
-   :reserved 0,
-   :sequence 255,
-   :class
+  {:version 6,          
+  :reserved 0,
+  :sequence 255,
+  :rmcp-class
+  {:asf-payload
    {:iana-enterprise-number 4542,
-    :message-type
-    {:rmcp-presence-type 64,
-     :message-tag tag,
-     :reserved [0 0 0 0 0 0],
+    :asf-message-header
+    {:asf-message-type 64,
+     :reserved2 [0 0 0 0 0 0],
      :data-length 16,
-     :oem-enterprise-number 4542,
      :oem-defined 0,
-     :supported-entities 129,
-     :supported-interactions 0}}})
+     :supported-interactions 0,
+     :message-tag 196,
+     :reserved1 0,
+     :oem-iana-number 4542,
+     :supported-entities 0}},
+   :type :asf-session}})
 
 (defn auth-capabilities-response []
   {:oem-id [0 0 0],

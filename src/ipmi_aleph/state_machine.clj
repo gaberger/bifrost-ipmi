@@ -6,9 +6,6 @@
 
 
 
-(view [(a/? 1) (a/* 2) (a/+ 3)])
-
-(view [:auth-cap-request (h/auth-capabilities-response)])
 
 (def page-pattern
     (->> [:cart :checkout :cart]
