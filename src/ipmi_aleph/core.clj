@@ -15,7 +15,7 @@
 
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
-#_(log/merge-config!
+(log/merge-config!
    {:appenders
     {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
@@ -62,13 +62,12 @@
          #_(s/consume (fn [response]
                         (s/put! server-socket (encode rmcp-header response))))
          (s/consume (fn [payload]
-                      (log/debug "Got payload " payload)
                       (let [sender (:sender payload)
                             address (-> (.getAddress sender) (.getHostAddress))
                             port (.getPort sender)
                             message (decode rmcp-header (:message payload))
                             message-tag (get-in message [:rmcp-class :asf-payload :asf-message-header :message-tag])]
-                        (log/debug "Sending UDP request to host: " address "on port: " port)
+                        (log/debug "Sending UDP request to host: " address "on port: " port "for message-tag " message-tag)
                         (s/put! server-socket {:host address
                                                :port port
                                                :message (encode rmcp-header (h/presence-pong message-tag))})))))

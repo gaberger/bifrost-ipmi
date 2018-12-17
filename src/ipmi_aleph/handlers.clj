@@ -13,7 +13,7 @@
      :data-length 16,
      :oem-defined 0,
      :supported-interactions 0,
-     :message-tag 196,
+     :message-tag tag,
      :reserved1 0,
      :oem-iana-number 4542,
      :supported-entities 0}},
