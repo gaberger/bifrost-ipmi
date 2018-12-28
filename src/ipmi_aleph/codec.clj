@@ -4,14 +4,16 @@
                                 string enum]]
             [clojure.string :as str]
             [clojure.datafy :as d]
+            [clojure.walk :as w]
+            [gloss.io :refer [decode]]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
 
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
-(log/merge-config!
- {:appenders
-  {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
+#_(log/merge-config!
+   {:appenders
+    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
@@ -23,8 +25,51 @@
      (frame-fn h)
      identity
      (fn [data]
-       (log/debug "header:" header " data: " data)
        (merge h data)))))
+
+(defn get-message-type [m]
+  (log/debug "Message: " m)
+  (if (-> (:rmcp-class m) (contains? :asf-payload))
+    (let [message-type  (get-in m [:rmcp-class :asf-payload :asf-message-header :asf-message-type])]
+      (condp = message-type
+        128  {:type :asf-ping :message message-type}
+        64 {:type :asf-pong :message message-type}))
+    (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
+      :ipmi-1-5-payload  (let [response? (contains? (get-in m [:rmcp-class :ipmi-session-payload :ipmi-1-5-payload :ipmb-payload]) :command-completion-code)
+                               message-type (get-in m [:rmcp-class :ipmi-session-payload :ipmi-1-5-payload :ipmb-payload :command])]
+                           (if response?
+                             (condp = message-type
+                               56 {:type :get-channel-auth-cap-rsp
+                                   :message 56})
+                             (condp = message-type
+                               56 {:type :get-channel-auth-cap-req
+                                   :message 56})))
+      :ipmi-2-0-payload (let [message-type (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type])]
+                          (condp = message-type
+                            16 {:type :open-session-request
+                                :message 16}
+                            17 {:type :open-session-response
+                                :message 17}
+                            18 {:type :rmcp-rakp-1
+                                :message 18})))))
+
+(def authentication-codec
+  {0x00 {:name :RAKP-none
+         :auth nil
+         :size 0
+         :optional false}
+   0x01 {:name :RAKP-HMAC-SHA1
+         :auth :hmac-sha1
+         :size 20
+         :optional false}
+   0x02 {:name :RAKP-HMAC-MD5
+         :auth :hmac-md5
+         :size 16
+         :optional true}
+   0x03 {:name :RAKP-HMAC-SHA256
+         :auth :hmac-sha256
+         :size 64
+         :optional true}})
 
 (defcodec get-channel-auth-cap-req
   (ordered-map
@@ -185,10 +230,10 @@
     0x10 rmcp-open-session-request
     0x11 rmcp-open-session-response
     0x12 rmcp-plus-rakp-1
-    0x13 rmcp-plus-rakp-2
+    0x13 rmcp-plus-rakp-2))
                                         ; 0x14 rmcp-plus-rakp-3
                                         ; 0x15 rmcp-plus-rakp-4
-))
+
 
 (defcodec rmcp-message-type
   (bit-map :encrypted? 1
@@ -277,12 +322,4 @@
                :sequence :ubyte
                :rmcp-class rmcp-class-header))
 
-#_(-> (gloss.io/decode rmcp-header (byte-array  [6 0 255 6 0 0 17 190 128 196 0 0]))
-      println)
-
-#_(gloss.io/encode rmcp-class-header {:rmcp-payload {:iana-enterprise-number 4244
-                                                     :message-type {:rmcp-presence-type  128
-                                                                    :message-tag 128
-                                                                    :reserved 0
-                                                                    :data-length 0}}})
-
+(def rmcp-decode (partial decode rmcp-header))

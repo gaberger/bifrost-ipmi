@@ -1,38 +1,36 @@
 (ns ipmi-aleph.state-machine
-  (:require 
-            [automat.viz :refer [view]]
-            [automat.core :as a]
-            [ipmi-aleph.handlers :as h]))
+  (:require
+   [automat.viz :refer [view]]
+   [automat.core :as a]
+   [ipmi-aleph.codec :refer :all]
+   [ipmi-aleph.handlers :as h]
+   [taoensso.timbre :as log]))
+
+(def fsm-state (atom {}))
+
+(def fsm (a/compile
+          [(a/$ :init)
+          (a/or
+           [:asf-ping (a/$ :asf-ping)]
+           )]
+           {:signal (fn [m]
+                     (:type (get-message-type m)))
+            :reducers {:init (fn [state _] (assoc state :last-message []))
+                       :asf-ping (fn [state input]
+                                   #_(assoc state :last-message conj (get-message-type input))
+                                   (update-in state [:last-message] conj (get-message-type input))
+                                   )}}))
 
 
+
+            ;:reducers {:asf-message (fn [state input] :completed)}}))
+
+(def adv (partial a/advance fsm))
+;(-> :ping (adv {:message-type :rmcp-ping}))
 
 
 (def page-pattern
-    (->> [:cart :checkout :cart]
-         (map #(vector [% (a/$ :save)]))
-         (interpose (a/* a/any))
-         vec))
-
-(def f
-    (a/compile
-     [(a/$ :init)
-      page-pattern
-      (a/$ :offer)]
-     {:signal :page-type
-      :reducers {:init (fn [m _] (assoc m :offer-pages []))
-                 :save (fn [m page] (update-in m [:offer-pages] conj page))
-                 :offer (fn [m _] (assoc m :offer? true))}}))
-
-(view f)
-
-
-(def adv (partial a/advance f))
-(-> nil
-    (adv {:page-type :cart})
-    (adv {:page-type :product})
-    (adv {:page-type :product})
-    (adv {:page-type :product})
-    (adv :anything)
-    (adv {:page-type :checkout})
-    (adv {:page-type :product})
-    (adv {:page-type :cart}) :value)
+  (->> [:cart :checkout :cart]
+       (map #(vector [% (a/$ :save)]))
+       (interpose (a/* a/any))
+       vec))

@@ -102,10 +102,10 @@
                                             :reserverd 2
                                             :class 5) ; need lookup
                              ;:ipmi-1-5 IPMI-1-5
-                             :payload f
+                             :payload f)))
                              ;:ipmb IPMB
                                         ;:payload f
-)))
+
 
 (defcodec payload-type (bit-map :encryption 1
                                 :authenticated 1
@@ -311,4 +311,3 @@
 
 ; (decode packetheader (encode packetheader auth-map )
 ; (decode packetheader (encode packetheader sess-map ))
-
