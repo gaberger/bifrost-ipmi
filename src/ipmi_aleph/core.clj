@@ -5,7 +5,9 @@
             [buddy.core.nonce :as nonce]
             [buddy.core.codecs :as codecs]
             [gloss.io :refer [decode encode]]
+            [byte-streams :as bs]
             [automat.core :as a]
+            [automat.viz :refer [view]]
             [ipmi-aleph.codec :as c]
             [ipmi-aleph.handlers :as h]
             [clojure.string :as str]
@@ -19,6 +21,7 @@
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 (def server-port 623)
+(def udp-session (atom {}))
 
 #_(defn send-ipmi-init!
     [s host port  message]
@@ -70,14 +73,35 @@
         port (get session :peer-port)]
     (s/put! server-socket {:host host
                            :port port
-                           :message (encode c/rmcp-header (h/rmcp-open-session-response-msg))})))
+                           :message (encode c/rmcp-header (h/rmcp-open-session-response-msg 0 0))})))
+
+(defn send-rakp-2-response [session]
+  (let [server-socket (get session :socket)
+        host (get session :address)
+        port (get session :peer-port)]
+    (s/put! server-socket {:host host
+                           :port port
+                           :message (encode c/rmcp-header (h/rmcp-rakp-2-response-msg))})))
+
+(defn send-rakp-4-response [session]
+  (let [server-socket (get session :socket)
+        host (get session :address)
+        port (get session :peer-port)]
+    (s/put! server-socket {:host host
+                           :port port
+                           :message (encode c/rmcp-header (h/rmcp-rakp-4-response-msg))})))
 
 (defn fsm []
   (let [fsm [(a/$ :init)
              (a/or
-              [:asf-ping (a/$ :asf-ping)]
+              (a/+
+               [:asf-ping (a/$ :asf-ping)])
               [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-               :open-session-request (a/$ :open-session-request)])]
+               :open-session-request (a/$ :open-session-request)
+               :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+               :rmcp-rakp-3 (a/$ :rmcp-rakp-3)])]
+              ;  :set-session-priv-level #_(a/$ :set-session-priv-level)])]
+
         compiled-fsm (a/compile fsm
                                 {:signal #(:type (c/get-message-type %))
                                  :reducers {:init (fn [state _] (assoc state :last-message []))
@@ -93,23 +117,42 @@
                                                                       (update-in state [:last-message] conj message)
                                                                       (send-open-session-response input)
                                                                       state))
+                                            :rmcp-rakp-1 (fn [state input]
+                                                           (log/debug "RAKP-1 Request")
+                                                           (let [message (conj {} (c/get-message-type input))
+                                                                 state (update-in state [:last-message] conj message)]
+                                                             (send-rakp-2-response input)
+                                                             state))
+                                            :rmcp-rakp-3 (fn [state input]
+                                                           (log/debug "RAKP-3 Request")
+                                                           (let [message (conj {} (c/get-message-type input))
+                                                                 state (update-in state [:last-message] conj message)]
+                                                             (send-rakp-4-response input)
+                                                             state))
+                                            ; :set-session-priv-level (fn [state input]
+                                            ;                           (log/debug "Set Session Priv level")
+                                            ;                           (let [message (conj {} (c/get-message-type input))
+                                            ;                                 state (update-in state [:last-message] conj message)]
+                                            ;                              state))
                                             :asf-ping (fn [state input]
                                                         (let [message-tag (get-in input [:rmcp-class
                                                                                          :asf-payload
                                                                                          :asf-message-header
                                                                                          :message-tag])
                                                               message-type (conj {} (c/get-message-type input))
-                                                              message (assoc message-type :message-tag message-tag)]
-                                                          (update-in state [:last-message] conj message)
-                                                          (send-pong input message-tag)))}})
-       ; _ (automat.viz/view compiled-fsm)
+                                                              message (assoc message-type :message-tag message-tag)
+                                                              state (update-in state [:last-message] conj message)]
+                                                          (send-pong input message-tag)
+                                                          state))}})
+
+        
+
+        ;_ (automat.viz/view compiled-fsm)
         adv (partial a/advance compiled-fsm)]
     adv))
 
-(def udp-session (atom {}))
 
 (defn message-handler [server-state payload]
-  (log/debug server-state payload)
   (let [myfsm (fsm)
         fsm-state (if-not (empty? @udp-session) @udp-session nil)
         sender (:sender payload)
@@ -117,12 +160,13 @@
         port (.getPort sender)
         message (:message payload)
         server-state  (conj server-state {:address address :peer-port port})
+        _ (log/debug "DUMP BYTES" (bs/print-bytes message))
         decoded  (try (c/rmcp-decode message)
                       (catch Exception e (str "caught decoding exception: " (.getMessage e))))
-        _     (log/debug (c/get-message-type decoded))
+        _ (log/debug "Decoded: " decoded)
         session-state (merge server-state decoded)
         new-fsm-state (myfsm fsm-state session-state)]
-    (swap! udp-session conj new-fsm-state)))
+    (reset! udp-session new-fsm-state)))
 
 (defn start-consumer
   [server-state]
@@ -144,7 +188,7 @@
   (let [udp-server (start-udp-server port)
         _ (start-consumer udp-server)]
     (future
-      (Thread/sleep 25000)
+      (Thread/sleep 30000)
       (s/close! (:socket udp-server))
       (println "closed socket"))
     udp-server))
@@ -152,3 +196,22 @@
 ;(send-message (:socket udp-server) "localhost" 623 (byte-array (:open-session-request rmcp-payloads)))
 
 ;(send-message (:socket udp-server) "localhost" 623 (byte-array (:rmcp-ping rmcp-payloads)))
+
+; (def s (fsm))
+; (-> nil  
+;  (s (c/rmcp-decode (byte-array (:rmcp-ping p/rmcp-payloads))))
+;  (s (c/rmcp-decode (byte-array (:rmcp-ping p/rmcp-payloads)))))
+
+; (def data {:socket :foobar
+;            :address "0:0:0:0:0:0:0:1", 
+;            :peer-port 62126, 
+;            :version 6, 
+;            :reserved 0, :sequence 255, 
+;            :rmcp-class {:asf-payload {:iana-enterprise-number 4542, :asf-message-header 
+;                                       {:asf-message-type 128, :message-tag 114, 
+;                                        :reserved 0, :data-length 0}}, :type :asf-session}})
+; (encode c/rmcp-header (h/rmcp-rakp-4-response-msg))
+; (require '[ipmi-aleph.test-payloads :refer :all])
+; (c/rmcp-decode (byte-array (:rmcp-rakp-4 rmcp-payloads)))
+
+; (h/rmcp-rakp-4-response-msg)

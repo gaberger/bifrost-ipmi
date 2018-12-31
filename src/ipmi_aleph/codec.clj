@@ -46,12 +46,14 @@
                                    :message 56})))
       :ipmi-2-0-payload (let [message-type (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type])]
                           (condp = message-type
-                            16 {:type :open-session-request
-                                :message 16}
-                            17 {:type :open-session-response
-                                :message 17}
-                            18 {:type :rmcp-rakp-1
-                                :message 18})))))
+                            16 {:type :open-session-request :message 16}
+                            17 {:type :open-session-response :message 17}
+                            18 {:type :rmcp-rakp-1 :message 18}
+                            19 {:type :rmcp-rakp-2 :message 19}
+                            20 {:type :rmcp-rakp-3 :message 20}
+                            21 {:type :rmcp-rakp-4 :message 21})))))
+                            
+
 
 (def authentication-codec
   {0x00 {:name :RAKP-none
@@ -128,6 +130,13 @@
    :authentication-payload open-session-request
    :integrity-payload open-session-request
    :confidentiality-payload open-session-request))
+
+(defcodec set-session-priv-level
+  (ordered-map
+   :type :ubyte
+   :requested-priv-level (bit-map :reserved 4 
+                                  :requested-priv-level 4)
+   :checksum :ubyte))
 
 (defcodec rmcp-open-session-response
   (ordered-map
@@ -234,23 +243,25 @@
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
-   :remote-session-console-id :uint32-le
-   :managed-system-random-number (repeat 16 :ubyte)
-   :managed-system-guid (repeat 16 :ubyte)))
+   :managed-system-session-id :uint32-le))
    
-
-
-
-
+(defcodec rmcp-plus-rakp-4
+  (ordered-map
+   :message-tag :ubyte
+   :status-code :ubyte
+   :reserved (repeat 2 :ubyte)
+   :managed-console-session-id :uint32-le))
+   
 
 (defn get-rmcp-message-type [h]
   (condp = (get-in h [:payload-type :type])
     0x10 rmcp-open-session-request
     0x11 rmcp-open-session-response
     0x12 rmcp-plus-rakp-1
-    0x13 rmcp-plus-rakp-2))
-                                        ; 0x14 rmcp-plus-rakp-3
-                                        ; 0x15 rmcp-plus-rakp-4
+    0x13 rmcp-plus-rakp-2
+    0x14 rmcp-plus-rakp-3
+    0x15 rmcp-plus-rakp-4))
+   
 
 
 (defcodec rmcp-message-type

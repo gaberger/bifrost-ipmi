@@ -119,3 +119,30 @@
       :privilege-level {:reserved 0, :max-priv-level 0}},
      :type :ipmi-2-0-session},
     :type :ipmi-session}})
+
+(defn rmcp-rakp-2-response-msg []
+ {:version 6, 
+  :reserved 0, 
+  :sequence 255, 
+  :rmcp-class 
+   {:ipmi-session-payload 
+    {:ipmi-2-0-payload 
+     {:session-id [0 0 0 0], 
+      :session-seq [0 0 0 0], 
+      :payload-type 
+      {:encrypted? false, 
+       :authenticated? false, 
+       :type 19}, 
+      :managed-system-random-number [44 136 83 174 184 62 221 169 8 213 171 112 135 146 119 101], 
+      :status-code 0, 
+      :message-tag 0, 
+      :reserved [0 0], 
+      :message-length 40, 
+      :managed-system-guid [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239], 
+      :remote-session-console-id 2695013284}, 
+     :type :ipmi-2-0-session}
+    :type :ipmi-session}})
+
+(defn rmcp-rakp-4-response-msg []
+  {:version 6, :reserved 0, :sequence 255, :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:payload-type {:encrypted? false, :authenticated? false, :type 21}, :session-seq [0 0 0 0], :session-id [0 0 0 0], :message-length 8, :message-tag 0, :status-code 0, :reserved [0 0], :managed-console-session-id 0}, :type :ipmi-2-0-session}, :type :ipmi-session}})
+
