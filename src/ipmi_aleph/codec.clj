@@ -203,6 +203,11 @@
                        :message-length :ubyte
                        :ipmb-payload ipmb-message))})
 
+
+;(defcodec key-exchange
+;  (ordered-map
+;   :key-exchange-code )
+
 (defcodec rmcp-plus-rakp-1
   (ordered-map
    :message-tag :ubyte
@@ -222,8 +227,21 @@
    :reserved (repeat 2 :ubyte)
    :remote-session-console-id :uint32-le
    :managed-system-random-number (repeat 16 :ubyte)
-   :managed-system-guid (repeat 16 :ubyte)
-   :key-exchange-code (repeat 3 :ubyte)))
+   :managed-system-guid (repeat 16 :ubyte)))
+
+(defcodec rmcp-plus-rakp-3
+  (ordered-map
+   :message-tag :ubyte
+   :status-code :ubyte
+   :reserved (repeat 2 :ubyte)
+   :remote-session-console-id :uint32-le
+   :managed-system-random-number (repeat 16 :ubyte)
+   :managed-system-guid (repeat 16 :ubyte)))
+   
+
+
+
+
 
 (defn get-rmcp-message-type [h]
   (condp = (get-in h [:payload-type :type])

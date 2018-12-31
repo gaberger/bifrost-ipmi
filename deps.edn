@@ -28,6 +28,10 @@
                                org.clojure/core.async {:mvn/version "0.4.490"}
                                com.cognitect/rebl {:local/root  "/Users/gary/Downloads/REBL-0.9.109/REBL-0.9.109.jar"}}
                   :main-opts ["-m" "cognitect.rebl"]}
+           :repl {:extra-deps {cider/cider-nrepl {:mvn/version "0.18.0"}
+                               nrepl/nrepl       {:mvn/version "0.5.3"}}
+
+                  :main-opts ["-m" "nrepl.cmdline"]}
 
            :nrepl {:extra-deps {nrepl/nrepl {:mvn/version "0.4.5"}}}
            :expect {:extra-deps {expectations {:mvn/version "RELEASE"}}}

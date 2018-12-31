@@ -219,19 +219,19 @@
 
 (deftest test-message-select
   (testing "RMCP Message Type"
-    (is (=  {:type :asf-message, :message 128}
+    (is (=  {:type :asf-ping, :message 128}
             (get-message-type (decode rmcp-header (byte-array (:rmcp-ping
 
                                                                rmcp-payloads)))))))
   (testing "IPMI Capabilities"
-    (is (= {:type :ipmi-message, :message :ipmi-1-5-payload}
+    (is (= {:message 56, :type :get-channel-auth-cap-req}
            (get-message-type (decode rmcp-header (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))))
   (testing "IPMI Open Session"
-    (is (= {:type :ipmi-message, :message :ipmi-2-0-payload}
+    (is (= {:message 16, :type :open-session-request}
            (get-message-type (decode rmcp-header (byte-array (:open-session-request rmcp-payloads)))))))
 
   (testing "IPMI RAKP"
-    (is (= {:type :ipmi-message, :message :ipmi-2-0-payload}
+    (is (= {:message 18, :type :rmcp-rakp-1}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-1
 
                                                               rmcp-payloads))))))))
