@@ -99,8 +99,9 @@
               [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
                :open-session-request (a/$ :open-session-request)
                :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-               :rmcp-rakp-3 (a/$ :rmcp-rakp-3)])]
-              ;  :set-session-priv-level #_(a/$ :set-session-priv-level)])]
+               :rmcp-rakp-3 (a/$ :rmcp-rakp-3)
+               :set-session-priv-level])]
+               ;#_(a/$ :set-session-priv-level) 
 
         compiled-fsm (a/compile fsm
                                 {:signal #(:type (c/get-message-type %))
@@ -152,27 +153,27 @@
     adv))
 
 
-(defn message-handler [server-state payload]
-  (let [myfsm (fsm)
-        fsm-state (if-not (empty? @udp-session) @udp-session nil)
+(defn message-handler [state myfsm payload]
+  (let [fsm-state (if-not (empty? @udp-session) @udp-session nil)
         sender (:sender payload)
         address (-> (.getAddress sender) (.getHostAddress))
         port (.getPort sender)
         message (:message payload)
-        server-state  (conj server-state {:address address :peer-port port})
-        _ (log/debug "DUMP BYTES" (bs/print-bytes message))
-        decoded  (try (c/rmcp-decode message)
+        server-state  (conj state {:address address :peer-port port})
+        _ (log/debug "DUMP BYTES" (codecs/bytes->hex message)) 
+        decoded  (try (merge server-state
+                             (c/rmcp-decode message))
                       (catch Exception e (str "caught decoding exception: " (.getMessage e))))
-        _ (log/debug "Decoded: " decoded)
-        session-state (merge server-state decoded)
-        new-fsm-state (myfsm fsm-state session-state)]
+        new-fsm-state (try (myfsm fsm-state decoded)
+                           (catch Exception e (str "State Machine Error " (.getMessage e))))]
     (reset! udp-session new-fsm-state)))
 
 (defn start-consumer
   [server-state]
-  (let [udp-socket (:socket server-state)]
+  (let [udp-socket (:socket server-state)
+        fsm (fsm)]
     (->> udp-socket
-         (s/consume #(message-handler server-state %)))))
+         (s/consume #(message-handler server-state fsm %)))))
 
 (defn send-message [socket host port message]
   (s/put! socket {:host host, :port port, :message message}))
@@ -185,8 +186,9 @@
     server-state))
 
 (defn start-server [port]
-  (let [udp-server (start-udp-server port)
-        _ (start-consumer udp-server)]
+  (let [udp-server (start-udp-server port)]
+    (reset! udp-session {})
+    (start-consumer udp-server)
     (future
       (Thread/sleep 30000)
       (s/close! (:socket udp-server))

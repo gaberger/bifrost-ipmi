@@ -9,12 +9,6 @@
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
 
-(log/refer-timbre)
-(log/merge-config! {:appenders {:println {:enabled? true}}})
-#_(log/merge-config!
-   {:appenders
-    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
-
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
   frame (using `frame-fn`) that post-processes the frame to merge the
@@ -52,7 +46,6 @@
                             19 {:type :rmcp-rakp-2 :message 19}
                             20 {:type :rmcp-rakp-3 :message 20}
                             21 {:type :rmcp-rakp-4 :message 21})))))
-                            
 
 
 (def authentication-codec
@@ -131,12 +124,6 @@
    :integrity-payload open-session-request
    :confidentiality-payload open-session-request))
 
-(defcodec set-session-priv-level
-  (ordered-map
-   :type :ubyte
-   :requested-priv-level (bit-map :reserved 4 
-                                  :requested-priv-level 4)
-   :checksum :ubyte))
 
 (defcodec rmcp-open-session-response
   (ordered-map
@@ -168,9 +155,23 @@
   (ordered-map
    :command :ubyte))
 
+(defcodec set-session-priv-level
+  (ordered-map
+   :type :ubyte
+   :requested-priv-level (bit-map :reserved 4 
+                                  :requested-priv-level 4)
+   :checksum :ubyte))
+
+(defcodec rmcp-close-session
+  (ordered-map
+   :session-id (repeat 4 :ubyte)
+   :checksum :ubyte))
+
 (defn get-command-request-codec [h]
   (condp = (:command h)
-    0x38 get-channel-auth-cap-req))
+    0x38 get-channel-auth-cap-req
+    0x3c rmcp-close-session
+    0x3b set-session-priv-level))
 
 (defn get-command-response-codec [h]
   (condp = (:command h)
@@ -244,24 +245,25 @@
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
    :managed-system-session-id :uint32-le))
-   
+
 (defcodec rmcp-plus-rakp-4
   (ordered-map
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
    :managed-console-session-id :uint32-le))
-   
+
 
 (defn get-rmcp-message-type [h]
   (condp = (get-in h [:payload-type :type])
+    0x00 ipmb-message
     0x10 rmcp-open-session-request
     0x11 rmcp-open-session-response
     0x12 rmcp-plus-rakp-1
     0x13 rmcp-plus-rakp-2
     0x14 rmcp-plus-rakp-3
-    0x15 rmcp-plus-rakp-4))
-   
+    0x15 rmcp-plus-rakp-4
+    ))
 
 
 (defcodec rmcp-message-type
