@@ -1,5 +1,36 @@
 (ns ipmi-aleph.handlers)
 
+; Page 126
+(defn rmcp-ack [seqno]
+  {:version 6,
+   :reserved 0,
+   :sequence seqno,
+   :rmcp-class
+   {:type :rmcp-ack}})
+
+(defn set-session-priv-level-rsp-msg []
+  {:version 6,
+   :reserved 0,
+   :sequence 255,
+   :rmcp-class
+   {:ipmi-session-payload
+    {:ipmi-2-0-payload
+     {:session-id 6,
+      :session-seq 0,
+      :payload-type {:encrypted? false, :authenticated? false, :type 0},
+      :command 59,
+      :source-lun 4,
+      :source-address 129,
+      :checksum 60,
+      :header-checksum 200,
+      :target-address 32,
+      :network-function {:function 7, :target-lun 0},
+      :completion-code 0,
+      :message-length 8,
+      :privilege-level 4},
+     :type :ipmi-2-0-session},
+    :type :ipmi-session}})
+
 ; Page 128
 (defn presence-ping-msg [tag]
   {:version 6,
@@ -38,8 +69,8 @@
   {:version 6,
    :reserved 0,
    :sequence 255,
-   :rmcp-class {:ipmi-session-payload {:ipmi-1-5-payload {:session-seq [0 0 0 0],
-                                                          :session-id [0 0 0 0],
+   :rmcp-class {:ipmi-session-payload {:ipmi-1-5-payload {:session-seq 0,
+                                                          :session-id 0,
                                                           :message-length 16,
                                                           :ipmb-payload {:oem-id [0 0 0],
                                                                          :oem-aux-data 0,
@@ -92,8 +123,8 @@
    :rmcp-class
    {:ipmi-session-payload
     {:ipmi-2-0-payload
-     {:session-id [0 0 0 0],
-      :session-seq [0 0 0 0],
+     {:session-id 0
+      :session-seq 0
       :payload-type {:encrypted? false, :authenticated? false, :type 17},
       :authentication-payload
       {:type 0,
@@ -121,28 +152,28 @@
     :type :ipmi-session}})
 
 (defn rmcp-rakp-2-response-msg []
- {:version 6, 
-  :reserved 0, 
-  :sequence 255, 
-  :rmcp-class 
-   {:ipmi-session-payload 
-    {:ipmi-2-0-payload 
-     {:session-id [0 0 0 0], 
-      :session-seq [0 0 0 0], 
-      :payload-type 
-      {:encrypted? false, 
-       :authenticated? false, 
-       :type 19}, 
-      :managed-system-random-number [44 136 83 174 184 62 221 169 8 213 171 112 135 146 119 101], 
-      :status-code 0, 
-      :message-tag 0, 
-      :reserved [0 0], 
-      :message-length 40, 
-      :managed-system-guid [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239], 
-      :remote-session-console-id 2695013284}, 
+  {:version 6,
+   :reserved 0,
+   :sequence 255,
+   :rmcp-class
+   {:ipmi-session-payload
+    {:ipmi-2-0-payload
+     {:session-id 0
+      :session-seq 0
+      :payload-type
+      {:encrypted? false,
+       :authenticated? false,
+       :type 19},
+      :managed-system-random-number [44 136 83 174 184 62 221 169 8 213 171 112 135 146 119 101],
+      :status-code 0,
+      :message-tag 0,
+      :reserved [0 0],
+      :message-length 40,
+      :managed-system-guid [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
+      :remote-session-console-id 2695013284},
      :type :ipmi-2-0-session}
     :type :ipmi-session}})
 
 (defn rmcp-rakp-4-response-msg []
-  {:version 6, :reserved 0, :sequence 255, :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:payload-type {:encrypted? false, :authenticated? false, :type 21}, :session-seq [0 0 0 0], :session-id [0 0 0 0], :message-length 8, :message-tag 0, :status-code 0, :reserved [0 0], :managed-console-session-id 0}, :type :ipmi-2-0-session}, :type :ipmi-session}})
+  {:version 6, :reserved 0, :sequence 255, :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:payload-type {:encrypted? false, :authenticated? false, :type 21}, :session-seq 0, :session-id 0, :message-length 8, :message-tag 0, :status-code 0, :reserved [0 0], :managed-console-session-id 0}, :type :ipmi-2-0-session}, :type :ipmi-session}})
 

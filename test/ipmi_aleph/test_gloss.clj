@@ -1,15 +1,20 @@
 (ns ipmi-aleph.test-gloss
   (:require [clojure.test :refer :all]
             [gloss.core :refer :all]
-            [gloss.io :refer :all]
-            [ipmi-aleph.codec :refer :all]))
+            [gloss.io :refer :all]))
 
-(deftest variable-encoder
+(deftest test-variable-encoder
   (let [codec (compile-frame (repeated :ubyte :prefix :ubyte))
         encoded (encode codec [0 0 0])]
     (is (=
          (decode codec encoded)
          [0 0 0]))))
+
+(deftest lil-endian
+  (let [codec (compile-frame [:uint32-le])
+        encoded (encode codec [0xa4 0xa3 0xa2 0xa0])]
+    (is (= [2695013284]
+           (decode codec (byte-array [0xa4 0xa3 0xa2 0xa0]))))))
 
 (deftest encode-decode
   (let [codec (compile-frame {:a :ubyte :b :ubyte})

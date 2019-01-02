@@ -33,11 +33,9 @@
                                message-type (get-in m [:rmcp-class :ipmi-session-payload :ipmi-1-5-payload :ipmb-payload :command])]
                            (if response?
                              (condp = message-type
-                               56 {:type :get-channel-auth-cap-rsp
-                                   :message 56})
+                               56 {:type :get-channel-auth-cap-rsp :message 56})
                              (condp = message-type
-                               56 {:type :get-channel-auth-cap-req
-                                   :message 56})))
+                               56 {:type :get-channel-auth-cap-req :message 56})))
       :ipmi-2-0-payload (let [message-type (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type])]
                           (condp = message-type
                             16 {:type :open-session-request :message 16}
@@ -45,8 +43,11 @@
                             18 {:type :rmcp-rakp-1 :message 18}
                             19 {:type :rmcp-rakp-2 :message 19}
                             20 {:type :rmcp-rakp-3 :message 20}
-                            21 {:type :rmcp-rakp-4 :message 21})))))
-
+                            21 {:type :rmcp-rakp-4 :message 21}
+                            0 (let [message-type  (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :command])]
+                                (condp = message-type
+                                  59 {:type :set-session-priv-level :message 59}
+                                  60 {:type :rmcp-close-session :message 60})))))))
 
 (def authentication-codec
   {0x00 {:name :RAKP-none
@@ -119,11 +120,10 @@
    :privilege-level (bit-map :reserved 4
                              :max-priv-level 4)
    :reserved :uint16
-   :remote-session-id :uint32
+   :remote-session-id :uint32-le
    :authentication-payload open-session-request
    :integrity-payload open-session-request
    :confidentiality-payload open-session-request))
-
 
 (defcodec rmcp-open-session-response
   (ordered-map
@@ -132,8 +132,8 @@
    :privilege-level (bit-map :reserved 4
                              :max-priv-level 4)
    :reserved :ubyte
-   :remote-session-id :uint32
-   :managed-system-session-id :uint32
+   :remote-session-id :uint32-le
+   :managed-system-session-id :int32-le
 
    :authentication-payload open-session-request
    :integrity-payload open-session-request
@@ -155,27 +155,40 @@
   (ordered-map
    :command :ubyte))
 
-(defcodec set-session-priv-level
+(defcodec set-session-priv-level-req
   (ordered-map
-   :type :ubyte
-   :requested-priv-level (bit-map :reserved 4 
+   :requested-priv-level (bit-map :reserved 4
                                   :requested-priv-level 4)
    :checksum :ubyte))
 
-(defcodec rmcp-close-session
+(defcodec set-session-priv-level-rsp
   (ordered-map
-   :session-id (repeat 4 :ubyte)
+   :completion-code :ubyte
+   :privilege-level :ubyte
+   :checksum :ubyte
+   ))
+
+(defcodec rmcp-close-session-req
+  (ordered-map
+   :session-id :int32-le
+   :checksum :ubyte))
+
+(defcodec rmcp-close-session-rsp
+  (ordered-map
+   :completion-code :ubyte
    :checksum :ubyte))
 
 (defn get-command-request-codec [h]
   (condp = (:command h)
     0x38 get-channel-auth-cap-req
-    0x3c rmcp-close-session
-    0x3b set-session-priv-level))
+    0x3c rmcp-close-session-req
+    0x3b set-session-priv-level-req))
 
 (defn get-command-response-codec [h]
   (condp = (:command h)
-    0x38 get-channel-auth-cap-rsp))
+    0x38 get-channel-auth-cap-rsp
+    0x3c rmcp-close-session-rsp
+    0x3b set-session-priv-level-rsp))
 
 (defcodec ipmb-body-request-message
   (header ipmb-body
@@ -208,8 +221,8 @@
   {:type :ipmi-1-5-session
    :ipmi-1-5-payload (compile-frame
                       (ordered-map
-                       :session-seq [:ubyte :ubyte :ubyte :ubyte]
-                       :session-id  [:ubyte :ubyte :ubyte :ubyte]
+                       :session-seq :int32-le
+                       :session-id  :int32-le
                        :message-length :ubyte
                        :ipmb-payload ipmb-message))})
 
@@ -218,11 +231,12 @@
 ;  (ordered-map
 ;   :key-exchange-code )
 
+
 (defcodec rmcp-plus-rakp-1
   (ordered-map
    :message-tag :ubyte
    :reserved1 (repeat 3 :ubyte)
-   :managed-system-session-id :uint32-le
+   :managed-system-session-id :int32-le
    :remote-console-random-number (repeat 16 :ubyte)
    :requested-max-priv-level (bit-map :reserved 3
                                       :user-lookup 1
@@ -244,15 +258,14 @@
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
-   :managed-system-session-id :uint32-le))
+   :managed-system-session-id :int32-le))
 
 (defcodec rmcp-plus-rakp-4
   (ordered-map
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
-   :managed-console-session-id :uint32-le))
-
+   :managed-console-session-id :int32-le))
 
 (defn get-rmcp-message-type [h]
   (condp = (get-in h [:payload-type :type])
@@ -262,9 +275,7 @@
     0x12 rmcp-plus-rakp-1
     0x13 rmcp-plus-rakp-2
     0x14 rmcp-plus-rakp-3
-    0x15 rmcp-plus-rakp-4
-    ))
-
+    0x15 rmcp-plus-rakp-4))
 
 (defcodec rmcp-message-type
   (bit-map :encrypted? 1
@@ -274,8 +285,8 @@
 (defcodec rmcp-plus-header
   (ordered-map
    :payload-type rmcp-message-type
-   :session-seq (repeat 4 :ubyte)
-   :session-id (repeat 4 :ubyte)
+   :session-seq :int32-le
+   :session-id :int32-le
    :message-length :uint16-le))
 
 (defcodec ipmi-2-0-session
@@ -326,9 +337,11 @@
    :asf-payload (compile-frame (ordered-map
                                 :iana-enterprise-number :uint32
                                 :asf-message-header asf-message-header))})
+(defcodec rmcp-ack
+  {:type :rmcp-ack})
 
 (defcodec ipmi-session
-  {:type :ipmi-session
+  {:type                 :ipmi-session
    :ipmi-session-payload (compile-frame
                           (header
                            authentication-type
@@ -337,14 +350,16 @@
                            :type))})
 
 (defcodec class-of-message
-  (enum :ubyte {:asf-session 0x06
-                :ipmi-session 0x07}))
+  (enum :ubyte {:asf-session  0x06
+                :ipmi-session 0x07
+                :rmcp-ack     0x86}))
 
 (defcodec rmcp-class-header
   (header
    class-of-message
-   {:asf-session asf-session
-    :ipmi-session ipmi-session}
+   {:asf-session  asf-session
+    :ipmi-session ipmi-session
+    :rmcp-ack     rmcp-ack}
    :type))
 
 (defcodec rmcp-header

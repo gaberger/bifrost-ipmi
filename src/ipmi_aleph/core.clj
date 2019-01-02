@@ -91,50 +91,89 @@
                            :port port
                            :message (encode c/rmcp-header (h/rmcp-rakp-4-response-msg))})))
 
+(defn send-rmcp-ack [session seq-no]
+  (let [server-socket (get session :socket)
+        host (get session :address)
+        port (get session :peer-port)]
+    (log/info "Sending rmcp-ack id: " seq-no" host: " host " port: " port)
+    (s/put! server-socket {:host host
+                           :port port
+                           :message (encode c/rmcp-header (h/rmcp-ack seq-no))})))
+
+(defn send-set-session-priv-level-response [session]
+  (let [server-socket (get session :socket)
+        host (get session :address)
+        port (get session :peer-port)]
+    (log/info "Sending Set Session Priv Level Response host: " host " port: " port)
+    (s/put! server-socket {:host host
+                           :port port
+                           :message (encode c/rmcp-header (h/set-session-priv-level-rsp-msg))})))
+
 (defn fsm []
   (let [fsm [(a/$ :init)
              (a/or
-              (a/+
-               [:asf-ping (a/$ :asf-ping)])
+              (a/+ [:asf-ping (a/$ :asf-ping)])
+              #_(a/+ [:rmcp-close-session (a/$ :rmcp-close-session)])
               [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
                :open-session-request (a/$ :open-session-request)
                :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
                :rmcp-rakp-3 (a/$ :rmcp-rakp-3)
-               :set-session-priv-level])]
-               ;#_(a/$ :set-session-priv-level) 
+               :set-session-priv-level (a/$ :set-session-priv-level)])]
 
         compiled-fsm (a/compile fsm
                                 {:signal #(:type (c/get-message-type %))
                                  :reducers {:init (fn [state _] (assoc state :last-message []))
+                                            :rmcp-close-session (fn [state input]
+                                                                  (log/debug "Session Closing")
+                                                                  (log/debug "STATE BEFORE: " state)
+                                                                  (log/debug "INPUT " input)
+                                                                  (let [seq-no (get input :sequence)]
+                                                                     (send-rmcp-ack input seq-no)
+                                                                     (s/close! (:socket input))
+                                                                     (log/debug (s/closed? (:socket input)))
+                                                                     (log/debug "STATE AFTER: " state)
+                                                                     state))
                                             :get-channel-auth-cap-req (fn [state input]
                                                                         (log/debug "Auth Capabilities Request")
-                                                                        (let [message (conj {} (c/get-message-type input))]
-                                                                          (update-in state [:last-message] conj message)
+                                                                        (log/debug "STATE BEFORE: " state)
+                                                                        (let [message (conj {} (c/get-message-type input))
+                                                                              state (update-in state [:last-message] conj message)]
                                                                           (send-auth-cap-response input)
+                                                                          (log/debug "STATE AFTER: " state)
                                                                           state))
                                             :open-session-request (fn [state input]
                                                                     (log/debug "Open Session Request")
-                                                                    (let [message (conj {} (c/get-message-type input))]
-                                                                      (update-in state [:last-message] conj message)
+                                                                    (log/debug "STATE BEFORE: " state)
+                                                                    (let [message (conj {} (c/get-message-type input))
+                                                                          state (update-in state [:last-message] conj message)]
                                                                       (send-open-session-response input)
+                                                                      (log/debug "STATE AFTER: " state)
                                                                       state))
                                             :rmcp-rakp-1 (fn [state input]
                                                            (log/debug "RAKP-1 Request")
+                                                           (log/debug "STATE BEFORE: " state)
                                                            (let [message (conj {} (c/get-message-type input))
                                                                  state (update-in state [:last-message] conj message)]
                                                              (send-rakp-2-response input)
+                                                             (log/debug "STATE AFTER: " state)
                                                              state))
                                             :rmcp-rakp-3 (fn [state input]
                                                            (log/debug "RAKP-3 Request")
+                                                           (log/debug "STATE BEFORE: " state)
                                                            (let [message (conj {} (c/get-message-type input))
                                                                  state (update-in state [:last-message] conj message)]
                                                              (send-rakp-4-response input)
+                                                             (log/debug "STATE AFTER: " state)
                                                              state))
-                                            ; :set-session-priv-level (fn [state input]
-                                            ;                           (log/debug "Set Session Priv level")
-                                            ;                           (let [message (conj {} (c/get-message-type input))
-                                            ;                                 state (update-in state [:last-message] conj message)]
-                                            ;                              state))
+                                            :set-session-priv-level (fn [state input]
+                                                                      (log/debug "Set Session Priv Level")
+                                                                      (log/debug "STATE BEFORE: " state)
+                                                                      (let [message (conj {} (c/get-message-type input))
+                                                                            seq-no (get input :sequence) 
+                                                                            state (update-in state [:last-message] conj message)]
+                                                                        (send-set-session-priv-level-response input)
+                                                                        (log/debug "STATE AFTER: " state)
+                                                                        state))
                                             :asf-ping (fn [state input]
                                                         (let [message-tag (get-in input [:rmcp-class
                                                                                          :asf-payload
@@ -146,12 +185,13 @@
                                                           (send-pong input message-tag)
                                                           state))}})
 
-        
+
 
         ;_ (automat.viz/view compiled-fsm)
+
+
         adv (partial a/advance compiled-fsm)]
     adv))
-
 
 (defn message-handler [state myfsm payload]
   (let [fsm-state (if-not (empty? @udp-session) @udp-session nil)
@@ -160,12 +200,14 @@
         port (.getPort sender)
         message (:message payload)
         server-state  (conj state {:address address :peer-port port})
-        _ (log/debug "DUMP BYTES" (codecs/bytes->hex message)) 
+        _ (log/debug "DUMP BYTES" (codecs/bytes->hex message))
         decoded  (try (merge server-state
                              (c/rmcp-decode message))
-                      (catch Exception e (str "caught decoding exception: " (.getMessage e))))
-        new-fsm-state (try (myfsm fsm-state decoded)
-                           (catch Exception e (str "State Machine Error " (.getMessage e))))]
+                      (catch Exception e (log/error "caught decoding exception: " (.getMessage e))))
+        _ (log/debug "DECODED " decoded)
+        new-fsm-state  (try (myfsm fsm-state decoded)
+                            (catch Exception e (log/error "State Machine Error " (.getMessage e) "State: " fsm-state)))
+        _ (log/debug "STATE " new-fsm-state)]
     (reset! udp-session new-fsm-state)))
 
 (defn start-consumer
