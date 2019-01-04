@@ -1,23 +1,56 @@
 (ns ipmi-aleph.fsm-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [automat.core :as a]
-            [automat.viz :as v]
-            [gloss.io :refer [encode decode]]
-            [ipmi-aleph.handlers :refer [presence-ping-msg]]
-            [ipmi-aleph.codec :refer [rmcp-decode get-message-type rmcp-header]]
-            [ipmi-aleph.core :refer [start-udp-server]]
-            [ipmi-aleph.state-machine :refer [adv]]
-            [ipmi-aleph.test-payloads :refer [rmcp-payloads]]
-            [taoensso.timbre :as log]
-            [manifold.stream :as s]))
+            [mockery.core :refer [with-mocks]]
+            [ipmi-aleph.test-payloads :refer :all]
+            [ipmi-aleph.codec :as c]
+            [ipmi-aleph.test-payloads :refer :all]
+            [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler]]
+            [taoensso.timbre :as log]))
+
+(defn mock-IPMI-responses [f]
+  (with-mocks
+    [rmcp-close
+     {:target :ipmi-aleph.state-machine/send-rmcp-close-response
+      :return nil}
+     send-auth-cap-response
+     {:target :ipmi-aleph.state-machine/send-auth-cap-response
+      :return nil}
+     send-open-session-response
+     {:target :ipmi-aleph.state-machine/send-open-session-response
+      :return nil}
+     send-rakp-2-response
+     {:target :ipmi-aleph.state-machine/send-rakp-2-response
+      :return nil}
+     send-rakp-4-response
+     {:target :ipmi-aleph.state-machine/send-rakp-4-response
+      :return nil}
+     send-set-session-priv-level-response
+     {:target :ipmi-aleph.state-machine/send-set-session-priv-level-response
+      :return nil}
+     send-pong
+     {:target :ipmi-aleph.state-machine/send-pong
+      :return nil}]
+    (f)))
+
+(use-fixtures
+  :each
+  mock-IPMI-responses)
 
 (deftest test-fsm
   (testing "test-fsm"
-    (let [payload (rmcp-decode (byte-array (:rmcp-ping rmcp-payloads)))]
-      (is (true?
-           (-> nil
-               (adv payload)
-               :accepted?))))))
+    (let [fsm (a/compile ipmi-fsm ipmi-handler)
+          adv (partial a/advance fsm)]
+      (is (= {}
+             (-> nil
+                 (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))
+                 (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+                 :value))))))
 
 
 ; (deftest test-rmcp-fsm
@@ -33,7 +66,7 @@
 ;                  ;:rmcp-rakp-2
 ;                  ;:rmcp-rakp-3
 ;                 ;:rmcp-rakp-4
-                 
+
 ;           compiled-fsm (a/compile fsm
 ;                                   {:signal #(:type (get-message-type %))
 ;                                    :reducers {:init (fn [state _] (assoc state :last-message []))
@@ -45,9 +78,9 @@
 ;                                                                                            :asf-message-header
 ;                                                                                            :message-tag])]
 ;                                                            (assoc s :message-tag message-tag)))}})
-                                                          
-                                              
-                                   
+
+
+
 ;           adv (partial a/advance compiled-fsm)]
 ;       (is (= {}
 ;              (-> nil
@@ -80,9 +113,9 @@
 ;                                                                                            :message-tag])
 ;                                                                 message-update (assoc message-type :message-tag message-tag)]
 ;                                                            (update-in state [:last-message] conj message-update)))}})
-                                                          
-                                              
-                                   
+
+
+
 
 ;            advance-fsm (partial a/advance compiled-fsm)
 ;            ping-message (encode rmcp-header (presence-ping-msg 101))
@@ -98,9 +131,6 @@
 ;                      decoded-message (decode rmcp-header message)]
 ;                 (advance-fsm nil decoded-message))))
 ;         (s/close! socket))))
-
-
-
 
 
 (comment

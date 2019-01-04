@@ -19,6 +19,7 @@
         aleph {:mvn/version "0.4.7-alpha2"}
         automat {:mvn/version "0.2.4"}
         gloss {:mvn/version "0.2.6"}
+        mockery {:mvn/version "0.1.4"}
         buddy/buddy-core {:mvn/version "1.5.0"}
                                         ; org.clojure/data.xml {:mvn/version "0.2.0-alpha4"}
         eftest {:mvn/version "0.5.2"}

@@ -164,7 +164,8 @@
 (defcodec set-session-priv-level-rsp
   (ordered-map
    :completion-code :ubyte
-   :privilege-level :ubyte
+   :privilege-level  (bit-map :reserved 4
+                              :priv-level 4)
    :checksum :ubyte
    ))
 
@@ -285,7 +286,7 @@
 (defcodec rmcp-plus-header
   (ordered-map
    :payload-type rmcp-message-type
-   :session-seq :int32-le
+   :session-seq :uint32-le
    :session-id :int32-le
    :message-length :uint16-le))
 
