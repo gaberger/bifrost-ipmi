@@ -55,26 +55,24 @@
   (let [fsm-state-var (if-not (empty? @fsm-state) @fsm-state nil)
         session-state (get-session-state payload)
         _ (log/debug "DUMP BYTES" (codecs/bytes->hex (:message payload)))
+        _ (log/debug "FSM_STATE " fsm-state-var)
         decoded  (try (merge session-state
                              (c/rmcp-decode (:message payload)))
                       (catch Exception e
                         (do
                           (log/error "caught decoding exception: " (.getMessage e))
                           {})))
-        _ (log/debug "DECODED " decoded)
-        _ (log/debug "STATE-BEFORE " fsm-state-var)
-        new-fsm-state  (let [fsm-state (try (adv fsm-state-var decoded)
-                                            (catch Exception e
-                                              (do
-                                                (log/error "State Machine Error " (.getMessage e))
-                                                fsm-state-var)))]
-                         (log/debug "FSM_STATE_RETURN " fsm-state)
+        new-fsm-state  (let [fsm-state (try
+                                         (adv fsm-state-var decoded)
+                                         (catch Exception e
+                                           (do
+                                             (log/error "State Machine Error " (.getMessage e))
+                                             fsm-state-var)))]
                          (condp = (:value fsm-state)
                            nil nil
-                           fsm-state))
-
-        _ (log/debug "STATE-AFTER " new-fsm-state)
-]
+                           fsm-state))]
+    (log/debug "DECODED-MESSAGE " decoded)
+    (log/debug "FSM-STATE:" new-fsm-state)
     (reset! fsm-state new-fsm-state)))
 
 (defn start-consumer
@@ -95,6 +93,7 @@
 (defn start-server [port]
   (let [server-socket (start-udp-server port)]
     (swap! udp-session assoc :socket server-socket)
+    (reset! fsm-state {})
     (start-consumer server-socket)
     (future
       (Thread/sleep 200000)
