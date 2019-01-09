@@ -385,115 +385,191 @@
 (deftest test-chassis-command
   (testing "Get Chassis Status Request"
     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :chassis-status-req))))]
-      (is (=    {:version 6,          
-                   :reserved 0,
-                   :sequence 255,
-                   :rmcp-class
-                   {:ipmi-session-payload
-                    {:ipmi-2-0-payload
-                     {:session-id 0,
-                      :session-seq 21,
-                      :payload-type {:encrypted? false, :authenticated? false, :type 0},
-                      :command 1,
-                      :source-lun 24,
-                      :source-address 129,
-                      :checksum 102,
-                      :header-checksum 224,
-                      :target-address 32,
-                      :network-function {:function 0, :target-lun 0},
-                      :message-length 8},
-                     :type :ipmi-2-0-session},
-                    :type :ipmi-session}}
+      (is (=    {:version 6,
+                 :reserved 0,
+                 :sequence 255,
+                 :rmcp-class
+                 {:ipmi-session-payload
+                  {:ipmi-2-0-payload
+                   {:session-id 0,
+                    :session-seq 21,
+                    :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                    :command 1,
+                    :source-lun 24,
+                    :source-address 129,
+                    :checksum 102,
+                    :header-checksum 224,
+                    :target-address 32,
+                    :network-function {:function 0, :target-lun 0},
+                    :message-length 8},
+                   :type :ipmi-2-0-session},
+                  :type :ipmi-session}}
 
-               (decode rmcp-header payload)))))
+                (decode rmcp-header payload)))))
   (testing "Get Chassis Status Response"
     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (rmcp-payloads :chassis-status-rsp))))]
-      (is (=  {:version 6,          
-           :reserved 0,
-           :sequence 255,
-           :rmcp-class
-           {:ipmi-session-payload
-            {:ipmi-2-0-payload
-             {:session-id 2695013284,
-              :session-seq 6,
-              :payload-type {:encrypted? false, :authenticated? false, :type 0},
-              :power-state
-              {:reserved false,
-               :power-restore-policy 0,
-               :power-control-fault false,
-               :power-fault false,
-               :interlock false,
-               :overload false,
-               :power-on? true},
-              :last-power-event
-              {:reserved 0,
-               :last-power-on-state-via-ipmi false,
-               :last-power-down-state-power-fault false,
-               :last-power-down-state-interlock-activated false,
-               :last-power-down-state-overloaded false,
-               :last-power-down-ac-failed false},
-              :command 1,
-              :source-lun 24,
-              :source-address 32,
-              :misc-chassis-state
-              {:reserved false,
-               :chassis-identify-command-state-info-supported false,
-               :chassis-identify-state-supported 0,
-               :cooling-fan-fault-detect false,
-               :drive-fault false,
-               :front-panel-lockout false,
-               :chassis-intrusion-active false},
-              :checksum 198,
-              :header-checksum 123,
-              :target-address 129,
-              :network-function {:function 1, :target-lun 0},
-              :completion-code 0,
-              :message-length 11},
-             :type :ipmi-2-0-session},
-            :type :ipmi-session}}
+      (is (=  {:version 6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-class
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id 2695013284,
+                  :session-seq 6,
+                  :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                  :power-state
+                  {:reserved false,
+                   :power-restore-policy 0,
+                   :power-control-fault false,
+                   :power-fault false,
+                   :interlock false,
+                   :overload false,
+                   :power-on? true},
+                  :last-power-event
+                  {:reserved 0,
+                   :last-power-on-state-via-ipmi false,
+                   :last-power-down-state-power-fault false,
+                   :last-power-down-state-interlock-activated false,
+                   :last-power-down-state-overloaded false,
+                   :last-power-down-ac-failed false},
+                  :command 1,
+                  :source-lun 24,
+                  :source-address 32,
+                  :misc-chassis-state
+                  {:reserved false,
+                   :chassis-identify-command-state-info-supported false,
+                   :chassis-identify-state-supported 0,
+                   :cooling-fan-fault-detect false,
+                   :drive-fault false,
+                   :front-panel-lockout false,
+                   :chassis-intrusion-active false},
+                  :checksum 198,
+                  :header-checksum 123,
+                  :target-address 129,
+                  :network-function {:function 1, :target-lun 0},
+                  :completion-code 0,
+                  :message-length 11},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
               (decode rmcp-header payload))))))
+
+(deftest test-device-id
+  (testing "device-id-request"
+    (let [result (encode rmcp-header (rmcp-decode (byte-array (:device-id-req rmcp-payloads))))]
+      (is (= {:version 6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-class
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:session-id 898,
+                 :session-seq 5,
+                 :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                 :command 1,
+                 :source-lun 12,
+                 :source-address 129,
+                 :checksum 114,
+                 :header-checksum 200,
+                 :target-address 32,
+                 :network-function {:function 6, :target-lun 0},
+                 :message-length 7},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
+             (rmcp-decode result)))))
+  (testing "device-id-response"
+    (let [result (encode rmcp-header (rmcp-decode (byte-array (:device-id-rsp rmcp-payloads))))]
+      (is (=  {:version 6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-class
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id 2695013284,
+                  :major-firmware-revision 8,
+                  :session-seq 3,
+                  :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                  :device-id 0,
+                  :additional-device-support
+                  {:chassis true,
+                   :bridge false,
+                   :event-generator false,
+                   :event-receiver true,
+                   :fru-invetory true,
+                   :sel true,
+                   :sdr-repository true,
+                   :sensor true},
+                  :device-revision
+                  {:provides-sdr false, :reserved 0, :device-revision 3},
+                  :command 1,
+                  :source-lun 12,
+                  :auxiliary-firmware 0,
+                  :source-address 32,
+                  :manufacturer-id [145 18 0],
+                  :checksum 106,
+                  :header-checksum 99,
+                  :target-address 129,
+                  :network-function {:function 7, :target-lun 0},
+                  :message-length 23,
+                  :command-completion-code 0,
+                  :product-id 3842,
+                  :ipmi-version 2,
+                  :device-availability
+                  {:operation false, :major-firmware-revision 9}},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
+              (rmcp-decode result))))))
 
 (deftest test-message-select
   (testing "RMCP Message Type"
     (is (=  {:type :asf-ping, :message 128}
             (get-message-type (decode rmcp-header (byte-array (:rmcp-ping
                                                                rmcp-payloads)))))))
+
+  (testing "Device ID Request"
+    (is (= {:type :device-id-req :command 1}
+           (get-message-type (rmcp-decode (byte-array (:device-id-req rmcp-payloads)))))))
+  (testing "Device ID Response"
+    (is (= {:type :device-id-rsp :command 1}
+           (get-message-type (rmcp-decode (byte-array (:device-id-rsp rmcp-payloads)))))))
+
+
+
   (testing "IPMI Capabilities"
     (is (= {:message 56, :type :get-channel-auth-cap-req}
            (get-message-type (decode rmcp-header (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))))
   (testing "IPMI Open Session"
-    (is (= {:message 16, :type :open-session-request}
+    (is (= {:type :open-session-request :payload-type 16}
            (get-message-type (decode rmcp-header (byte-array (:open-session-request rmcp-payloads)))))))
 
   (testing "IPMI RAKP 1"
-    (is (= {:message 18, :type :rmcp-rakp-1}
+    (is (= {:payload-type 18, :type :rmcp-rakp-1}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-1
                                                               rmcp-payloads)))))))
   (testing "IPMI RAKP 2"
-    (is (= {:message 19, :type :rmcp-rakp-2}
+    (is (= {:payload-type 19, :type :rmcp-rakp-2}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-2
                                                               rmcp-payloads)))))))
 
   (testing "IPMI RAKP 3"
-    (is (= {:message 20, :type :rmcp-rakp-3}
+    (is (= {:payload-type 20, :type :rmcp-rakp-3}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-3
                                                               rmcp-payloads)))))))
   (testing "IPMI RAKP 4"
-    (is (= {:message 21, :type :rmcp-rakp-4}
+    (is (= {:payload-type 21, :type :rmcp-rakp-4}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-4
                                                               rmcp-payloads)))))))
   (testing "Set Session Perms"
-    (is (=  {:type :set-session-priv-level, :message 59}
+    (is (=  {:type :set-session-prv-level-req, :command 59}
             (get-message-type (decode rmcp-header (byte-array (:set-sess-prv-level-req
                                                                rmcp-payloads)))))))
   (testing "Close Session Request"
-    (is (=   {:type :rmcp-close-session, :message 60}
+    (is (=   {:type :rmcp-close-session-req, :command 60}
              (get-message-type (decode rmcp-header (byte-array (:rmcp-close-session-req
                                                                 rmcp-payloads)))))))
   (testing "Chassis Request"
-    (is (=  {:type :chassis-status-req, :message 1}
-           (get-message-type (decode rmcp-header (byte-array (:chassis-status-req
-                                                              rmcp-payloads))))))))
+    (is (=  {:type :chassis-status-req, :command 1}
+            (get-message-type (decode rmcp-header (byte-array (:chassis-status-req
+                                                               rmcp-payloads))))))))
 ; (deftest test-set-priv-level
 ;   (testing "Test set priv level"
 ;     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:set-session-priv-level rmcp-payloads))))]

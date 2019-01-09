@@ -21,49 +21,89 @@
      (fn [data]
        (merge h data)))))
 
+;TODO
+(def command-completion-codes
+  (comment "Page 44"))
+
 (defn get-message-type [m]
   (if (-> (:rmcp-class m) (contains? :asf-payload))
     (let [message-type  (get-in m [:rmcp-class :asf-payload :asf-message-header :asf-message-type])
           selector (condp = message-type
                      128  {:type :asf-ping :message message-type}
                      64 {:type :asf-pong :message message-type})]
-          (log/debug "State-Selector:" selector)
-          selector)
+      (log/debug "State-Selector:" selector)
+      selector)
     (let [selector (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
                      :ipmi-1-5-payload  (let [response? (contains? (get-in m [:rmcp-class
                                                                               :ipmi-session-payload
                                                                               :ipmi-1-5-payload
                                                                               :ipmb-payload])
                                                                    :command-completion-code)
-                               message-type (get-in m [:rmcp-class
-                                                       :ipmi-session-payload
-                                                       :ipmi-1-5-payload
-                                                       :ipmb-payload
-                                                       :command])]
-                           (if response?
-                             (condp = message-type
-                               56 {:type :get-channel-auth-cap-rsp :message 56})
-                             (condp = message-type
-                               56 {:type :get-channel-auth-cap-req :message 56})))
-                     :ipmi-2-0-payload (let [message-type (get-in m [:rmcp-class
-                                                      :ipmi-session-payload
-                                                      :ipmi-2-0-payload
-                                                      :payload-type
-                                                      :type])]
-                                         (condp = message-type
-                                           16 {:type :open-session-request :message 16}
-                                           17 {:type :open-session-response :message 17}
-                                           18 {:type :rmcp-rakp-1 :message 18}
-                                           19 {:type :rmcp-rakp-2 :message 19}
-                                           20 {:type :rmcp-rakp-3 :message 20}
-                                           21 {:type :rmcp-rakp-4 :message 21}
-                                           0 (let [message-type  (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :command])]
-                                               (condp = message-type
-                                                 01 {:type :chassis-status-req :message 1}
-                                                 59 {:type :set-session-priv-level :message 59}
-                                                 60 {:type :rmcp-close-session :message 60})))))]
-      selector))
-      )
+                                              message-type (get-in m [:rmcp-class
+                                                                      :ipmi-session-payload
+                                                                      :ipmi-1-5-payload
+                                                                      :ipmb-payload
+                                                                      :command])]
+                                          (if response?
+                                            (condp = message-type
+                                              0x38 {:type :get-channel-auth-cap-rsp :message 56})
+                                            (condp = message-type
+                                              0x38 {:type :get-channel-auth-cap-req :message 56})))
+                     :ipmi-2-0-payload (let [function (get-in m [:rmcp-class
+                                                                 :ipmi-session-payload
+                                                                 :ipmi-2-0-payload
+                                                                 :network-function
+                                                                 :function] nil)
+                                             payload-type (get-in m [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :payload-type
+                                                                     :type])
+                                             command (get-in m [:rmcp-class
+                                                                :ipmi-session-payload
+                                                                :ipmi-2-0-payload
+                                                                :command] nil)]
+                                         (condp = payload-type
+                                           16 {:type :open-session-request :payload-type 16}
+                                           18 {:type :rmcp-rakp-1 :payload-type 18}
+                                           19 {:type :rmcp-rakp-2 :payload-type 19}
+                                           20 {:type :rmcp-rakp-3 :payload-type 20}
+                                           21 {:type :rmcp-rakp-4 :payload-type 21}
+                                           0 (condp = function
+                                               1 (condp = command
+                                                   0 {:type :chassis-status-req :command 1}
+                                                   1 {:type :chassis-status-rsp :command 1})
+                                               6 (condp = command
+                                                   1 {:type :device-id-req :command 1}
+                                                   59 {:type :set-sess-prv-level-req :command 59}
+                                                   60 {:type :rmcp-close-session-req :command 60})
+                                               7 (condp = command
+                                                   59 {:type :set-sess-prv-level-rsp :command 59}
+                                                   60 {:type :rmcp-close-session :command 60})))))]
+      selector)))
+
+
+
+  ;;                    01 {:type :device-id-rsp :message 1})
+
+
+  ;;         (condp = message-type
+  ;;           16 {:type :open-session-request :message 16}
+  ;;           17 {:type :open-session-response :message 17}
+  ;;           18 {:type :rmcp-rakp-1 :message 18}
+  ;;           19 {:type :rmcp-rakp-2 :message 19}
+  ;;           20 {:type :rmcp-rakp-3 :message 20}
+  ;;           21 {:type :rmcp-rakp-4 :message 21}
+  ;;           0 (let [message-type  (get-in m [:rmcp-class
+  ;;                                            :ipmi-session-payload
+  ;;                                            :ipmi-2-0-payload
+  ;;                                            :command])]
+  ;;               (condp = message-type
+  ;;                 01 {:type :chassis-status-req :message 1}
+  ;;                 59 {:type :set-session-priv-level :message 59}
+  ;;                 60 {:type :rmcp-close-session :message 60}))))))]
+  ;; selector)))
+
 
 (def authentication-codec
   {0x00 {:name :RAKP-none
@@ -97,6 +137,8 @@
 (defcodec chassis-status-req
   {:checksum :ubyte})
 
+(defcodec device-id-req
+  {:checksum :ubyte})
 
 (defcodec chassis-status-rsp
   (ordered-map
@@ -124,6 +166,30 @@
                         :drive-fault 1
                         :front-panel-lockout 1
                         :chassis-intrusion-active 1)
+   :checksum :ubyte))
+
+(defcodec device-id-rsp
+  (ordered-map
+   :command-completion-code :ubyte
+   :device-id :ubyte
+   :device-revision (bit-map :provides-sdr 1
+                             :reserved 3
+                             :device-revision 4)
+   :device-availability (bit-map :operation 1
+                                 :major-firmware-revision 7)
+   :major-firmware-revision :ubyte
+   :ipmi-version :ubyte
+   :additional-device-support (bit-map :chassis 1
+                                       :bridge 1
+                                       :event-generator 1
+                                       :event-receiver 1
+                                       :fru-invetory 1
+                                       :sel 1
+                                       :sdr-repository 1
+                                       :sensor 1)
+   :manufacturer-id (repeat 3 :ubyte)
+   :product-id :uint16-le
+   :auxiliary-firmware :uint32-le
    :checksum :ubyte))
 
 (defcodec channel-auth-cap-rsp
@@ -187,7 +253,6 @@
    :integrity-payload open-session-request
    :confidentiality-payload open-session-request))
 
-
 (defcodec ipmb-header
   (ordered-map
    :target-address :ubyte
@@ -212,8 +277,7 @@
    :completion-code :ubyte
    :privilege-level  (bit-map :reserved 4
                               :priv-level 4)
-   :checksum :ubyte
-   ))
+   :checksum :ubyte))
 
 (defcodec rmcp-close-session-req
   (ordered-map
@@ -227,26 +291,28 @@
 
 (defn get-application-command-request-codec [h]
   (condp = (:command h)
+    0x01 device-id-req
     0x38 channel-auth-cap-req
     0x3c rmcp-close-session-req
     0x3b set-session-priv-level-req))
 
 (defn get-application-command-response-codec [h]
   (condp = (:command h)
+    0x01 device-id-rsp
     0x38 channel-auth-cap-rsp
     0x3c rmcp-close-session-rsp
     0x3b set-session-priv-level-rsp))
-
+;TODO FIX
 (defn get-chassis-command-request-codec [h]
   (condp = (:command h)
     0x01 chassis-status-req
+    0x02 chassis-status-req
                                         ; 0x02 chassis-control
- ))
+))
 
 (defn get-chassis-command-response-codec [h]
   (condp = (:command h)
     0x01 chassis-status-rsp))
-
 
 (defcodec ipmb-application-request-message
   (header ipmb-body
@@ -276,9 +342,10 @@
           (fn [b]
             b)))
 
-(defn get-network-codec
+(defn get-network-function-codec
   " Provides the codec determined by the NetFN attribute"
   [h]
+  (comment "Page 41")
   (condp = (get-in h [:network-function :function])
     0 ipmb-chassis-request-message
     1 ipmb-chassis-response-message
@@ -288,7 +355,7 @@
 (defcodec ipmb-message
   (header ipmb-header
           (build-merge-header-with-data
-           #(get-network-codec %))
+           #(get-network-function-codec %))
           (fn [b]
             b)))
 
@@ -343,7 +410,8 @@
    :reserved (repeat 2 :ubyte)
    :managed-console-session-id :uint32-le))
 
-(defn get-rmcp-message-type [h]
+(defn get-rmcp-payload-type [h]
+  (comment "Page 157")
   (condp = (get-in h [:payload-type :type])
     0x00 ipmb-message
     0x10 rmcp-open-session-request
@@ -369,7 +437,7 @@
   {:type :ipmi-2-0-session
    :ipmi-2-0-payload (compile-frame (header rmcp-plus-header
                                             (build-merge-header-with-data
-                                             #(get-rmcp-message-type %))
+                                             #(get-rmcp-payload-type %))
                                             (fn [b]
                                               b)))})
 (defcodec authentication-type
