@@ -60,7 +60,8 @@
            {:main-opts ["-m clj.native-image ipmi-aleph.core" 
                         "--report-unsupported-elements-at-runtime"
                         "--enable-url-protocols=http,https"
-                        "-Dclojure.compiler.direct-linking=true"]
+                        "-Dclojure.compiler.direct-linking=true"
+                        "-H:ReflectionConfigurationFiles=reflection_config.json"]
             :extra-deps {clj.native-image {:git/url "https://github.com/taylorwood/clj.native-image.git"
                                            :sha "d97f25aa153e0f94139f5d03e60a345151815d4d"}}}
 

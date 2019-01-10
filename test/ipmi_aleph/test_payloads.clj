@@ -68,11 +68,24 @@
             result (for [k keys
                                :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]
                                :when (contains? (get-in decode [:rmcp-class :ipmi-session-payload]) :ipmi-2-0-payload)]
-                       (assoc {} k {:type (get-type decode) :command (get-command decode) :function (get-function decode)}))
+                        {:key k :type (get-type decode) :command (get-command decode) :function (get-function decode)})
             ]
+        (vec result))))
 
-        (clojure.pprint/pprint result))))
-                                        ;(get-command decode)))))
 
-(dump-functions rmcp-payloads)
-
+;; |                    :key | :type | :command | :function |
+;; |-------------------------+-------+----------+-----------|
+;; | :set-sess-prv-level-rsp |     0 |       59 |         7 |
+;; |          :device-id-req |     0 |        1 |         6 |
+;; |     :chassis-status-rsp |     0 |        1 |         1 |
+;; |   :open-session-request |    16 |          |           |
+;; | :rmcp-close-session-rsp |     0 |       60 |         7 |
+;; |          :device-id-rsp |     0 |        1 |         7 |
+;; |            :rmcp-rakp-4 |    21 |          |           |
+;; | :rmcp-close-session-req |     0 |       60 |         6 |
+;; |     :chassis-status-req |     0 |        1 |         0 |
+;; |            :rmcp-rakp-3 |    20 |          |           |
+;; |            :rmcp-rakp-2 |    19 |          |           |
+;; | :set-sess-prv-level-req |     0 |       59 |         6 |
+;; |  :open-session-response |    17 |          |           |
+;; |            :rmcp-rakp-1 |    18 |          |           |

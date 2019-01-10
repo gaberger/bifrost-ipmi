@@ -49,51 +49,36 @@
   :each
   mock-IPMI-responses)
 
-(deftest test-fsm
-  (testing "test-fsm"
-    (let [fsm (a/compile ipmi-fsm ipmi-handler)
-          adv (partial a/advance fsm)]
-      (is (= {:last-message [{:type :get-channel-auth-cap-req, :message 56}]}
-             (-> nil
-                 (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))
-                 (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-                 :accepted?))))))
+;; (deftest test-fsm
+;;   (testing "test-fsm"
+;;     (let [fsm (a/compile ipmi-fsm ipmi-handler)
+;;           adv (partial a/advance fsm)]
+;;       (is (= {:last-message [{:type :get-channel-auth-cap-req, :message 56}]}
+;;              (-> nil
+;;                  (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))
+;;                  (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+;;                  :accepted?))))))
 
 (deftest test-fsm-handlers
-  (let [fsm (a/compile ipmi-fsm ipmi-handler)
-        adv (partial a/advance fsm)]
-    (is (= true
-           (-> nil
-               (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-               (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))
-                 ;(adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-               :accepted?)))))
-
-  (let [fsm  (a/compile ipmi-fsm ipmi-handler)
-        adv (partial a/advance fsm)]
-    (with-mock mock
-      {:target :ipmi-aleph.state-machine/send-message
-       :return true}
+  (testing "test 2"
+    (let [fsm  (a/compile ipmi-fsm ipmi-handler)
+          adv (partial a/advance fsm)]
+      (with-mock mock
+        {:target :ipmi-aleph.state-machine/send-message
+         :return true}
         (let [result (-> nil (adv  (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
-          (log/spy result)
-          )))
-      
+                         ;(adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
+                         ;(adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
+                         #_(adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
+          (log/spy result))))))
 
