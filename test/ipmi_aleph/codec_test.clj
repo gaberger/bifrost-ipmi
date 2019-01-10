@@ -524,15 +524,12 @@
     (is (=  {:type :asf-ping, :message 128}
             (get-message-type (decode rmcp-header (byte-array (:rmcp-ping
                                                                rmcp-payloads)))))))
-
   (testing "Device ID Request"
     (is (= {:type :device-id-req :command 1}
            (get-message-type (rmcp-decode (byte-array (:device-id-req rmcp-payloads)))))))
   (testing "Device ID Response"
     (is (= {:type :device-id-rsp :command 1}
            (get-message-type (rmcp-decode (byte-array (:device-id-rsp rmcp-payloads)))))))
-
-
 
   (testing "IPMI Capabilities"
     (is (= {:message 56, :type :get-channel-auth-cap-req}
@@ -549,7 +546,6 @@
     (is (= {:payload-type 19, :type :rmcp-rakp-2}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-2
                                                               rmcp-payloads)))))))
-
   (testing "IPMI RAKP 3"
     (is (= {:payload-type 20, :type :rmcp-rakp-3}
            (get-message-type (decode rmcp-header (byte-array (:rmcp-rakp-3

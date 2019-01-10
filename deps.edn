@@ -57,14 +57,13 @@
                   ;:main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"))"]}
                   :main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:report,eftest.report.pretty/report,:capture-output?,false})"]}
            :native-image
-           {:extra-deps
-            {org.clojure/tools.cli {:mvn/version "0.3.7"}
-             org.clojure/tools.deps.alpha {:mvn/version "0.5.435"}
-             org.clojure/tools.namespace  {:mvn/version "0.2.11"}
-             luchiniatwork/cambada {:mvn/version "1.0.0"}}
-            ;;db/driver {:local/root "/mnt/jamastore1/WIP/cambada/target/cambada-1.0.0-SNAPSHOT.jar"}}
-            :main-opts ["-m" "cambada.native-image"
-                        "-m" "githubid.core"]}
+           {:main-opts ["-m clj.native-image ipmi-aleph.core" 
+                        "--report-unsupported-elements-at-runtime"
+                        "--enable-url-protocols=http,https"
+                        "-Dclojure.compiler.direct-linking=true"]
+            :extra-deps {clj.native-image {:git/url "https://github.com/taylorwood/clj.native-image.git"
+                                           :sha "d97f25aa153e0f94139f5d03e60a345151815d4d"}}}
+
            :uberjar
            {:extra-deps
             {org.clojure/tools.cli {:mvn/version "0.3.7"}

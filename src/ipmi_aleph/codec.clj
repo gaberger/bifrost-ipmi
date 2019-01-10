@@ -70,39 +70,20 @@
                                            20 {:type :rmcp-rakp-3 :payload-type 20}
                                            21 {:type :rmcp-rakp-4 :payload-type 21}
                                            0 (condp = function
+                                               0 (condp = command
+                                                   1{:type :chassis-status-req :command 1})
                                                1 (condp = command
-                                                   0 {:type :chassis-status-req :command 1}
                                                    1 {:type :chassis-status-rsp :command 1})
                                                6 (condp = command
                                                    1 {:type :device-id-req :command 1}
-                                                   59 {:type :set-sess-prv-level-req :command 59}
+                                                   59 {:type :set-session-prv-level-req :command 59}
                                                    60 {:type :rmcp-close-session-req :command 60})
                                                7 (condp = command
-                                                   59 {:type :set-sess-prv-level-rsp :command 59}
+                                                   1 {:type :device-id-rsp :command 1}
+                                                   59 {:type :set-session-prv-level-rsp :command 59}
                                                    60 {:type :rmcp-close-session :command 60})))))]
       selector)))
 
-
-
-  ;;                    01 {:type :device-id-rsp :message 1})
-
-
-  ;;         (condp = message-type
-  ;;           16 {:type :open-session-request :message 16}
-  ;;           17 {:type :open-session-response :message 17}
-  ;;           18 {:type :rmcp-rakp-1 :message 18}
-  ;;           19 {:type :rmcp-rakp-2 :message 19}
-  ;;           20 {:type :rmcp-rakp-3 :message 20}
-  ;;           21 {:type :rmcp-rakp-4 :message 21}
-  ;;           0 (let [message-type  (get-in m [:rmcp-class
-  ;;                                            :ipmi-session-payload
-  ;;                                            :ipmi-2-0-payload
-  ;;                                            :command])]
-  ;;               (condp = message-type
-  ;;                 01 {:type :chassis-status-req :message 1}
-  ;;                 59 {:type :set-session-priv-level :message 59}
-  ;;                 60 {:type :rmcp-close-session :message 60}))))))]
-  ;; selector)))
 
 
 (def authentication-codec

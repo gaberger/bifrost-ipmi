@@ -65,18 +65,14 @@
             (get-function [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :network-function :function]))
             (get-type [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type]))]
       (let [keys (vec (keys m))
-            commands (for [k keys
-                           :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]]
-                             (prn (get-command decode)))]
-            ;; functions (for [k keys
-            ;;                  :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]]
-            ;;              (assoc {} k conj (get-function decode)))
-            ;; type (for [k keys
-            ;;                  :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]]
-            ;;              (assoc {} k conj (get-type decode)))]
+            result (for [k keys
+                               :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]
+                               :when (contains? (get-in decode [:rmcp-class :ipmi-session-payload]) :ipmi-2-0-payload)]
+                       (assoc {} k {:type (get-type decode) :command (get-command decode) :function (get-function decode)}))
+            ]
 
-            (println commands))))
+        (clojure.pprint/pprint result))))
+                                        ;(get-command decode)))))
 
 (dump-functions rmcp-payloads)
-                                        ;(get-command decode)))))
 
