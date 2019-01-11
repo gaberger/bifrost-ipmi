@@ -72,13 +72,19 @@
       (with-mock mock
         {:target :ipmi-aleph.state-machine/send-message
          :return true}
-        (let [result (-> nil (adv  (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+        (let [result (-> nil
+                         (adv  (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-                         ;(adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                         ;(adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                         #_(adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
-          (log/spy result))))))
+                         (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
+                         (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
+                         (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
+                         (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
+          ;(log/debug result)
+          (is (true?
+               (:accepted?
+
+                result))))))))
 

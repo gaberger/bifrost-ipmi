@@ -453,11 +453,11 @@
                 :type :ipmi-session}}
               (decode rmcp-header payload))))))
 
-(deftest chassis-reset
-  (testing "chassis-reset-req"
-    (let [result (encode rmcp-header (rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))]
-      (is (= {}
-             (rmcp-decode result))))))
+;; (deftest chassis-reset
+;;   (testing "chassis-reset-req"
+;;     (let [result (encode rmcp-header (rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))]
+;;       (is (= {}
+;;              (rmcp-decode result))))))
 
 (deftest test-device-id
   (testing "device-id-request"
@@ -533,6 +533,7 @@
   (testing "Device ID Request"
     (is (= {:type :device-id-req :command 1}
            (get-message-type (rmcp-decode (byte-array (:device-id-req rmcp-payloads)))))))
+
   (testing "Device ID Response"
     (is (= {:type :device-id-rsp :command 1}
            (get-message-type (rmcp-decode (byte-array (:device-id-rsp rmcp-payloads)))))))

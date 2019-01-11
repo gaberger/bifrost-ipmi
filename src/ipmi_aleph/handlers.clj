@@ -9,49 +9,90 @@
    {:type :rmcp-ack}})
 
 (defn chassis-status-response-msg [sid]
-   {:version 6,
-               :reserved 0,
-               :sequence 255,
-               :rmcp-class
-               {:ipmi-session-payload
-                {:ipmi-2-0-payload
-                 {:session-id sid,
-                  :session-seq 6,
-                  :payload-type {:encrypted? false, :authenticated? false, :type 0},
-                  :power-state
-                  {:reserved false,
-                   :power-restore-policy 0,
-                   :power-control-fault false,
-                   :power-fault false,
-                   :interlock false,
-                   :overload false,
-                   :power-on? true},
-                  :last-power-event
-                  {:reserved 0,
-                   :last-power-on-state-via-ipmi false,
-                   :last-power-down-state-power-fault false,
-                   :last-power-down-state-interlock-activated false,
-                   :last-power-down-state-overloaded false,
-                   :last-power-down-ac-failed false},
-                  :command 1,
-                  :source-lun 24,
-                  :source-address 32,
-                  :misc-chassis-state
-                  {:reserved false,
-                   :chassis-identify-command-state-info-supported false,
-                   :chassis-identify-state-supported 0,
-                   :cooling-fan-fault-detect false,
-                   :drive-fault false,
-                   :front-panel-lockout false,
-                   :chassis-intrusion-active false},
-                  :checksum 198,
-                  :header-checksum 123,
-                  :target-address 129,
-                  :network-function {:function 1, :target-lun 0},
-                  :completion-code 0,
-                  :message-length 11},
-                 :type :ipmi-2-0-session},
-                :type :ipmi-session}})
+  {:version 6,
+   :reserved 0,
+   :sequence 255,
+   :rmcp-class
+   {:ipmi-session-payload
+    {:ipmi-2-0-payload
+     {:session-id sid,
+      :session-seq 6,
+      :payload-type {:encrypted? false, :authenticated? false, :type 0},
+      :power-state
+      {:reserved false,
+       :power-restore-policy 0,
+       :power-control-fault false,
+       :power-fault false,
+       :interlock false,
+       :overload false,
+       :power-on? true},
+      :last-power-event
+      {:reserved 0,
+       :last-power-on-state-via-ipmi false,
+       :last-power-down-state-power-fault false,
+       :last-power-down-state-interlock-activated false,
+       :last-power-down-state-overloaded false,
+       :last-power-down-ac-failed false},
+      :command 1,
+      :source-lun 24,
+      :source-address 32,
+      :misc-chassis-state
+      {:reserved false,
+       :chassis-identify-command-state-info-supported false,
+       :chassis-identify-state-supported 0,
+       :cooling-fan-fault-detect false,
+       :drive-fault false,
+       :front-panel-lockout false,
+       :chassis-intrusion-active false},
+      :checksum 198,
+      :header-checksum 123,
+      :target-address 129,
+      :network-function {:function 1, :target-lun 0},
+      :completion-code 0,
+      :message-length 11},
+     :type :ipmi-2-0-session},
+    :type :ipmi-session}})
+
+(defn device-id-response-msg [sid]
+  {:version 6,
+   :reserved 0,
+   :sequence 255,
+   :rmcp-class
+   {:ipmi-session-payload
+    {:ipmi-2-0-payload
+     {:session-id sid,
+      :major-firmware-revision 8,
+      :session-seq 3,
+      :payload-type {:encrypted? false, :authenticated? false, :type 0},
+      :device-id 0,
+      :additional-device-support
+      {:chassis true,
+       :bridge false,
+       :event-generator false,
+       :event-receiver true,
+       :fru-invetory true,
+       :sel true,
+       :sdr-repository true,
+       :sensor true},
+      :device-revision
+      {:provides-sdr false, :reserved 0, :device-revision 3},
+      :command 1,
+      :source-lun 12,
+      :auxiliary-firmware 0,
+      :source-address 32,
+      :manufacturer-id [145 18 0],
+      :checksum 106,
+      :header-checksum 99,
+      :target-address 129,
+      :network-function {:function 7, :target-lun 0},
+      :message-length 23,
+      :command-completion-code 0,
+      :product-id 3842,
+      :ipmi-version 2,
+      :device-availability
+      {:operation false, :major-firmware-revision 9}},
+     :type :ipmi-2-0-session},
+    :type :ipmi-session}})
 
 (defn set-session-priv-level-rsp-msg [sid]
   {:version 6,
@@ -186,6 +227,7 @@
 ;;                :type :ipmi-2-0-session},
 ;;               :type :ipmi-session}}
 
+
 (defn rmcp-close-response-msg [sid seq]
   {:version 6,
    :reserved 0,
@@ -216,7 +258,7 @@
    :rmcp-class
    {:ipmi-session-payload
     {:ipmi-2-0-payload
-     {:session-id 0 
+     {:session-id 0
       :session-seq 0
       :payload-type {:encrypted? false, :authenticated? false, :type 17},
       :authentication-payload

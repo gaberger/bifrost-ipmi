@@ -90,6 +90,12 @@
     (log/debug "Message: " message)
     (send-message session message)))
 
+(defn send-device-id-response [session sid]
+  (log/info "Sending Device ID Response: ")
+  (let [message (h/device-id-response-msg sid)]
+    (log/debug "Message: " message)
+    (send-message session message)))
+
 (def ipmi-fsm
   [(a/* (a/$ :init)
         (a/or
@@ -100,10 +106,10 @@
            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
           (a/* (a/or
-                 [:chassis-status-req (a/$ :chassis-status)]
-                 [:set-session-priv-level (a/$ :session-priv-level)]))
-          [:rmcp-close-session (a/$ :rmcp-close-session)])))])
-
+                [:chassis-status-req (a/$ :chassis-status)]
+                [:device-id-req (a/$ :device-id-req)]
+                [:set-session-prv-level-req (a/$ :session-priv-level)]))
+          [:rmcp-close-session-req (a/$ :rmcp-close-session)])))])
 (def ipmi-fsm-sample
   [(a/or (a/* [:Z])
          (a/or (a/* [:A :B :C]
@@ -120,6 +126,13 @@
                                       sid (get state :sid)]
                                   (send-chassis-status-response input sid)
                                   state))
+              :device-id-req (fn [state input]
+                               (log/debug "Device ID Request")
+                               (let [message (conj {} (c/get-message-type input))
+                                     state (update-in state [:last-message] conj message)
+                                     sid (get state :sid)]
+                                 (send-device-id-response input sid)
+                                 state))
               :get-channel-auth-cap-req (fn [state input]
                                           (let [message (conj {} (c/get-message-type input))
                                                 state (update-in state [:last-message] conj message)]
