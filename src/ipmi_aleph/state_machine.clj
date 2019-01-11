@@ -131,7 +131,7 @@
                                (let [message (conj {} (c/get-message-type input))
                                      state (update-in state [:last-message] conj message)
                                      sid (get state :sid)]
-                                 (send-device-id-response input sid)
+                                 #_(send-device-id-response input sid)
                                  state))
               :get-channel-auth-cap-req (fn [state input]
                                           (let [message (conj {} (c/get-message-type input))

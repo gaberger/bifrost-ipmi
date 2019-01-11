@@ -71,7 +71,8 @@
                                            21 {:type :rmcp-rakp-4 :payload-type 21}
                                            0 (condp = function
                                                0 (condp = command
-                                                   1{:type :chassis-status-req :command 1})
+                                                   1 {:type :chassis-status-req :command 1}
+                                                   2 {:type :chassis-reset-req :command 2})
                                                1 (condp = command
                                                    1 {:type :chassis-status-rsp :command 1})
                                                6 (condp = command
@@ -147,6 +148,13 @@
                         :drive-fault 1
                         :front-panel-lockout 1
                         :chassis-intrusion-active 1)
+   :checksum :ubyte))
+
+
+(defcodec chassis-control-req
+  (ordered-map
+   :control (bit-map :reserved 4
+                     :chassis-control 4)
    :checksum :ubyte))
 
 (defcodec device-id-rsp
@@ -283,13 +291,12 @@
     0x38 channel-auth-cap-rsp
     0x3c rmcp-close-session-rsp
     0x3b set-session-priv-level-rsp))
+
 ;TODO FIX
 (defn get-chassis-command-request-codec [h]
   (condp = (:command h)
     0x01 chassis-status-req
-    0x02 chassis-status-req
-                                        ; 0x02 chassis-control
-))
+    0x02 chassis-control-req))
 
 (defn get-chassis-command-response-codec [h]
   (condp = (:command h)

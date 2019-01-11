@@ -453,11 +453,30 @@
                 :type :ipmi-session}}
               (decode rmcp-header payload))))))
 
-;; (deftest chassis-reset
-;;   (testing "chassis-reset-req"
-;;     (let [result (encode rmcp-header (rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))]
-;;       (is (= {}
-;;              (rmcp-decode result))))))
+(deftest chassis-reset
+  (testing "chassis-reset-req"
+    (let [result (encode rmcp-header (rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))]
+      (is (=  {:version 6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-class
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id 0,
+                  :session-seq 21,
+                  :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                  :command 2,
+                  :source-lun 24,
+                  :source-address 129,
+                  :checksum 98,
+                  :control {:reserved 0, :chassis-control 3},
+                  :header-checksum 224,
+                  :target-address 32,
+                  :network-function {:function 0, :target-lun 0},
+                  :message-length 8},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
+              (rmcp-decode result))))))
 
 (deftest test-device-id
   (testing "device-id-request"
@@ -572,7 +591,12 @@
   (testing "Chassis Request"
     (is (=  {:type :chassis-status-req, :command 1}
             (get-message-type (decode rmcp-header (byte-array (:chassis-status-req
+                                                               rmcp-payloads)))))))
+  (testing "Chassis Reset"
+    (is (=  {:type :chassis-reset-req, :command 2}
+            (get-message-type (rmcp-decode (byte-array (:chassis-reset-req
                                                                rmcp-payloads))))))))
+                                        ; (deftest test-set-priv-level
 ; (deftest test-set-priv-level
 ;   (testing "Test set priv level"
 ;     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:set-session-priv-level rmcp-payloads))))]
