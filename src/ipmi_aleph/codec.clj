@@ -157,6 +157,11 @@
                      :chassis-control 4)
    :checksum :ubyte))
 
+(defcodec chassis-control-rsp
+  (ordered-map
+   :command-completion-code :ubyte
+   :checksum :ubyte))
+
 (defcodec device-id-rsp
   (ordered-map
    :command-completion-code :ubyte
@@ -300,7 +305,8 @@
 
 (defn get-chassis-command-response-codec [h]
   (condp = (:command h)
-    0x01 chassis-status-rsp))
+    0x01 chassis-status-rsp
+    0x02 chassis-control-rsp))
 
 (defcodec ipmb-application-request-message
   (header ipmb-body
@@ -383,6 +389,16 @@
    :remote-session-console-id :uint32-le
    :managed-system-random-number (repeat 16 :ubyte)
    :managed-system-guid (repeat 16 :ubyte)))
+
+(defcodec rmcp-plus-rakp-2-hmac-sha-1
+  (ordered-map
+   :message-tag :ubyte
+   :status-code :ubyte
+   :reserved (repeat 2 :ubyte)
+   :remote-session-console-id :uint32-le
+   :managed-system-random-number (repeat 16 :ubyte)
+   :managed-system-guid (repeat 16 :ubyte)
+   :key-exchange-code (repeat 20 :ubyte)))
 
 (defcodec rmcp-plus-rakp-3
   (ordered-map

@@ -79,6 +79,7 @@
                          (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
+                         (adv (c/rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]

@@ -48,6 +48,19 @@
          data
          (decode codec-body encoded)))))
 
+
+(deftest test-repeat
+  (let [f (repeated :ubyte
+                    :prefix (gloss.core.codecs/constant-prefix 8)
+                    )
+        codec (compile-frame f)
+        decoded (decode codec (byte-array [0 0 0 0 0 0 0 0 ]))]
+    (is (= [0 0 0 0 0 0 0 0]
+           decoded))
+
+    ))
+
+
 (deftest nested-encoder
   (let [tag              (compile-frame
                           (enum :byte

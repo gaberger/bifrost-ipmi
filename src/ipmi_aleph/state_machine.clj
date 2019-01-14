@@ -4,6 +4,7 @@
    [automat.core :as a]
    [gloss.io :refer [encode decode]]
    [ipmi-aleph.codec :as c]
+   [ipmi-aleph.packet :as p]
    [manifold.stream :as s]
    [clj-uuid :as uuid]
    [ipmi-aleph.handlers :as h]
@@ -96,6 +97,12 @@
     (log/debug "Message: " message)
     (send-message session message)))
 
+(defn send-chassis-reset-response [session sid seq]
+  (log/info "Sending Chassis Reset Response: ")
+  (let [message (h/chassis-reset-response-msg sid seq)]
+    (log/debug "Message: " message)
+    (send-message session message)))
+
 (def ipmi-fsm
   [(a/* (a/$ :init)
         (a/or
@@ -107,6 +114,7 @@
            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
           (a/* (a/or
                 [:chassis-status-req (a/$ :chassis-status)]
+                [:chassis-reset-req (a/$ :chassis-reset)]
                 [:device-id-req (a/$ :device-id-req)]
                 [:set-session-prv-level-req (a/$ :session-priv-level)]))
           [:rmcp-close-session-req (a/$ :rmcp-close-session)])))])
@@ -131,7 +139,17 @@
                                (let [message (conj {} (c/get-message-type input))
                                      state (update-in state [:last-message] conj message)
                                      sid (get state :sid)]
-                                 #_(send-device-id-response input sid)
+                                 (send-device-id-response input sid)
+                                 state))
+              :chassis-reset (fn [state input]
+                               (log/debug "Chassis Reset Request -->" input)
+                               (let [message (conj {} (c/get-message-type input))
+                                     state (update-in state [:last-message] conj message)
+                                     sid (get state :sid)
+                                     seq (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)]
+                                 (send-chassis-reset-response input sid seq)
+                                 ;(reboot-device [device api-key])
+
                                  state))
               :get-channel-auth-cap-req (fn [state input]
                                           (let [message (conj {} (c/get-message-type input))

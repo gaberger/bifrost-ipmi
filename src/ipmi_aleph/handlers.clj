@@ -50,6 +50,28 @@
       :network-function {:function 1, :target-lun 0},
       :completion-code 0,
       :message-length 11},
+     :type :ipmi-2-0-session}
+    :type :ipmi-session}})
+
+(defn chassis-reset-response-msg [sid seq]
+  {:version 6,
+   :reserved 0,
+   :sequence 255,
+   :rmcp-class
+   {:ipmi-session-payload
+    {:ipmi-2-0-payload
+     {:session-id sid,
+      :session-seq seq,
+      :payload-type {:encrypted? false, :authenticated? false, :type 0},
+      :command 2,
+      :source-lun 24,
+      :source-address 32,
+      :checksum 198,
+      :header-checksum 123,
+      :target-address 129,
+      :network-function {:function 1, :target-lun 0},
+      :message-length 8,
+      :command-completion-code 0},
      :type :ipmi-2-0-session},
     :type :ipmi-session}})
 
