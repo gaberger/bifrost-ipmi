@@ -160,12 +160,17 @@
               :open-session-request (fn [state input]
                                       (log/debug "Open Session Request ")
                                       (let [message (conj {} (c/get-message-type input))
+                                            auth-payload (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :authentication-payload :algo :algorithm])
+                                            integrity-payload (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :integrity-payload :algo :algorithm])
+                                            confidentiality-payload (get-in  input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :confidentiality-payload :algo :algorithm])
                                             sid (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :remote-session-id])
                                             mssid (rand-int (.pow (BigInteger. "2") 16))
                                             state (-> state
                                                       (update-in [:last-message] conj message)
-                                                      (assoc :sid sid)
-                                                      (assoc :mssid mssid))]
+                                                      (merge {:sid sid :mssid mssid
+                                                              :authentication-payload auth-payload
+                                                              :confidentiality-payload confidentiality-payload
+                                                              :integrity-payload integrity-payload}))]
                                         (send-open-session-response input sid mssid)
                                         state))
               :rmcp-rakp-1 (fn [state input]

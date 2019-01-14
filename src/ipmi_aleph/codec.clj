@@ -85,23 +85,6 @@
 
 
 
-(def authentication-codec
-  {0x00 {:name :RAKP-none
-         :auth nil
-         :size 0
-         :optional false}
-   0x01 {:name :RAKP-HMAC-SHA1
-         :auth :hmac-sha1
-         :size 20
-         :optional false}
-   0x02 {:name :RAKP-HMAC-MD5
-         :auth :hmac-md5
-         :size 16
-         :optional true}
-   0x03 {:name :RAKP-HMAC-SHA256
-         :auth :hmac-sha256
-         :size 64
-         :optional true}})
 
 (defcodec channel-auth-cap-req
   (ordered-map
