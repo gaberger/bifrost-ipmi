@@ -53,16 +53,12 @@
 (defn message-handler  [adv message]
   (let [fsm-state-var (if-not (empty? @fsm-state) @fsm-state nil)
         session-state (get-session-state message)
-        ;_ (log/debug "DUMP BYTES" (codecs/bytes->hex (:message payload)))
-        _ (log/debug "FSM_STATE " fsm-state-var)
-        _ (log/debug "MESSAGE " (:message message))
         decoded (try
                   (c/rmcp-decode (:message message))
                   (catch Exception e
                     (do
                       (log/error "Caught decoding error:" (.getMessage e))
                       {})))
-        
         m (merge session-state decoded)
         new-fsm-state  (let [fsm-state (try
                                          (adv fsm-state-var m)
@@ -71,11 +67,12 @@
                                              (log/error "State Machine Error " (.getMessage e))
                                              fsm-state-var)))]
                          (condp = (:value fsm-state)
-                           nil nil
+                           nil fsm-state-var
                            fsm-state))]
-    (log/debug "DECODED-MESSAGE " m)
-    (log/debug "NEW-FSM-STATE:" new-fsm-state)
-    (reset! fsm-state new-fsm-state)))
+    (log/debug "STATE-INDEX " (:state-index new-fsm-state))
+    (log/debug "STATE-ACCEPT " (:accepted? new-fsm-state))
+    (reset! fsm-state new-fsm-state)
+    ))
 
 (defn start-consumer
   [server-socket]

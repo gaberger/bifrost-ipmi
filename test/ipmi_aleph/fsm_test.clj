@@ -58,18 +58,21 @@
                          (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
                          (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
-          ;(log/debug result)
-          (is (true?
-               (:accepted?
+                                        ;(log/debug result)
+          (is (and
+               (true?
+                (:accepted? result))
+               (= 0)
+               (:state-index
                 result))))))
     (testing "test PING"
       (with-mock mock
         {:target :ipmi-aleph.state-machine/send-message
          :return true}
         (let [result (-> nil
-                         (adv  (c/rmcp-decode (byte-array (:rmcp-ping rmcp-payloads))))
-                         )]
-          ;(log/debug result)
+                         (adv  (c/rmcp-decode (byte-array (:rmcp-ping rmcp-payloads)))))]
+          
+                                        ;(log/debug result)
           (is (true?
                (:accepted?
                 result))))))))

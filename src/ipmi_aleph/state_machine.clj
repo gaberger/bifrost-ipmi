@@ -215,8 +215,8 @@
                                     (let [sid (get state :sid)
                                           seq (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)]
                                       (send-rmcp-close-response input sid seq)
-                                      (reset! fsm-state {})
-                                      nil))}})
+                                      ;(reset! fsm-state {})
+                                      state))}})
 
 (defn view-fsm []
   (automat.viz/view (a/compile ipmi-fsm ipmi-handler)))
