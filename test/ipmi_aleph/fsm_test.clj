@@ -11,12 +11,6 @@
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
 
-(defn mock-IPMI-responses [f]
-  (with-mocks
-    [send-message
-     {:target :ipmi-aleph.state-machine/send-message
-      :return true}])
-  (f))
 ;; (defn mock-IPMI-responses [f]
 ;;   (with-mocks
 ;;     [rmcp-close
@@ -45,30 +39,11 @@
 ;;       :return (fn [& _] (log/info "send-chassis-status-response") nil)}]
 ;;     (f)))
 
-(use-fixtures
-  :each
-  mock-IPMI-responses)
-
-;; (deftest test-fsm
-;;   (testing "test-fsm"
-;;     (let [fsm (a/compile ipmi-fsm ipmi-handler)
-;;           adv (partial a/advance fsm)]
-;;       (is (= {:last-message [{:type :get-channel-auth-cap-req, :message 56}]}
-;;              (-> nil
-;;                  (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))
-;;                  (adv (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-;;                  :accepted?))))))
 
 (deftest test-fsm-handlers
-  (testing "test 2"
-    (let [fsm  (a/compile ipmi-fsm ipmi-handler)
-          adv (partial a/advance fsm)]
+  (let [fsm  (a/compile ipmi-fsm ipmi-handler)
+        adv (partial a/advance fsm)]
+    (testing "test RAKP"
       (with-mock mock
         {:target :ipmi-aleph.state-machine/send-message
          :return true}
@@ -86,6 +61,17 @@
           ;(log/debug result)
           (is (true?
                (:accepted?
-
+                result))))))
+    (testing "test PING"
+      (with-mock mock
+        {:target :ipmi-aleph.state-machine/send-message
+         :return true}
+        (let [result (-> nil
+                         (adv  (c/rmcp-decode (byte-array (:rmcp-ping rmcp-payloads))))
+                         )]
+          ;(log/debug result)
+          (is (true?
+               (:accepted?
                 result))))))))
+
 

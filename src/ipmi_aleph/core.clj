@@ -50,20 +50,22 @@
   (let [fsm (a/compile ipmi-fsm ipmi-handler)]
     (partial a/advance fsm)))
 
-(defn message-handler  [adv payload]
-  (log/debug "FSM_STATE:" @fsm-state)
+(defn message-handler  [adv message]
   (let [fsm-state-var (if-not (empty? @fsm-state) @fsm-state nil)
-        session-state (get-session-state payload)
-        _ (log/debug "DUMP BYTES" (codecs/bytes->hex (:message payload)))
+        session-state (get-session-state message)
+        ;_ (log/debug "DUMP BYTES" (codecs/bytes->hex (:message payload)))
         _ (log/debug "FSM_STATE " fsm-state-var)
-        decoded  (try (merge session-state
-                             (c/rmcp-decode (:message payload)))
-                      (catch Exception e
-                        (do
-                          (log/error "caught decoding exception: " (.getMessage e))
-                          {})))
+        _ (log/debug "MESSAGE " (:message message))
+        decoded (try
+                  (c/rmcp-decode (:message message))
+                  (catch Exception e
+                    (do
+                      (log/error "Caught decoding error:" (.getMessage e))
+                      {})))
+        
+        m (merge session-state decoded)
         new-fsm-state  (let [fsm-state (try
-                                         (adv fsm-state-var decoded)
+                                         (adv fsm-state-var m)
                                          (catch Exception e
                                            (do
                                              (log/error "State Machine Error " (.getMessage e))
@@ -71,8 +73,8 @@
                          (condp = (:value fsm-state)
                            nil nil
                            fsm-state))]
-    (log/debug "DECODED-MESSAGE " decoded)
-    (log/debug "FSM-STATE:" new-fsm-state)
+    (log/debug "DECODED-MESSAGE " m)
+    (log/debug "NEW-FSM-STATE:" new-fsm-state)
     (reset! fsm-state new-fsm-state)))
 
 (defn start-consumer

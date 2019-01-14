@@ -3,8 +3,6 @@
                                 ordered-map header finite-frame
                                 string enum]]
             [clojure.string :as str]
-            [clojure.datafy :as d]
-            [clojure.walk :as w]
             [gloss.io :refer [decode]]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
@@ -370,16 +368,16 @@
 
 
 (defcodec rmcp-plus-rakp-1
-  (ordered-map
-   :message-tag :ubyte
-   :reserved1 (repeat 3 :ubyte)
-   :managed-system-session-id :int32-le
-   :remote-console-random-number (repeat 16 :ubyte)
-   :requested-max-priv-level (bit-map :reserved 3
+   (ordered-map
+    :message-tag :ubyte
+    :reserved1 (repeat 3 :ubyte)
+    :managed-system-session-id :int32-le
+    :remote-console-random-number (repeat 16 :ubyte)
+    :requested-max-priv-level (bit-map :reserved 3
                                       :user-lookup 1
                                       :requested-max-priv-level 4)
-   :reserved2 (repeat 2 :ubyte)
-   :user-name (finite-frame :ubyte (string :ascii))))
+    :reserved2 (repeat 2 :ubyte)
+    :user-name (finite-frame :ubyte (string :ascii))))
 
 (defcodec rmcp-plus-rakp-2
   (ordered-map

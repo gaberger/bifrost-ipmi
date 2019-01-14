@@ -1,6 +1,7 @@
-(ns ipmi-aleph.codec-test
+(ns ipmi-aleph.test-codec
   (:require [clojure.test :refer :all]
             [gloss.io :refer :all]
+            [mockery.core :refer [with-mocks]]
             [ipmi-aleph.test-payloads :refer :all]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.codec :refer :all]
@@ -625,3 +626,5 @@
 ;     (let [payload (encode rmcp-header (decode rmcp-header (byte-array (:set-session-priv-level rmcp-payloads))))]
 ;       (is (= {}
 ;              (decode rmcp-header payload false))))))
+
+
