@@ -31,12 +31,11 @@
                                org.clojure/core.async {:mvn/version "0.4.490"}
                                com.cognitect/rebl {:local/root  "/Users/gary/Downloads/REBL-0.9.109/REBL-0.9.109.jar"}}
                   :main-opts ["-m" "cognitect.rebl"]}
-           :repl {:extra-deps {cider/cider-nrepl {:mvn/version "0.18.0"}
-                               nrepl/nrepl       {:mvn/version "0.5.3"}}
+           :nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.20.0"}
+                                nrepl/nrepl       {:mvn/version "0.5.3"}}
 
-                  :main-opts ["-m" "nrepl.cmdline"]}
+                   :main-opts ["-m" "nrepl.cmdline"]}
 
-           :nrepl {:extra-deps {nrepl/nrepl {:mvn/version "0.4.5"}}}
            :expect {:extra-deps {expectations {:mvn/version "RELEASE"}}}
            ;:rebl {:extra-deps {
            ;                               org.clojure/clojure {:mvn/version "1.10.0-RC3"}
@@ -57,7 +56,7 @@
                   ;:main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"))"]}
                   :main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:report,eftest.report.pretty/report,:capture-output?,false})"]}
            :native-image
-           {:main-opts ["-m clj.native-image ipmi-aleph.core" 
+           {:main-opts ["-m clj.native-image ipmi-aleph.core"
                         "--report-unsupported-elements-at-runtime"
                         "--enable-url-protocols=http,https"
                         "-Dclojure.compiler.direct-linking=true"

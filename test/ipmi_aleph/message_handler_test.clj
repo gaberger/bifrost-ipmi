@@ -1,4 +1,4 @@
-(ns ipmi-aleph.test-message-handler
+(ns ipmi-aleph.message-handler-test
   (:require [clojure.test :refer :all]
             [gloss.io :refer :all]
             [mockery.core :refer [with-mocks with-mock]]

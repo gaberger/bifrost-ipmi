@@ -1,4 +1,4 @@
-(ns ipmi-aleph.test-gloss
+(ns ipmi-aleph.gloss-test
   (:require [clojure.test :refer :all]
             [gloss.core :refer :all]
             [gloss.io :refer :all]))
@@ -94,3 +94,22 @@
          {:destination 0,
           :payload     {:payload {:b 1}, :type :session-request},
           :source      0}))))
+
+(deftest composed-codec-function
+  (let [codec-fn  (finite-frame 10 {:payload :ubyte})
+        codec-body (compile-frame {:c :ubyte :d codec-fn})
+        data {:a 1 :b {:c 1}}
+        encoded (encode codec-body data)]
+    (is (=
+         data
+         (decode codec encoded)))))
+
+(deftest composed-codec-function
+  (let [codec-fn  (fn [n] (compile-frame (finite-frame n
+                                                     (repeated :ubyte :prefix :none))))
+        codec-body (compile-frame {:c :ubyte :d (codec-fn 10)})
+        data {:c 0, :d [0 1 2 3 4 5 6 7 8 9]}
+        encoded (encode codec-body data)]
+    (is (=
+         data
+         (decode codec-body (byte-array [0 0 1 2 3 4 5 6 7 8 9]))))))

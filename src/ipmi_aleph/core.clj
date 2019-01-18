@@ -50,68 +50,6 @@
   (let [fsm (a/compile ipmi-fsm ipmi-handler)]
     (partial a/advance fsm)))
 
-(def authentication-codec
-  {0 {:name :RAKP-none
-      :auth nil
-      :size 0
-      :optional false
-      :codec :rmcp-rakp-1}
-   1 {:name :RAKP-HMAC-SHA1
-      :auth :hmac-sha1
-      :size 20
-      :optional false
-      :codec :rmcp-rakp-1-hmac-sha1}
-   2 {:name :RAKP-HMAC-MD5
-      :auth :hmac-md5
-      :size 16
-      :optional true
-      :codec :rmcp-rakp-1-hmac-md5}
-   3 {:name :RAKP-HMAC-SHA256
-      :auth :hmac-sha256
-      :size 64
-      :optional true
-      :codec :rmcp-rakp-1-hmac-sha256}})
-
-(def integrity-codec
-  {0 {:name :RAKP-none
-      :size 0
-      :optional false
-      :codec :rmcp-rakp-1-none-integrity}
-   1 {:name :RAKP-HMAC-SHA1-96
-      :size 0
-      :optional false
-      :codec :rmcp-rakp-1-hmac-sha1-96-integrity}
-   2 {:name :RAKP-HMAC-MD5-128
-      :size 0
-      :optional true
-      :codec :rmcp-rakp-1-hmac-md5-128-integrity}
-   3 {:name :RAKP-MD5-128
-      :size 0
-      :optional true
-      :codec :rmcp-rakp-1-md5-128-integrity}})
-
-(def confidentiality-codec
-  {0 {:name :RAKP-none
-      :size 0
-      :pad 0
-      :optional false
-      :codec :rmcp-rakp-1-none-confidentiality}
-   1 {:name :RAKP-AES-CBC-128
-      :size 0
-      :pad 0
-      :optional false
-      :codec :rmcp-rakp-1-aes-cbc-128-confidentiality}
-   2 {:name :XRC4-128
-      :size 0
-      :pad 0
-      :optional true
-      :codec :rmcp-rakp-1-xrc4-128-confidentiality}
-   3 {:name :RAKP-XRC4-40
-      :size 0
-      :pad 0
-      :optional true
-      :codec :rmcp-rakp-1-xrc4-40-confidentiality}})
-
 (defn get-codec
   "We need this function to select the proper codec negotiated during the open-session-request"
   [state]
