@@ -427,7 +427,7 @@
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
-   :remote-session-console-id :int32-be
+   :remote-session-console-id :uint32-le
    :managed-system-random-number (repeat 16 :ubyte)
    :managed-system-guid (repeat 16 :ubyte)))
 
@@ -436,7 +436,7 @@
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
-   :remote-session-console-id :int32-be
+   :remote-session-console-id :uint32-le
    :managed-system-random-number (repeat 16 :ubyte)
    :managed-system-guid (repeat 16 :ubyte)
    :key-exchange-code (repeat 20 :ubyte)))
@@ -476,9 +476,9 @@
 (defcodec rmcp-plus-header
   (ordered-map
    :payload-type rmcp-message-type
-   :session-id :uint32-be
-   :session-seq :uint32-be
-   :message-length :uint16-be))
+   :session-id :uint32-le
+   :session-seq :uint32-le
+   :message-length :uint16-le))
 
 (defcodec ipmi-2-0-session
   {:type :ipmi-2-0-session

@@ -53,9 +53,9 @@
 (defn get-codec
   "We need this function to select the proper codec negotiated during the open-session-request"
   [state]
-  (let [authentication-codec (-> (get-in state [:value :authentication-payload]) authentication-codec)
-        confidentiality-codec (->  (get-in state [:value :confidentiality-payload]) confidentiality-codec)
-        integrity-codec (-> (get-in state [:value :integrity-payload]) integrity-codec)]
+  (let [authentication-codec (-> (get-in state [:value :authentication-payload]) c/authentication-codec)
+        confidentiality-codec (->  (get-in state [:value :confidentiality-payload]) c/confidentiality-codec)
+        integrity-codec (-> (get-in state [:value :integrity-payload]) c/integrity-codec)]
     {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
 
 (defn message-handler  [adv message]

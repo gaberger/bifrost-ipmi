@@ -1,6 +1,6 @@
 (ns ipmi-aleph.enc-payloads-test
   (:require [clojure.test :refer :all]
-            [ipmi-aleph.codec :refer [compile-codec rmcp-header]]
+            [ipmi-aleph.codec :refer [compile-codec rmcp-header int->bytes]]
             [ipmi-aleph.crypto :refer [calc-sha1-key]]
             [gloss.io :refer [decode encode]]
             [gloss.core :refer [compile-frame]]
@@ -57,71 +57,6 @@
                               0xa1 0x23 0x45 0x67 0x89 0xab 0xcd 0xef 0x7f 0xfc 0xdb 0xc8
                               0x04 0x34 0xeb 0xb3 0x5b 0x4e 0x50 0x62 0xda 0x18 0x21 0xb2
                               0xce 0xb5 0xbc 0xb4]})
-
-
-
-;; (deftest auth-key-generator
-;;   (testing "test auth key generation from RAKP-1/RAKP-2"
-;;     (comment "HMACK[UID] (SIDM, SIDC, RM, RC, GUIDC, RoleM, ULengthM, < UNameM >)"
-;;              " Parameter  bytes    Name
-;;                SIDM       4        Remote_Console_Session_ID
-;;                SIDC       4        Managed_System_Session_ID
-;;                RM         16       Remote Console Random_Number
-;;                RC         16       Managed System Random Number
-;;                GUIDC      16       Managed_System_GUID
-;;                RoleM      1        Requested Privilege Level (Role)
-;;                ULengthM   1        User Name Length byte (number of bytes of UNameM = 0 for ‘null’ username)
-;;                UNameM     var      User Name bytes (absent for ‘null’ username)")
-;;     (let [compiled-decoder (compile-codec  :rmcp-rakp-2-hmac-sha1)
-;;           decoder (partial decode compiled-decoder)
-;;           rakp1-message (decoder (byte-array (:rmcp-rakp-1 rmcp-enc-payloads-cipher-1)))
-;;           rakp2-message (decoder (byte-array (:rmcp-rakp-2 rmcp-enc-payloads-cipher-1)))
-;;           key-exch-code (get-in rakp2-message [:rmcp-class
-;;                                                :ipmi-session-payload
-;;                                                :ipmi-2-0-payload
-;;                                                :key-exchange-code])
-;;           SIDC  (int->bytes
-;;                  (get-in rakp1-message [:rmcp-class
-;;                                         :ipmi-session-payload :ipmi-2-0-payload :managed-system-session-id]))
-;;           SIDM (int->bytes
-;;                 (get-in rakp2-message [:rmcp-class
-;;                                        :ipmi-session-payload :ipmi-2-0-payload :remote-session-console-id]))
-;;           RM  (byte-array (get-in rakp1-message [:rmcp-class
-;;                                                  :ipmi-session-payload
-;;                                                  :ipmi-2-0-payload
-;;                                                  :remote-console-random-number]))
-;;           RC (byte-array (get-in rakp2-message [:rmcp-class
-;;                                                 :ipmi-session-payload
-;;                                                 :ipmi-2-0-payload
-;;                                                 :managed-system-random-number]))
-;;           GUIDC (byte-array
-;;                  (get-in rakp2-message [:rmcp-class
-;;                                         :ipmi-session-payload
-;;                                         :ipmi-2-0-payload
-;;                                         :managed-system-guid]))
-;;           ROLEM (byte-array [(byte (get-in rakp1-message [:rmcp-class
-;;                                                           :ipmi-session-payload :ipmi-2-0-payload :requested-max-priv-level
-;;                                                           :requested-max-priv-level]))])
-;;           UNAMEM (->>
-;;                   (get-in rakp1-message [:rmcp-class
-;;                                          :ipmi-session-payload :ipmi-2-0-payload :user-name])
-;;                   (codecs/str->bytes))
-;;           ULENGTHM (byte-array [(byte (count UNAMEM))])
-;;           buffer (byte-array (mapcat seq [SIDM SIDC RM RC GUIDC ROLEM ULENGTHM UNAMEM]))]
-
-;;       (prn "BUFFER" (codecs/bytes->hex buffer))
-;;       (prn "SIDM" (codecs/bytes->hex SIDM))
-;;       (prn "SIDC" (codecs/bytes->hex SIDC))
-;;       (prn "RM" (codecs/bytes->hex RM))
-;;       (prn "RC" (codecs/bytes->hex RC))
-;;       (prn "GUIDC" (codecs/bytes->hex GUIDC))
-;;       (prn "ROLEM" (codecs/bytes->hex ROLEM))
-;;       (prn "ULENGTHM" (codecs/bytes->hex ULENGTHM))
-;;       (prn "UNAMEM" (codecs/bytes->hex UNAMEM))
-
-;;       (is (buddy.core.bytes/equals? key-exch-code
-;;                                     (-> (mac/hash buffer {:key "Dell0SS!" :alg :hmac :digest
-;;                                                           :sha1})))))))
 
 
 (deftest key-generation
