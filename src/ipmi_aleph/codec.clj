@@ -562,15 +562,16 @@
 
 (def rmcp-decode (partial decode rmcp-header))
 
-(defn compile-codec [auth]
-  (let [grpl (fn [t c]
-               (let [message-length  (:message-length t)]
-                     (condp = (get-in t [:payload-type :type])
+(defn compile-codec
+  ([auth]
+  (let [grpl (fn [{:keys [payload-type auth]}]
+               (let [message-length  (:message-length payload-type)]
+                     (condp = payload-type
                        0x00 ipmb-message
                        0x10 rmcp-open-session-request
                        0x11 rmcp-open-session-response
                        0x12 rmcp-plus-rakp-1
-                       0x13 (condp = c
+                       0x13 (condp = auth
                               :rmcp-rakp-2-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
                               rmcp-plus-rakp-2)
                        0x14 rmcp-plus-rakp-3
@@ -598,7 +599,7 @@
                            :ipmi-2-0-payload (compile-frame
                                               (header rmcp-plus-header
                                                       (build-merge-header-with-data
-                                                       #(grpl % auth))
+                                                       #(grpl {:payload-type % :auth auth}))
                                                       (fn [b]
                                                         b)))})
         asf-session  (compile-frame
@@ -629,3 +630,5 @@
                                  :sequence :ubyte
                                  :rmcp-class rmcp-class-header)]
     (compile-frame rmcp-header)))
+  ([] (compile-codec nil))
+   )

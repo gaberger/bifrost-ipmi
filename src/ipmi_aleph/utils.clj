@@ -1,7 +1,7 @@
 (ns ipmi-aleph.utils
   (:require [gloss.io :refer [encode decode]]
             [taoensso.timbre :as log]
-            [ipmi-aleph.codec :refer [compile-codec]]))
+            [ipmi-aleph.codec :refer [compile-codec] :as c]))
 
 (defn dump-functions
   ([m]
@@ -26,3 +26,11 @@
   ([m keyword]
    (let [new-m (select-keys m [keyword])]
      (dump-functions new-m))))
+
+(defn get-session-auth
+  "We need this function to select the proper codec negotiated during the open-session-request"
+  [state]
+  (let [authentication-codec (-> (get-in state [:value :authentication-payload]) c/authentication-codec)
+        confidentiality-codec (->  (get-in state [:value :confidentiality-payload]) c/confidentiality-codec)
+        integrity-codec (-> (get-in state [:value :integrity-payload]) c/integrity-codec)]
+    {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))

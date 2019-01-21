@@ -41,8 +41,7 @@
                      {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}
                      {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
                      {:message (byte-array (:device-id-req rmcp-payloads))}
-                     {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
-                     ]]
+                     {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}]]
         (-> (map #(message-handler fsm %) payload) first)
         (log/debug @fsm-state)
         (is (false?

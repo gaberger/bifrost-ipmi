@@ -9,8 +9,9 @@
             [byte-streams :as bs]
             [automat.core :as a]
             [automat.viz :refer [view]]
-            [ipmi-aleph.codec :as c]
+            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-decode]]
             [ipmi-aleph.handlers :as h]
+            [ipmi-aleph.utils :as u]
             [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
             [clojure.string :as str]
             [taoensso.timbre :as log]
@@ -22,52 +23,30 @@
 ;   {:appenders
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
-
-(defn encr []
-  (let [eng   (crypto/block-cipher :twofish :cbc)
-        iv16  (nonce/random-nonce 16)
-        key32 (nonce/random-nonce 32)
-        data  (codecs/hex->bytes "000000000000000000000000000000AA")]
-    (crypto/init! eng {:key key32 :iv iv16 :op :encrypt})
-    (crypto/process-block! eng data)))
-
-(defn get-and-set!
-  "An atomic operation which returns the previous value, and sets it to `new-val`."
-  [a new-val]
-  (let [old-val @a]
-    (if (compare-and-set! a old-val new-val)
-      old-val
-      (recur a new-val))))
-
-;(defn parse-ipmi-packet-callback
-;  [{:keys [sender message]}]
-;  (let [message (decode rmcp-header message)
-;        message-tag (get-in message [:class :message-type :message-tag])]
-;    (h/presence-pong message-tag)))
-; TODO Refactor these with a lookup
-
 (defn fsm []
   (let [fsm (a/compile ipmi-fsm ipmi-handler)]
     (partial a/advance fsm)))
 
-(defn get-codec
-  "We need this function to select the proper codec negotiated during the open-session-request"
-  [state]
-  (let [authentication-codec (-> (get-in state [:value :authentication-payload]) c/authentication-codec)
-        confidentiality-codec (->  (get-in state [:value :confidentiality-payload]) c/confidentiality-codec)
-        integrity-codec (-> (get-in state [:value :integrity-payload]) c/integrity-codec)]
-    {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
 
 (defn message-handler  [adv message]
   (let [fsm-state-var (if-not (empty? @fsm-state) @fsm-state nil)
-        session-state (get-session-state message)
+        peer (get-session-state message)
+        ;auth-codec (if-not (empty fsm-state-var)
+        ;             (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
+                                        ;             nil)
+        auth-codec nil
+        compiled-codec rmcp-decode
+        #_(if (nil? auth-codec)
+                                 (compile-codec)
+                                 (compile-codec auth-codec))
+        decoder (partial decode compiled-codec)
         decoded (try
-                  (c/rmcp-decode (:message message))
+                  (decoder (:message message))
                   (catch Exception e
                     (do
                       (log/error "Caught decoding error:" (.getMessage e))
                       {})))
-        m (merge session-state decoded)
+        m (merge peer decoded)
         new-fsm-state  (let [fsm-state (try
                                          (adv fsm-state-var m)
                                          (catch Exception e
@@ -77,7 +56,6 @@
                          (condp = (:value fsm-state)
                            nil fsm-state-var
                            fsm-state))]
-    (log/debug (get-codec new-fsm-state))
     (log/debug "STATE-INDEX " (:state-index new-fsm-state))
     (log/debug "STATE-ACCEPT " (:accepted? new-fsm-state))
     (reset! fsm-state new-fsm-state)))
