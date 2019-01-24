@@ -11,3 +11,8 @@ Things to do.
 4. Check for valid sequence-no windows (section 6.12.14)
 5. Check for session inactivity timeouts (section 6.12.15) typcally 60 seconds +-3
 
+## Proxy functions
+
+One thing we need to workout is how to bridge credentials and targets from one protocol to another. 
+
+For IPMI, only the `username` is sent between the remote console and the managed console and is 20 bytes long. Because RAKP uses symmetric keys the client and the server must know the password. 

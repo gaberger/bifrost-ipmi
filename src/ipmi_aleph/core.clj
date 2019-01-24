@@ -9,7 +9,7 @@
             [byte-streams :as bs]
             [automat.core :as a]
             [automat.viz :refer [view]]
-            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-decode]]
+            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-decode rmcp-header]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.utils :as u]
             [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
@@ -29,19 +29,19 @@
 
 
 (defn message-handler  [adv message]
-  (let [fsm-state-var (if-not (empty? @fsm-state) @fsm-state nil)
+  (let [fsm-state-var (if-not (nil? @fsm-state) @fsm-state nil)
         peer (get-session-state message)
-        ;auth-codec (if-not (empty fsm-state-var)
-        ;             (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
-                                        ;             nil)
-        auth-codec nil
-        compiled-codec rmcp-decode
-        #_(if (nil? auth-codec)
-                                 (compile-codec)
-                                 (compile-codec auth-codec))
+        auth-codec (if-not (nil? fsm-state-var)
+                     (if (-> fsm-state-var (contains? :session-auth))
+                       (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
+                       nil)
+                     nil)
+        compiled-codec (if (nil? auth-codec)
+                                 rmcp-header
+                                 (compile-codec (log/spy auth-codec)))
         decoder (partial decode compiled-codec)
         decoded (try
-                  (decoder (:message message))
+                  (decoder (log/spy (:message message)))
                   (catch Exception e
                     (do
                       (log/error "Caught decoding error:" (.getMessage e))
