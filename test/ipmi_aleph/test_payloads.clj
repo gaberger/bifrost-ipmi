@@ -1,5 +1,4 @@
-(ns ipmi-aleph.test-payloads
-  (:require [ipmi-aleph.codec :refer [rmcp-decode]]))
+(ns ipmi-aleph.test-payloads)
 
 (def rmcp-payloads
   {:rmcp-ack                 [0x06 0x00 0xff 0x86]
@@ -64,21 +63,6 @@
    :device-id-rsp            [0x06 0x00 0xff 0x07 0x06 0x00 0xa4 0xa3 0xa2 0xa0 0x03 0x00 0x00
                               0x00 0x17 0x00 0x81 0x1c 0x63 0x20 0x0c 0x01 0x00 0x00 0x03 0x09
                               0x08 0x02 0x9f 0x91 0x12 0x00 0x02 0x0f 0x00 0x00 0x00 0x00 0x6a]})
-
-
-
-(defn dump-functions [m]
-    (letfn [(get-command [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :command]))
-            (get-function [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :network-function :function]))
-            (get-type [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type]))]
-      (let [keys (vec (keys m))
-            result (for [k keys
-                               :let [decode (rmcp-decode (byte-array (k rmcp-payloads)))]
-                               :when (contains? (get-in decode [:rmcp-class :ipmi-session-payload]) :ipmi-2-0-payload)]
-                        {:key k :type (get-type decode) :command (get-command decode) :function (get-function decode)})
-            ]
-        (vec result))))
-
 
 
 ;; |                    :key | :type | :command | :function |

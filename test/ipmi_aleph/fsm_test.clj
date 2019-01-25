@@ -3,7 +3,8 @@
             [automat.core :as a]
             [mockery.core :refer [with-mocks with-mock]]
             [ipmi-aleph.test-payloads :refer :all]
-            [ipmi-aleph.codec :as c]
+            [gloss.io :refer [encode decode]]
+            [ipmi-aleph.codec :refer [compile-codec]]
             [ipmi-aleph.test-payloads :refer :all]
             [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler]]
             [taoensso.timbre :as log]))
@@ -11,68 +12,35 @@
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
 
-;; (defn mock-IPMI-responses [f]
-;;   (with-mocks
-;;     [rmcp-close
-;;      {:target :ipmi-aleph.state-machine/send-rmcp-close-response
-;;       :return (fn [& _] (log/info "send-rmcp-close") nil)}
-;;      send-auth-cap-response
-;;      {:target :ipmi-aleph.state-machine/send-auth-cap-response
-;;       :return (fn [& _] (log/info "send-auth-cap-response") nil)}
-;;      send-open-session-response
-;;      {:target :ipmi-aleph.state-machine/send-open-session-response
-;;       :return (fn [& _] (log/info "send-open-session-response") nil)}
-;;      send-rakp-2-response
-;;      {:target :ipmi-aleph.state-machine/send-rakp-2-response
-;;       :return (fn [& _] (log/info "send-rakp-2-response") nil)}
-;;      send-rakp-4-response
-;;      {:target :ipmi-aleph.state-machine/send-rakp-4-response
-;;       :return (fn [& _] (log/info "send-rakp-4response") nil)}
-;;      send-set-session-priv-level-response
-;;      {:target :ipmi-aleph.state-machine/send-set-session-priv-level-response
-;;       :return (fn [& _] (log/info "send-session-priv-level-response") nil)}
-;;      send-pong
-;;      {:target :ipmi-aleph.state-machine/send-pong
-;;       :return (fn [& _] (log/info "send-pong") nil)}
-;;      send-chassis-response
-;;      {:target :ipmi-aleph.state-machine/send-chassis-status-response
-;;       :return (fn [& _] (log/info "send-chassis-status-response") nil)}]
-;;     (f)))
-
-
 (deftest test-fsm-handlers
   (let [fsm  (a/compile ipmi-fsm ipmi-handler)
-        adv (partial a/advance fsm)]
-    (testing "test RAKP"
-      (with-mock mock
-        {:target :ipmi-aleph.state-machine/send-message
-         :return true}
+        adv (partial a/advance fsm)
+        ipmi-decode (partial decode (compile-codec))]
+    (with-mocks
+      [send-message {:target :ipmi-aleph.state-machine/send-message :return true}
+       get-session-state {:target :ipmi-aleph.state-machine/get-session-state :return {:host "127.0.0.1" :port 54123}}]
+      (testing "test RAKP"
         (let [result (-> nil
-                         (adv  (c/rmcp-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:open-session-request rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:chassis-status-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:chassis-reset-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:device-id-req rmcp-payloads))))
-                         (adv (c/rmcp-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
+                         (adv  (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:open-session-request rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:set-sess-prv-level-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:chassis-status-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:chassis-reset-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:device-id-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:device-id-req rmcp-payloads))))
+                         (adv (ipmi-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))]
                                         ;(log/debug result)
           (is (and
                (true?
                 (:accepted? result))
                (= 0)
                (:state-index
-                result))))))
-    (testing "test PING"
-      (with-mock mock
-        {:target :ipmi-aleph.state-machine/send-message
-         :return true}
+                result)))))
+      (testing "test PING"
         (let [result (-> nil
-                         (adv  (c/rmcp-decode (byte-array (:rmcp-ping rmcp-payloads)))))]
-          
-                                        ;(log/debug result)
+                         (adv  (ipmi-decode (byte-array (:rmcp-ping rmcp-payloads)))))]
           (is (true?
                (:accepted?
                 result))))))))

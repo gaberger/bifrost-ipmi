@@ -9,7 +9,7 @@
             [byte-streams :as bs]
             [automat.core :as a]
             [automat.viz :refer [view]]
-            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-decode rmcp-header]]
+            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-header]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.utils :as u]
             [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
@@ -37,11 +37,12 @@
                        nil)
                      nil)
         compiled-codec (if (nil? auth-codec)
+                         ;;(compile-codec)
                                  rmcp-header
-                                 (compile-codec (log/spy auth-codec)))
+                                 (compile-codec auth-codec))
         decoder (partial decode compiled-codec)
         decoded (try
-                  (decoder (log/spy (:message message)))
+                  (decoder (:message message))
                   (catch Exception e
                     (do
                       (log/error "Caught decoding error:" (.getMessage e))
@@ -87,30 +88,6 @@
     server-socket))
 
 
-;; (defn my-consume [f stream]
-;;   (let [fsm (fsm)]
-;;     (d/loop []
-;;       (d/chain (s/take! stream ::drained)
-;;              ;; if we got a message, run it through `f`
-;;              (fn [msg]
-;;                (if (identical? ::drained msg)
-;;                  ::drained
-;;                  (f fsm msg)))
-;;              (fn [result]
-;;                (when-not (identical? ::drained result)
-;;                  (d/recur)))))))
-
-;; (defn -main []
-;;   (let [server-socket @(udp/socket {:port 623})]
-;;     (swap! udp-session assoc :stream server-socket)
-;;     (log/info "Starting Server on port " 623)
-;;     (->> server-socket
-;;          (my-consume message-handler))
-;;   (future
-;;     (while true
-;;       (Thread/sleep 1000)))
-;;   ))
-
 
 (defn -main []
   (let [server-socket (start-udp-server 623)]
@@ -123,23 +100,4 @@
 (defn close-session [udp-session]
   (s/close! (:socket udp-session)))
 
-;(send-message (:socket udp-server) "localhost" 623 (byte-array (:rmcp-ping rmcp-payloads)))
 
-; (def s (fsm))
-; (-> nil  
-;  (s (c/rmcp-decode (byte-array (:rmcp-ping p/rmcp-payloads))))
-;  (s (c/rmcp-decode (byte-array (:rmcp-ping p/rmcp-payloads)))))
-
-; (def data {:socket :foobar
-;            :address "0:0:0:0:0:0:0:1", 
-;            :peer-port 62126, 
-;            :version 6, 
-;            :reserved 0, :sequence 255, 
-;            :rmcp-class {:asf-payload {:iana-enterprise-number 4542, :asf-message-header 
-;                                       {:asf-message-type 128, :message-tag 114, 
-;                                        :reserved 0, :data-length 0}}, :type :asf-session}})
-; (encode c/rmcp-header (h/rmcp-rakp-4-response-msg))
-; (require '[ipmi-aleph.test-payloads :refer :all])
-; (c/rmcp-decode (byte-array (:rmcp-rakp-4 rmcp-payloads)))
-
-; (h/rmcp-rakp-4-response-msg)

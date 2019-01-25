@@ -27,7 +27,6 @@
                      {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}
                      ]]
         (-> (map #(message-handler fsm %) payload) first)
-        (log/debug @fsm-state)
         (is (true?
              (:accepted? @fsm-state))))))
   (testing "message-handler-not-accepted"

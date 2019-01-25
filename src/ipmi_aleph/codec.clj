@@ -93,7 +93,6 @@
           selector (condp = message-type
                      128  {:type :asf-ping :message message-type}
                      64 {:type :asf-pong :message message-type})]
-      (log/debug "State-Selector:" selector)
       selector)
     (let [selector (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
                      :ipmi-1-5-payload  (let [response? (contains? (get-in m [:rmcp-class
@@ -560,75 +559,74 @@
                :sequence :ubyte
                :rmcp-class rmcp-class-header))
 
-(def rmcp-decode (partial decode rmcp-header))
-
 (defn compile-codec
   ([auth]
-  (let [grpl (fn [{:keys [payload-type auth]}]
-               (let [message-length  (:message-length payload-type)]
-                     (condp = payload-type
-                       0x00 ipmb-message
-                       0x10 rmcp-open-session-request
-                       0x11 rmcp-open-session-response
-                       0x12 rmcp-plus-rakp-1
-                       0x13 (condp = auth
-                              :rmcp-rakp-2-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
-                              rmcp-plus-rakp-2)
-                       0x14 rmcp-plus-rakp-3
-                       0x15 rmcp-plus-rakp-4)))
-        ipmb-message  (compile-frame
+   (let [grpl         (fn [{:keys [payload-type auth]}]
+                        (let [t (get-in payload-type [:payload-type :type])
+                              _ (log/debug "PAYLOAD_TYPE:" t)
+                              message-length (:message-length payload-type)]
+                          (condp = t
+                            0x00 ipmb-message
+                            0x10 rmcp-open-session-request
+                            0x11 rmcp-open-session-response
+                            0x12 rmcp-plus-rakp-1
+                            0x13 (condp = auth
+                                   :rmcp-rakp-2-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
+                                   rmcp-plus-rakp-2)
+                            0x14 rmcp-plus-rakp-3
+                            0x15 rmcp-plus-rakp-4)))
+         ipmb-message (compile-frame
                        (header ipmb-header
                                (build-merge-header-with-data
                                 #(get-network-function-codec %))
                                (fn [b]
                                  b)))
 
-        authentication-type (compile-frame (enum :ubyte
-                                                 {:ipmi-1-5-session 0x00
-                                                  :ipmi-2-0-session 0x06}))
-        ipmi-1-5-session (compile-frame
-                          {:type :ipmi-1-5-session
-                           :ipmi-1-5-payload (compile-frame
-                                              (ordered-map
-                                               :session-seq :int32-le
-                                               :session-id  :int32-le
-                                               :message-length :ubyte
-                                               :ipmb-payload ipmb-message))})
-        ipmi-2-0-session (compile-frame
-                          {:type :ipmi-2-0-session
-                           :ipmi-2-0-payload (compile-frame
-                                              (header rmcp-plus-header
-                                                      (build-merge-header-with-data
-                                                       #(grpl {:payload-type % :auth auth}))
-                                                      (fn [b]
-                                                        b)))})
-        asf-session  (compile-frame
-                      {:type :asf-session
-                       :asf-payload (ordered-map
-                                     :iana-enterprise-number :uint32
-                                     :asf-message-header asf-message-header)})
+         authentication-type (compile-frame (enum :ubyte
+                                                  {:ipmi-1-5-session 0x00
+                                                   :ipmi-2-0-session 0x06}))
+         ipmi-1-5-session    (compile-frame
+                              {:type             :ipmi-1-5-session
+                               :ipmi-1-5-payload (compile-frame
+                                                  (ordered-map
+                                                   :session-seq :int32-le
+                                                   :session-id  :int32-le
+                                                   :message-length :ubyte
+                                                   :ipmb-payload ipmb-message))})
+         ipmi-2-0-session    (compile-frame
+                              {:type             :ipmi-2-0-session
+                               :ipmi-2-0-payload (compile-frame
+                                                  (header rmcp-plus-header
+                                                          (build-merge-header-with-data
+                                                           #(grpl {:payload-type % :auth auth}))
+                                                          (fn [b]
+                                                            b)))})
+         asf-session         (compile-frame
+                              {:type        :asf-session
+                               :asf-payload (ordered-map
+                                             :iana-enterprise-number :uint32
+                                             :asf-message-header asf-message-header)})
 
-        ipmi-session  (compile-frame
-                       {:type                 :ipmi-session
-                        :ipmi-session-payload (compile-frame
-                                               (header
-                                                authentication-type
-                                                {:ipmi-1-5-session ipmi-1-5-session
-                                                 :ipmi-2-0-session ipmi-2-0-session}
-                                                :type))})
-        class-of-message (enum :ubyte {:asf-session  0x06
-                                       :ipmi-session 0x07
-                                       :rmcp-ack     0x86})
-        rmcp-class-header (header
-                           class-of-message
-                           {:asf-session  asf-session
-                            :ipmi-session ipmi-session
-                            :rmcp-ack     rmcp-ack}
-                           :type)
-        rmcp-header (ordered-map :version :ubyte ; 0x06
-                                 :reserved :ubyte ; 0x00
-                                 :sequence :ubyte
-                                 :rmcp-class rmcp-class-header)]
-    (compile-frame rmcp-header)))
-  ([] (compile-codec nil))
-   )
+         ipmi-session      (compile-frame
+                            {:type                 :ipmi-session
+                             :ipmi-session-payload (compile-frame
+                                                    (header
+                                                     authentication-type
+                                                     {:ipmi-1-5-session ipmi-1-5-session
+                                                      :ipmi-2-0-session ipmi-2-0-session}
+                                                     :type))})
+         class-of-message  (enum :ubyte {:asf-session  0x06
+                                         :ipmi-session 0x07
+                                         :rmcp-ack     0x86})
+         rmcp-class-header (header
+                            class-of-message
+                            {:asf-session  asf-session
+                             :ipmi-session ipmi-session
+                             :rmcp-ack     rmcp-ack}
+                            :type)
+         rmcp-header       (ordered-map :version :ubyte ; 0x06
+                                        :reserved :ubyte ; 0x00
+                                        :sequence :ubyte
+                                        :rmcp-class rmcp-class-header)]
+     (compile-frame rmcp-header)))
+  ([] (compile-codec nil)))

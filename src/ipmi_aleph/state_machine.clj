@@ -39,68 +39,57 @@
 (defn send-pong [session message-tag]
   (let [message (h/presence-pong-msg message-tag)]
     (log/info "SEND_PONG " message message-tag)
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-auth-cap-response [session]
   (let [message (h/auth-capabilities-response-msg)]
     (log/info "SEND_AUTH_CAP_RESPONSE: SESSION:" session)
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-open-session-response [session rsid mssid]
   (log/info "SEND_OPEN_SESSION_RESPONSE: SESSION:" session rsid mssid)
   (let [message (h/rmcp-open-session-response-msg rsid mssid)]
     (comment "Need to see if that can be an unsigned 32-bit integer")
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-rakp-2-response [session rsid msrand msguid]
   (log/info "SEND_RAKP_2_REPONSE: SESSION:" session  rsid msrand msguid)
   (let [message (h/rmcp-rakp-2-response-msg rsid msrand msguid)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-rakp-4-response [session rsid]
   (log/info "SEND_RAKP_4_REPONSE SID:" rsid)
   (let [message (h/rmcp-rakp-4-response-msg rsid)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-rmcp-ack [session seq-no]
   (log/info "Sending rmcp-ack " seq-no)
   (let [message (h/rmcp-ack seq-no)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-set-session-priv-level-response [session sid]
   (log/info "Sending Set Session Priv Level Response")
   (let [message (h/set-session-priv-level-rsp-msg sid)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-rmcp-close-response [session sid seq]
   (log/info "Sending RMCP Close Response")
   (let  [message (h/rmcp-close-response-msg sid seq)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-chassis-status-response [session sid]
   (log/info "Sending Status Chassis Response: ")
   (let [message (h/chassis-status-response-msg sid)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-device-id-response [session sid]
   (log/info "Sending Device ID Response: ")
   (let [message (h/device-id-response-msg sid)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (defn send-chassis-reset-response [session sid seq]
   (log/info "Sending Chassis Reset Response: ")
   (let [message (h/chassis-reset-response-msg sid seq)]
-    (log/debug "Message: " message)
     (send-message session message)))
 
 (def ipmi-fsm
