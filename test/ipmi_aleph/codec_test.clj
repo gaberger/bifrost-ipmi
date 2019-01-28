@@ -5,7 +5,9 @@
             [ipmi-aleph.test-payloads :refer [rmcp-payloads]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.codec :refer [rmcp-header compile-codec get-message-type]]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [buddy.core.codecs :as codecs]
+            [byte-streams :as bs]))
 
 (deftest test-rmcp-ack
   (testing "ack"
@@ -20,6 +22,9 @@
           decode (partial decode codec)
           encode (partial encode codec)
           payload (encode  (decode (byte-array (:rmcp-ping rmcp-payloads))))]
+      (log/debug (->
+                  (bs/to-byte-array payload)
+                  (codecs/bytes->hex)))
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,

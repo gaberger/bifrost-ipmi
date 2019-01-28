@@ -12,7 +12,7 @@
             [ipmi-aleph.codec :as c :refer [compile-codec rmcp-header]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.utils :as u]
-            [ipmi-aleph.state-machine :refer [ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
+            [ipmi-aleph.state-machine :refer [fsm ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
             [clojure.string :as str]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
@@ -20,34 +20,32 @@
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
 ;(log/merge-config!
-;   {:appenders
+;   {:appenders 
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
-(defn fsm []
-  (let [fsm (a/compile ipmi-fsm ipmi-handler)]
-    (partial a/advance fsm)))
+ 
 
 
 (defn message-handler  [adv message]
-  (let [fsm-state-var (if-not (nil? @fsm-state) @fsm-state nil)
-        peer (get-session-state message)
-        auth-codec (if-not (nil? fsm-state-var)
-                     (if (-> fsm-state-var (contains? :session-auth))
-                       (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
-                       nil)
-                     nil)
+  (let [fsm-state-var  (if-not (nil? @fsm-state) @fsm-state nil)
+        peer           (get-session-state message)
+        auth-codec     (if-not (nil? fsm-state-var)
+                         (if (-> fsm-state-var (contains? :session-auth))
+                           (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
+                           nil)
+                         nil)
         compiled-codec (if (nil? auth-codec)
                          ;;(compile-codec)
-                                 rmcp-header
-                                 (compile-codec auth-codec))
-        decoder (partial decode compiled-codec)
-        decoded (try
-                  (decoder (:message message))
-                  (catch Exception e
-                    (do
-                      (log/error "Caught decoding error:" (.getMessage e))
-                      {})))
-        m (merge peer decoded)
+                         rmcp-header
+                         (compile-codec auth-codec))
+        decoder        (partial decode compiled-codec)
+        decoded        (try
+                         (decoder (:message message))
+                         (catch Exception e
+                           (do
+                             (log/error "Caught decoding error:" (.getMessage e))
+                             {})))
+        m              (merge peer decoded)
         new-fsm-state  (let [fsm-state (try
                                          (adv fsm-state-var m)
                                          (catch Exception e

@@ -27,25 +27,21 @@
 
 (def authentication-codec
   {0 {:name :RAKP-none
-      :auth nil
       :size 0
       :optional false
-      :codec :rmcp-rakp-1}
+      :codec :rmcp-rakp}
    1 {:name :RAKP-HMAC-SHA1
-      :auth :hmac-sha1
       :size 20
       :optional false
-      :codec :rmcp-rakp-1-hmac-sha1}
+      :codec :rmcp-rakp-hmac-sha1}
    2 {:name :RAKP-HMAC-MD5
-      :auth :hmac-md5
       :size 16
       :optional true
-      :codec :rmcp-rakp-1-hmac-md5}
+      :codec :rmcp-rakp-hmac-md5}
    3 {:name :RAKP-HMAC-SHA256
-      :auth :hmac-sha256
       :size 64
       :optional true
-      :codec :rmcp-rakp-1-hmac-sha256}})
+      :codec :rmcp-rakp-hmac-sha256}})
 
 (def integrity-codec
   {0 {:name :RAKP-none
@@ -281,7 +277,7 @@
                              :max-priv-level 4)
    :reserved :ubyte
    :remote-session-id :uint32-le
-   :managed-system-session-id :int32-le
+   :managed-system-session-id :uint32-le
 
    :authentication-payload open-session-request
    :integrity-payload open-session-request
@@ -436,9 +432,9 @@
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
    :remote-session-console-id :uint32-le
-   :managed-system-random-number (repeat 16 :ubyte)
-   :managed-system-guid (repeat 16 :ubyte)
-   :key-exchange-code (repeat 20 :ubyte)))
+   :managed-system-random-number (repeat 16 :ubyte-le)
+   :managed-system-guid (repeat 16 :ubyte-le)
+   :key-exchange-code (repeat 20 :ubyte-le)))
 
 (defcodec rmcp-plus-rakp-3
   (ordered-map
@@ -571,7 +567,7 @@
                             0x11 rmcp-open-session-response
                             0x12 rmcp-plus-rakp-1
                             0x13 (condp = auth
-                                   :rmcp-rakp-2-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
+                                   :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
                                    rmcp-plus-rakp-2)
                             0x14 rmcp-plus-rakp-3
                             0x15 rmcp-plus-rakp-4)))

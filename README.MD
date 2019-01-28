@@ -2,6 +2,18 @@
 
 
 
+## Tables
+
+| Parameter | bytes | Name                         |   |
+| SIDm      |     4 | Remote_Console_Session_ID    |   |
+| SIDc      |     4 | BMC Session ID               |   |
+| Rm        |    16 | Remote Console Random Number |   |
+| Rc        |    16 | BMC Random Number            |   |
+| GUIDc     |    16 | BMC GUID                     |   |
+| Rolem     |     1 | Requested Privilege Level    |   |
+| ULENGTHm  |     1 | User Name Length             |   |
+| UNamem    |   var | User Name array              |   |
+
 
 Things to do.
 

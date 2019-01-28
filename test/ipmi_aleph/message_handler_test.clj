@@ -4,17 +4,30 @@
             [mockery.core :refer [with-mocks with-mock]]
             [ipmi-aleph.test-payloads :refer :all]
             [ipmi-aleph.enc-payloads-test :refer [ rmcp-enc-payloads-cipher-1]]
-            [ipmi-aleph.state-machine :refer [fsm-state]]
+            [ipmi-aleph.state-machine :refer [fsm-state fsm]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.codec :refer :all]
-            [ipmi-aleph.core :refer :all]
-            [taoensso.timbre :as log]))
+            [ipmi-aleph.core :refer [message-handler]]
+            ))
+
+
+(defn mock-send [f]
+  (with-mocks
+    [send-message {:target :ipmi-aleph.state-machine/send-message
+                   :return true
+                   :side-effect #(println "Mock: send-message")}
+     get-session-state {:target :ipmi-aleph.state-machine/get-session-state
+                        :return {:host "127.0.0.1" :port 54123}
+                        :side-effect #(println "Mock: get-session-state")}]
+    #(send-message %)
+    #(get-session-state %)))
+
+
+
+(use-fixtures :each mock-send)
 
 (deftest test-message-handler-noauth
   (testing "message-handler-accepted"
-    (with-mocks
-      [send-message {:target :ipmi-aleph.state-machine/send-message :return true}
-       get-session-state {:target :ipmi-aleph.state-machine/get-session-state :return {:host "127.0.0.1" :port 54123}}]
       (reset! fsm-state nil)
       (let [fsm (fsm)
             payload [;{:message (byte-array (:rmcp-ping rmcp-payloads))}
@@ -24,15 +37,11 @@
                      {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
                      {:message (byte-array (:device-id-req rmcp-payloads))}
                      {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
-                     {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}
-                     ]]
+                     {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]]
         (-> (map #(message-handler fsm %) payload) first)
         (is (true?
-             (:accepted? @fsm-state))))))
+             (:accepted? @fsm-state)))))
   (testing "message-handler-not-accepted"
-    (with-mocks
-      [send-message {:target :ipmi-aleph.state-machine/send-message :return true}
-       get-session-state {:target :ipmi-aleph.state-machine/get-session-state :return {:host "127.0.0.1" :port 54123}}]
       (reset! fsm-state nil)
       (let [fsm (fsm)
             payload [{:message (byte-array (:rmcp-ping rmcp-payloads))}
@@ -43,15 +52,11 @@
                      {:message (byte-array (:device-id-req rmcp-payloads))}
                      {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}]]
         (-> (map #(message-handler fsm %) payload) first)
-        (log/debug @fsm-state)
         (is (false?
-             (:accepted? @fsm-state)))))))
+             (:accepted? @fsm-state))))))
 
 (deftest test-message-handler-sha1-hmac
   (testing "message-handler-accepted"
-    (with-mocks
-      [send-message {:target :ipmi-aleph.state-machine/send-message :return true}
-       get-session-state {:target :ipmi-aleph.state-machine/get-session-state :return {:host "127.0.0.1" :port 54123}}]
       (reset! fsm-state nil)
       (let [fsm (fsm)
             payload [;{:message (byte-array (:rmcp-ping rmcp-payloads))}
@@ -61,9 +66,7 @@
                      {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
                      {:message (byte-array (:device-id-req rmcp-payloads))}
                      {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
-                     {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}
-                     ]]
+                     {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]]
         (-> (map #(message-handler fsm %) payload) first)
-        (log/debug @fsm-state)
         (is (true?
-             (:accepted? @fsm-state)))))))
+             (:accepted? @fsm-state))))))
