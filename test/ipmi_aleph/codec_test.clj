@@ -1,7 +1,7 @@
 (ns ipmi-aleph.codec-test
   (:require [clojure.test :refer :all]
             [mockery.core :refer [with-mocks]]
-            [gloss.io :refer [decode encode]]
+            [gloss.io :as i]
             [ipmi-aleph.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.codec :refer [compile-codec get-message-type]]
@@ -12,15 +12,15 @@
 (deftest test-rmcp-ack
   (testing "ack"
     (let [codec (compile-codec)
-          decode (partial decode codec)]
+          decode (partial i/decode codec)]
       (is (=  {:version 6, :reserved 0, :sequence 255, :rmcp-class  {:type :rmcp-ack}}
               (decode (byte-array (:rmcp-ack rmcp-payloads))))))))
 
 (deftest  test-rmcp-presence
   (testing "Test PING"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-ping rmcp-payloads))))]
       (is (= {:version 6,
               :reserved 0,
@@ -37,8 +37,8 @@
              (decode payload)))))
   (testing "Test PONG"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode (decode (byte-array (:rmcp-pong rmcp-payloads))))]
       (is (=   {:version 6,
                 :reserved 0,
@@ -62,8 +62,8 @@
 (deftest  test-rakp
   (testing "RAKP1 encoding"
     (let [codec  (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           rakp1  (encode  (decode (byte-array (rmcp-payloads :rmcp-rakp-1))))]
       (is (=  {:version  6,
                :reserved 0,
@@ -89,8 +89,8 @@
               (decode rakp1)))))
   (testing "RAKP2 encoding"
     (let [codec  (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           rakp2  (encode (decode (byte-array (rmcp-payloads :rmcp-rakp-2))))]
       (is (= {:reserved   0
               :rmcp-class {:ipmi-session-payload
@@ -115,8 +115,8 @@
              (decode rakp2)))))
   (testing "RAKP3 encoding"
     (let [codec  (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           rakp3  (encode (decode (byte-array (rmcp-payloads :rmcp-rakp-3))))]
       (is (= {:version  6,
               :reserved 0,
@@ -136,64 +136,83 @@
                :type :ipmi-session}}
              (decode rakp3))))))
 
-  (deftest rakp-3-sha1-hmac
-    (testing "RAKP3 encoding rakp sha1-hmac"
-      (let [codec  (compile-codec :rmcp-rakp-hmac-sha1)
-            decode (partial decode codec)
-            encode (partial encode codec)
-            rakp3  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-3))))]
-        (is (= {:version  6,
-                :reserved 0,
-                :sequence 255,
-                :rmcp-class
-                {:ipmi-session-payload
-                 {:ipmi-2-0-payload
-                  {:payload-type              {:encrypted? false, :authenticated? false, :type 20},
-                   :session-seq               0,
-                   :session-id                0,
-                   :message-length            28,
-                   :message-tag               0,
-                   :status-code               0,
-                   :reserved                  [0 0]
-                   :key-exchange-code         [89 113 128 245 253 51 88 93 58 222 92 171 175 52 164 252 243 248 175 101],
-                   :managed-system-session-id 16362},
-                  :type :ipmi-2-0-session},
-                 :type :ipmi-session}}
-               (decode rakp3))))))
+(deftest rakp-3-sha1-hmac
+  (testing "RAKP3 encoding rakp sha1-hmac"
+    (let [codec  (compile-codec :rmcp-rakp-hmac-sha1)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
+          rakp3  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-3))))]
+      (is (= {:version  6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-class
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:payload-type              {:encrypted? false, :authenticated? false, :type 20},
+                 :session-seq               0,
+                 :session-id                0,
+                 :message-length            28,
+                 :message-tag               0,
+                 :status-code               0,
+                 :reserved                  [0 0]
+                 :key-exchange-code         [89 113 128 245 253 51 88 93 58 222 92 171 175 52 164 252 243 248 175 101],
+                 :managed-system-session-id 16362},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
+             (decode rakp3))))))
 
- (deftest rakp-4-sha1-hmac
-    (testing "RAKP4 encoding rakp sha1-hmac"
-      (let [codec  (compile-codec :rmcp-rakp-hmac-sha1)
-            decode (partial decode codec)
-            encode (partial encode codec)
-            rakp4  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-4))))]
-        (is (= {:version 6,          
-                :reserved 0,
-                :sequence 255,
-                :rmcp-class
-                {:ipmi-session-payload
-                 {:ipmi-2-0-payload
-                  {:session-id                 0,
-                   :session-seq                0,
-                   :payload-type               {:encrypted? false, :authenticated? false, :type 21},
-                   :managed-console-session-id 16362,
-                   :status-code                0,
-                   :message-tag                0,
-                   :integrity-check
-                   [89 113 128 245 253 51 88 93 58 222
-                    92 171 175 52 164 252 243 248 175 101],
-                   :reserved                   [0 0],
-                   :message-length             28},
-                  :type :ipmi-2-0-session},
-                 :type :ipmi-session}}
-               (decode rakp4))))))
-
+(deftest rakp-4
+  (testing "RAKP4 Cipher 0"
+    (let [codec  (compile-codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
+          rakp4  (encode (decode (byte-array (rmcp-payloads :rmcp-rakp-4))))]
+      (is (= {:version 6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-class
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:payload-type {:encrypted? false, :authenticated? false, :type 21},
+                 :session-id 0,
+                 :session-seq 0,
+                 :message-length 8,
+                 :message-tag 0,
+                 :status-code 0,
+                 :reserved [0 0],
+                 :managed-console-session-id 2695013284},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
+             (decode rakp4)))))
+  (testing "RAKP4 encoding rakp sha1-hmac"
+    (let [codec  (compile-codec :rmcp-rakp-hmac-sha1)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
+          rakp4  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-4))))]
+      (is (=     {:version 6,
+                  :reserved 0,
+                  :sequence 255,
+                  :rmcp-class
+                  {:ipmi-session-payload
+                   {:ipmi-2-0-payload
+                    {:session-id 0,
+                     :session-seq 0,
+                     :payload-type {:encrypted? false, :authenticated? false, :type 21},
+                     :managed-console-session-id 2695013284,
+                     :status-code 0,
+                     :message-tag 0,
+                     :integrity-check [139 192 24 45 154 158 82 139 18 244 192 119],
+                     :reserved [0 0],
+                     :message-length 20},
+                    :type :ipmi-2-0-session},
+                   :type :ipmi-session}}
+                 (decode rakp4))))))
 
 (deftest test-open-close-session
   (testing "open session request"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           request (encode (decode (byte-array (rmcp-payloads :open-session-request))))]
       (is (=  {:version 6,
                :reserved 0,
@@ -229,8 +248,8 @@
               (decode request)))))
   (testing "open session response"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           response (encode (decode (byte-array (rmcp-payloads :open-session-response))))]
       (is (= {:version 6,
               :reserved 0,
@@ -268,8 +287,8 @@
              (decode response)))))
   (testing "close session request"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-close-session-req rmcp-payloads))))]
       (is (=     {:version 6,
                   :reserved 0,
@@ -293,8 +312,8 @@
                  (decode payload)))))
   (testing "close session response"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-close-session-rsp rmcp-payloads))))]
       (is (=     {:version 6,
                   :reserved 0,
@@ -321,8 +340,8 @@
 (deftest  test-channel-authentication
   (testing "Get Channel Auth Cap Request"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           request (encode  (decode (byte-array (rmcp-payloads :get-channel-auth-cap-req))))]
       (is (= {:version 6,
               :reserved 0,
@@ -349,8 +368,8 @@
              (decode request false)))))
   (testing "Get Channel Auth Cap Response"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           response (encode (decode (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
       (is (=   {:version 6,
                 :reserved 0,
@@ -398,8 +417,8 @@
 (deftest  test-privilege-level_request
   (testing "Set Session Priv Level Request"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :set-sess-prv-level-req))))]
       (is (=       {:version 6,
                     :reserved 0,
@@ -424,8 +443,8 @@
                    (decode payload))))
     (testing "Set Session Priv Level Response"
       (let [codec (compile-codec)
-            decode (partial decode codec)
-            encode (partial encode codec)
+            decode (partial i/decode codec)
+            encode (partial i/encode codec)
             payload (encode (decode (byte-array (rmcp-payloads :set-sess-prv-level-rsp))))]
         (is (=      {:version 6,
                      :reserved 0,
@@ -453,8 +472,8 @@
 (deftest  test-chassis-command
   (testing "Get Chassis Status Request"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :chassis-status-req))))]
       (is (=    {:version 6,
                  :reserved 0,
@@ -478,8 +497,8 @@
                 (decode payload)))))
   (testing "Get Chassis Status Response"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode  (decode (byte-array (rmcp-payloads :chassis-status-rsp))))]
       (is (=  {:version 6,
                :reserved 0,
@@ -529,8 +548,8 @@
 (deftest  chassis-reset
   (testing "chassis-reset-req"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload  (:chassis-reset-req rmcp-payloads)
           result (encode  (decode (byte-array payload)))]
       (is (=  {:version 6,
@@ -556,8 +575,8 @@
               (decode result)))))
   (testing "Chassis Reset Response"
     (let [codec (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           payload (encode (decode (byte-array (:chassis-reset-rsp rmcp-payloads))))]
       (is (=  {:version 6,
                :reserved 0,
@@ -584,8 +603,8 @@
 (deftest  test-device-id
   (testing "device-id-request"
     (let [codec  (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           result (encode (decode (byte-array (:device-id-req rmcp-payloads))))]
       (is (= {:version  6,
               :reserved 0,
@@ -609,8 +628,8 @@
              (decode result)))))
   (testing "device-id-response"
     (let [codec   (compile-codec)
-          decode (partial decode codec)
-          encode (partial encode codec)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
           result (encode (decode (byte-array (:device-id-rsp rmcp-payloads))))]
       (is (=  {:version  6,
                :reserved 0,
@@ -653,7 +672,7 @@
                 :type :ipmi-session}}
               (decode result))))))
 
-(def ipmi-decode (partial decode (compile-codec)))
+(def ipmi-decode (partial i/decode (compile-codec)))
 
 (deftest test-message-select
   (testing "RMCP Message Type"

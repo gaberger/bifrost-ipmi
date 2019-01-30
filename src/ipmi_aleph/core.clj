@@ -45,7 +45,7 @@
                                          (adv fsm-state-var m)
                                          (catch Exception e
                                            (do
-                                             (log/error "State Machine Error " (.getMessage e) "Input State " m)
+                                             (log/error "State Machine Error " (.getMessage e) "FSM State " fsm-state-var "Input " m)
                                              fsm-state-var)))]
                          (condp = (:value fsm-state)
                            nil fsm-state-var

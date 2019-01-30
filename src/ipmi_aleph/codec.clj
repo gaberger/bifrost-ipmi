@@ -463,7 +463,7 @@
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
    :managed-console-session-id :uint32-le
-   :integrity-check (repeat 20 :ubyte)))
+   :integrity-check (repeat 12 :ubyte)))
 
 ;; (defn get-rmcp-payload-type [type]
 ;;   (comment "Page 157")

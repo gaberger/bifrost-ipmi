@@ -324,30 +324,28 @@
 
 (defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp [m]
-  (log/debug "RMCP-RAKP-4 Response" m )
+  (log/debug "RMCP-RAKP-4 Response" m)
   (let [{:keys [sidm]} m]
-    {:version    6,
-     :reserved   0,
-     :sequence   255,
-     :rmcp-class {:ipmi-session-payload
-                  {:ipmi-2-0-payload
-                   {:payload-type
-                    {:encrypted?     false,
-                     :authenticated? false,
-                     :type           21},
-                    :session-seq                0,
-                    :session-id                 0
-                    :message-length             8,
-                    :message-tag                0,
-                    :status-code                0,
-                    :reserved                   [0 0],
-                    :managed-console-session-id sidm
-                   :type :ipmi-2-0-session},
-                  :type :ipmi-session}}}))
+    {:version 6,
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-2-0-payload
+       {:payload-type {:encrypted? false, :authenticated? false, :type 21},
+        :session-id 0,
+        :session-seq 0,
+        :message-length 8,
+        :message-tag 0,
+        :status-code 0,
+        :reserved [0 0],
+        :managed-console-session-id sidm},
+       :type :ipmi-2-0-session},
+      :type :ipmi-session}}))
 
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [m]
-  (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response"  )
-  (let [{:keys [sidm sidm-key]} m]
+  (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")
+  (let [{:keys [sidm sidm-hmac]} m]
     {:version    6,
      :reserved   0,
      :sequence   255,
@@ -364,7 +362,7 @@
                     :status-code                0,
                     :reserved                   [0 0],
                     :managed-console-session-id sidm
-                    :integrity-check sidm-key},
+                    :integrity-check sidm-hmac},
                    :type :ipmi-2-0-session},
                   :type :ipmi-session}}))
 
