@@ -1,7 +1,7 @@
-(ns ipmi-aleph.enc-payloads-test
+(ns ipmi-aleph.crypto-test
   (:require [clojure.test :refer :all]
-            [ipmi-aleph.codec :refer [compile-codec rmcp-header int->bytes]]
-            [ipmi-aleph.crypto :refer [calc-sha1-key]]
+            [ipmi-aleph.codec :refer [compile-codec  int->bytes]]
+            [ipmi-aleph.crypto :refer [calc-sha1-key calc-rakp-1]]
             [gloss.io :refer [decode encode]]
             [gloss.core :refer [compile-frame]]
             [buddy.core.mac :as mac]
@@ -15,54 +15,11 @@
             [byte-streams :as bs])
   (:import (java.nio ByteBuffer)))
 
-                                        ; Cipher slots
-;; ID   IANA    Auth Alg        Integrity Alg   Confidentiality Alg
-;; 0    N/A     none            none            none
-;; 1    N/A     hmac_sha1       none            none
-;; 2    N/A     hmac_sha1       hmac_sha1_96    none
-;; 3    N/A     hmac_sha1       hmac_sha1_96    aes_cbc_128
-;; 4    N/A     hmac_sha1       hmac_sha1_96    xrc4_128
-;; 5    N/A     hmac_sha1       hmac_sha1_96    xrc4_40
-;; 6    N/A     hmac_md5        none            none
-;; 7    N/A     hmac_md5        hmac_md5_128    none
-;; 8    N/A     hmac_md5        hmac_md5_128    aes_cbc_128
-;; 9    N/A     hmac_md5        hmac_md5_128    xrc4_128
-;; 10   N/A     hmac_md5        hmac_md5_128    xrc4_40
-;; 11   N/A     hmac_md5        md5_128         none
-;; 12   N/A     hmac_md5        md5_128         aes_cbc_128
-;; 13   N/A     hmac_md5        md5_128         xrc4_128
-;; 14   N/A     hmac_md5        md5_128         xrc4_40
-;; 15   N/A     hmac_sha256     none            none
-;; 16   N/A     hmac_sha256     sha256_128      none
-;; 17   N/A     hmac_sha256     sha256_128      aes_cbc_128
-;; 18   N/A     hmac_sha256     sha256_128      xrc4_128
-;; 19   N/A     hmac_sha256     sha256_128      xrc4_40  
-
-
-(def rmcp-enc-payloads-cipher-1
-  {:open-session-response    [0x06 0x00 0xff 0x07 0x06 0x11 0x00 0x00 0x00 0x00 0x00
-                              0x00 0x00 0x00 0x24 0x00 0x00 0x00 0x04 0x00 0xa4 0xa3
-                              0xa2 0xa0 0x01 0x18 0x00 0x02 0x00 0x00 0x00 0x08 0x01
-                              0x00 0x00 0x00 0x01 0x00 0x00 0x08 0x00 0x00 0x00 0x00
-                              0x02 0x00 0x00 0x08 0x00 0x00 0x00 0x00]
-   :rmcp-rakp-1              [0x06 0x00 0xff 0x07 0x06 0x12 0x00 0x00 0x00 0x00 0x00
-                              0x00 0x00 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x01 0x18
-                              0x00 0x02 0x35 0xf7 0xfc 0x77 0x92 0xb8 0xf7 0x28 0xe0
-                              0xfa 0x49 0xfb 0x58 0x04 0x6f 0xe5 0x14 0x00 0x00 0x04
-                              0x72 0x6f 0x6f 0x74]
-   :rmcp-rakp-2              [0x06 0x00 0xff 0x07 0x06 0x13 0x00 0x00 0x00 0x00 0x00 0x00
-                              0x00 0x00 0x3c 0x00 0x00 0x00 0x00 0x00 0xa4 0xa3 0xa2 0xa0
-                              0x42 0xfa 0xe7 0x0f 0x38 0x1a 0x44 0x1d 0x9e 0x78 0xf3 0x87
-                              0xc9 0xd0 0x49 0xa0 0xa1 0x23 0x45 0x67 0x89 0xab 0xcd 0xef
-                              0xa1 0x23 0x45 0x67 0x89 0xab 0xcd 0xef 0x7f 0xfc 0xdb 0xc8
-                              0x04 0x34 0xeb 0xb3 0x5b 0x4e 0x50 0x62 0xda 0x18 0x21 0xb2
-                              0xce 0xb5 0xbc 0xb4]})
-
 
 (deftest key-generation
-  (let [SIDM       (-> (encode int->bytes  0xa0a2a3a4) bs/to-byte-array reverse)
-        SIDC       (-> (encode int->bytes  0x02001b00) bs/to-byte-array reverse)
-        RM         (byte-array [0xfe 0xd2 0xf2 0xb3 0x7c 0xe4 0xac 0x7d 0x98 0x13 0x86 0x5b 0x73 0x07 0x0c 0x4e])
+  (let [SIDM       (-> (encode int->bytes  0xa0a2a3a4) bs/to-byte-array vec reverse)
+        SIDC       (-> (encode int->bytes  0x02001b00) bs/to-byte-array vec reverse)
+        RM         [0xfe 0xd2 0xf2 0xb3 0x7c 0xe4 0xac 0x7d 0x98 0x13 0x86 0x5b 0x73 0x07 0x0c 0x4e]
         RC         (-> (.toByteArray (biginteger 0x9323b34dc958cd939d6ce76d4d3189e2)) (bytes/slice 1 17))
         GUIDC      (.toByteArray (biginteger 0x44454c4c380010528036c2c04f573532))
         ROLEM      (byte-array 1 (byte 20)) ;Need to find out why this is 0x14
@@ -110,12 +67,24 @@
 
 (deftest test-encode-byte-format
   (testing "vector encoder"
-    (let [codec (compile-frame (repeat 10 :ubyte))
+    (let [codec  (compile-frame (repeat 10 :ubyte))
           encode (encode codec [0 1 2 3 4 5 6 7 8 9])]
       (is (= "00010203040506070809"
              (-> encode
                  bs/to-byte-array
-                 codecs/bytes->hex))))))
+                 codecs/bytes->hex)))))
+  (testing "hmac-calc"
+    (let   [rc         [2 4 6 5 3 8 8 0 13 14 11 0 11 9 3 0]
+            guidc      [0x99 0xe2 0x74 0x97 0x77 0x28 0x4f 0x5a 0xab 0x09 0xc5 0x90 0xda 0xbc 0x68b]
+            rm         [0xfe 0xd2 0xf2 0xb3 0x7c 0xe4 0xac 0x7d 0x98 0x13 0x86 0x5b 0x73 0x07 0x0c 0x4e]
+            sidc       2695013284
+            sidm       2695013282
+            unamem     "root"
+            rolem      4
+            rakp2-hmac (calc-rakp-1  {:rm rm :rc rc :guidc guidc :sidc sidc :sidm sidm :unamem unamem :rolem rolem})]
+      (is (bs/compare-bytes
+               "261e97e47fcb8c7996e14b9326ddcfa09100cd75"
+               rakp2-hmac)))))
 
 ;; Bad RAKP1
 (comment {:version 6, :reserved 0, :sequence 255, :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:session-id 0, :session-seq 0, :payload-type {:encrypted? false, :authenticated? false, :type 19}, :managed-system-random-number [8 14 14 10 8 10 5 13 5 5 10 1 0 7 4 1], :status-code 0, :message-tag 0, :key-exchange-code [37 103 22 -64 57 104 -24 17 -58 -65 -17 56 -112 100 25 -115 -4 -10 58 36], :reserved [0 0], :message-length 60, :managed-system-guid [66 115 -125 78 -92 -127 64 36 -71 -118 77 -65 112 10 -24 16], :remote-session-console-id 2695013284}, :type :ipmi-2-0-session}, :type :ipmi-session}})

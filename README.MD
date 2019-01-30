@@ -28,3 +28,26 @@ Things to do.
 One thing we need to workout is how to bridge credentials and targets from one protocol to another. 
 
 For IPMI, only the `username` is sent between the remote console and the managed console and is 20 bytes long. Because RAKP uses symmetric keys the client and the server must know the password. 
+
+## Cipher Slots
+;; ID   IANA    Auth Alg        Integrity Alg   Confidentiality Alg
+;; 0    N/A     none            none            none
+;; 1    N/A     hmac_sha1       none            none
+;; 2    N/A     hmac_sha1       hmac_sha1_96    none
+;; 3    N/A     hmac_sha1       hmac_sha1_96    aes_cbc_128
+;; 4    N/A     hmac_sha1       hmac_sha1_96    xrc4_128
+;; 5    N/A     hmac_sha1       hmac_sha1_96    xrc4_40
+;; 6    N/A     hmac_md5        none            none
+;; 7    N/A     hmac_md5        hmac_md5_128    none
+;; 8    N/A     hmac_md5        hmac_md5_128    aes_cbc_128
+;; 9    N/A     hmac_md5        hmac_md5_128    xrc4_128
+;; 10   N/A     hmac_md5        hmac_md5_128    xrc4_40
+;; 11   N/A     hmac_md5        md5_128         none
+;; 12   N/A     hmac_md5        md5_128         aes_cbc_128
+;; 13   N/A     hmac_md5        md5_128         xrc4_128
+;; 14   N/A     hmac_md5        md5_128         xrc4_40
+;; 15   N/A     hmac_sha256     none            none
+;; 16   N/A     hmac_sha256     sha256_128      none
+;; 17   N/A     hmac_sha256     sha256_128      aes_cbc_128
+;; 18   N/A     hmac_sha256     sha256_128      xrc4_128
+;; 19   N/A     hmac_sha256     sha256_128      xrc4_40  

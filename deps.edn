@@ -6,7 +6,7 @@
         automat {:mvn/version "0.2.4"}
         gloss {:mvn/version "0.2.6"}
         danlentz/clj-uuid {:mvn/version "0.1.7"}
-        buddy/buddy-core {:mvn/version "1.5.0"}
+        buddy {:mvn/version "2.0.0"}
         mockery {:mvn/version "0.1.4"}
         eftest {:mvn/version "0.5.4"}
         org.clojure/core.async {:mvn/version "0.4.490"}}
@@ -26,8 +26,8 @@
            :test {:extra-paths   ["test"]
                   :extra-deps {eftest {:mvn/version "0.5.2"}
                                mockery {:mvn/version "0.1.4"}}
-                  :main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"))"]}
-                  ;:main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:report,eftest.report.pretty/report,:capture-output?,false})"]}
+                  ;:main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:report,eftest.report.pretty/report,:capture-output?,false,:multithread?,false})"]}
+                  :main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:multithread?,false})"]}
            :native-image
            {:main-opts ["-m clj.native-image ipmi-aleph.core"
                         "--report-unsupported-elements-at-runtime"

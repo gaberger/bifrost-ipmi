@@ -270,7 +270,7 @@
      :type :ipmi-2-0-session},
     :type :ipmi-session}})
 
-(defmulti rmcp-rakp-2-response-msg (fn [m] (:auth m)))
+(defmulti rmcp-rakp-2-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp [m]
   (log/debug "RMCP-RAKP Response")
   (let [{:keys [sidm rc guidc]} m]
@@ -322,23 +322,49 @@
        :type :ipmi-2-0-session}
       :type :ipmi-session}}))
 
-(defn rmcp-rakp-4-response-msg [rsid]
-  {:version 6,
-   :reserved 0,
-   :sequence 255,
-   :rmcp-class {:ipmi-session-payload
-                {:ipmi-2-0-payload
-                 {:payload-type
-                  {:encrypted? false,
-                   :authenticated? false,
-                   :type 21},
-                  :session-seq 0,
-                  :session-id 0
-                  :message-length 8,
-                  :message-tag 0,
-                  :status-code 0,
-                  :reserved [0 0],
-                  :managed-console-session-id rsid},
-                 :type :ipmi-2-0-session},
-                :type :ipmi-session}})
+(defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp [m]
+  (log/debug "RMCP-RAKP-4 Response" m )
+  (let [{:keys [sidm]} m]
+    {:version    6,
+     :reserved   0,
+     :sequence   255,
+     :rmcp-class {:ipmi-session-payload
+                  {:ipmi-2-0-payload
+                   {:payload-type
+                    {:encrypted?     false,
+                     :authenticated? false,
+                     :type           21},
+                    :session-seq                0,
+                    :session-id                 0
+                    :message-length             8,
+                    :message-tag                0,
+                    :status-code                0,
+                    :reserved                   [0 0],
+                    :managed-console-session-id sidm
+                   :type :ipmi-2-0-session},
+                  :type :ipmi-session}}}))
+
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [m]
+  (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response"  )
+  (let [{:keys [sidm sidm-key]} m]
+    {:version    6,
+     :reserved   0,
+     :sequence   255,
+     :rmcp-class {:ipmi-session-payload
+                  {:ipmi-2-0-payload
+                   {:payload-type
+                    {:encrypted?     false,
+                     :authenticated? false,
+                     :type           21},
+                    :session-seq                0,
+                    :session-id                 0
+                    :message-length             8,
+                    :message-tag                0,
+                    :status-code                0,
+                    :reserved                   [0 0],
+                    :managed-console-session-id sidm
+                    :integrity-check sidm-key},
+                   :type :ipmi-2-0-session},
+                  :type :ipmi-session}}))
 

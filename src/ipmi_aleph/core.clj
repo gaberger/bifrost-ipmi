@@ -9,10 +9,10 @@
             [byte-streams :as bs]
             [automat.core :as a]
             [automat.viz :refer [view]]
-            [ipmi-aleph.codec :as c :refer [compile-codec rmcp-header]]
+            [ipmi-aleph.codec :as c :refer [compile-codec]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.utils :as u]
-            [ipmi-aleph.state-machine :refer [fsm ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
+            [ipmi-aleph.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
             [clojure.string :as str]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
@@ -27,30 +27,25 @@
 
 
 (defn message-handler  [adv message]
-  (let [fsm-state-var  (if-not (nil? @fsm-state) @fsm-state nil)
-        peer           (get-session-state message)
-        auth-codec     (if-not (nil? fsm-state-var)
-                         (if (-> fsm-state-var (contains? :session-auth))
-                           (-> (u/get-session-auth (fsm-state-var :session-auth)) :auth-codec)
-                           nil)
-                         nil)
-        compiled-codec (if (nil? auth-codec)
-                         ;;(compile-codec)
-                         rmcp-header
-                         (compile-codec auth-codec))
+  (let [fsm-state-var (if-not (nil? @fsm-state) @fsm-state nil)
+        peer          (get-session-state message)
+        _             (log/debug "FSM_STATE" fsm-state-var)
+        auth          (-> fsm-state-var :value :authentication-payload c/authentication-codec :codec)
+        _              (log/debug "Auth Codec " auth)
+        compiled-codec (compile-codec auth)
         decoder        (partial decode compiled-codec)
         decoded        (try
                          (decoder (:message message))
                          (catch Exception e
                            (do
-                             (log/error "Caught decoding error:" (.getMessage e))
+                             (log/error "Caught decoding error:" (.getMessage e) (codecs/bytes->hex (:message  message)))
                              {})))
         m              (merge peer decoded)
         new-fsm-state  (let [fsm-state (try
                                          (adv fsm-state-var m)
                                          (catch Exception e
                                            (do
-                                             (log/error "State Machine Error " (.getMessage e))
+                                             (log/error "State Machine Error " (.getMessage e) "Input State " m)
                                              fsm-state-var)))]
                          (condp = (:value fsm-state)
                            nil fsm-state-var
@@ -61,9 +56,9 @@
 
 (defn start-consumer
   [server-socket]
-  (let [fsm (fsm)]
+  (let [fsm (bind-fsm)]
     (->> server-socket
-         (s/consume #(message-handler fsm %)))))
+         (s/consume #(message-handler (bind-fsm) %)))))
 
 (defn send-message [socket host port message]
   (s/put! socket {:host host, :port port, :message message}))
