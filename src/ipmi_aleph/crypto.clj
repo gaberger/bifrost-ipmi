@@ -22,7 +22,7 @@
         rolem'      (byte-array 1 (byte 0x14))
         rakp2-input (bytes/concat sidm' sidc' rm rc guidc rolem' ulengthm unamem')
         rakp2-hmac  (calc-sha1-key uid rakp2-input)]
-    (log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
+    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
                  :rc          (-> rc byte-array codecs/bytes->hex)
                  :sidm        (format "%X" sidm)
                  :sidc        (format "%X" sidc)
@@ -41,7 +41,7 @@
         rolem'      (byte-array 1 (byte 0x14))
         sidc-input (bytes/concat rc sidm' rolem' ulengthm unamem')
         sidc-hmac  (calc-sha1-key uid sidc-input)]
-    (log/debug  {
+    #_(log/debug  {
                  :rc          (-> rc byte-array codecs/bytes->hex)
                  :sidm        (format "%X" sidm)
                  :rolem       rolem
@@ -58,7 +58,7 @@
         rolem'      (byte-array 1 (byte 0x14))
         sik-input (bytes/concat rm rc rolem' ulengthm unamem')
         sik-hmac  (calc-sha1-key uid sik-input)]
-    (log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
+    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
                  :rc          (-> rc byte-array codecs/bytes->hex)
                  :rolem       rolem
                  :sik-input (codecs/bytes->hex sik-input)
@@ -70,7 +70,7 @@
   (let [sidc'       (-> (encode int->bytes sidc) bs/to-byte-array reverse vec)
         sidm-input (bytes/concat rm sidc' guidc)
         sidm-hmac  (calc-sha1-key sik sidm-input)]
-    (log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
+    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
                  :sidc        (format "%X" sidc)
                  :guidc       (->  guidc byte-array codecs/bytes->hex)
                  :sidm-input (codecs/bytes->hex sidm-input)

@@ -324,7 +324,7 @@
 
 (defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp [m]
-  (log/debug "RMCP-RAKP-4 Response" m)
+  (log/debug "RMCP-RAKP-4 Response" )
   (let [{:keys [sidm]} m]
     {:version 6,
      :reserved 0,
@@ -345,7 +345,7 @@
 
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [m]
   (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")
-  (let [{:keys [sidm sidm-hmac]} m]
+  (let [{:keys [sidm sidm-hmac]} m ]
     {:version    6,
      :reserved   0,
      :sequence   255,
@@ -367,7 +367,7 @@
                   :type :ipmi-session}}))
 
 (defn hpm-capabilities-msg  [m]
-  (log/debug "HPM Capabilities" m)
+  (log/debug "HPM Capabilities" )
   (let [{:keys [sid]} m]
     {:version  6,
      :reserved 0,
@@ -391,7 +391,7 @@
       :type :ipmi-session}}))
   
 (defn picmg-response-msg  [m]
-  (log/debug "PICMG Response" m)
+  (log/debug "PICMG Response" )
   (let [{:keys [sid]} m]
     {:version 6,
                 :reserved 0,
@@ -415,7 +415,7 @@
                  :type :ipmi-session}}))
    
 (defn vso-response-msg [m]
-  (log/debug "VSO Capabilities" m)
+  (log/debug "VSO Capabilities" )
   (let [{:keys [sid]} m]
     {:version    6,
      :reserved   0,

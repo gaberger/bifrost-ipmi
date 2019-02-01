@@ -8,6 +8,7 @@
             [gloss.io :refer [decode encode]]
             [byte-streams :as bs]
             [automat.core :as a]
+            [manifold.deferred :as d]
             [automat.viz :refer [view]]
             [ipmi-aleph.codec :as c :refer [compile-codec]]
             [ipmi-aleph.handlers :as h]
@@ -23,10 +24,14 @@
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 
+  
+
+
+
+
 (defn message-handler  [adv message]
   (let [fsm-state-var (if-not (nil? @fsm-state) @fsm-state nil)
         peer          (get-session-state message)
-        _             (log/debug "FSM_STATE" fsm-state-var)
         auth          (-> fsm-state-var :value :authentication-payload c/authentication-codec :codec)
         _              (log/debug "Auth Codec " auth)
         compiled-codec (compile-codec auth)
@@ -53,38 +58,45 @@
 (defn start-consumer
   [server-socket]
   (let [fsm (bind-fsm)]
-    (->> server-socket
-         (s/consume #(message-handler fsm %)))))
+    (future
+      (->> server-socket
+          (s/consume #(message-handler fsm %))))))
 
 (defn send-message [socket host port message]
   (s/put! socket {:host host, :port port, :message message}))
 
 (defn start-udp-server
   [port]
-  (if (s/closed?  @server-socket)
+  (if-not (some-> @server-socket  s/closed? not)
     (do
       (log/info "Starting Server on port " port)
       (reset! server-socket @(udp/socket {:port port})))
-    (log/error "Port in use")))
-
-(defn start-server [port]
-  (do
-    (start-udp-server port)
-    (reset! fsm-state {})
-    (start-consumer  @server-socket)
-    (future
-      (Thread/sleep 200000)
-      (s/close! @server-socket)
-      (println "closed socket"))))
-
-(defn -main []
-  (do
-    (start-udp-server 623)
-    (reset! fsm-state {})
-    (start-consumer  @server-socket)
-    (future
-      (while true
-        (Thread/sleep 1000)))))
+    (do
+      (log/error "Port in use")
+      false)
+    ))
 
 (defn close-session []
-  (s/close! @server-socket))
+  (s/close!   @server-socket))
+
+
+(defn start-server [port]
+    (when (start-udp-server port)
+      (do
+         (reset! fsm-state {})
+          (start-consumer  @server-socket)
+        (future
+          (Thread/sleep 300000)
+          (close-session)
+          (println "closed socket")))))
+
+(defn -main []
+    (when (start-udp-server 623)
+      (do
+        (reset! fsm-state {})
+        (start-consumer  @server-socket)
+    (future
+      (while true
+        (Thread/sleep 1000))))))
+
+

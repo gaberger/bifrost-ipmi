@@ -17,7 +17,6 @@
      (frame-fn h)
      identity
      (fn [data]
-       (log/debug data)
        (merge h data)))))
 
 (defcodec int->bytes :uint32)
@@ -333,11 +332,10 @@
    :checksum :ubyte))
 
 (defn get-picmg-signature-request-codec [h]
-  (println "+++++Get signature from " h)
   (condp = (:signature h)
     0x0 picmg-properties-req
     0x3 vso-capabilities-req))
-   
+ 
 (defn get-picmg-signature-response-codec [h]
   (condp = (:signature h)
     0x0 picmg-properties-rsp
@@ -420,7 +418,6 @@
 
 
 (defn get-group-extensions-command-request-codec [h]
-  (log/debug "GECRC -->" h)
   (condp = (:command h)
     0x00 ipmb-picmg-message-req
     0x3e hpm-capabilities-req))
