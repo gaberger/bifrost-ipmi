@@ -196,7 +196,7 @@
           :open-session-request (a/$ :open-session-request)
           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
           :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
-         (a/+ (a/or
+         (a/* (a/or
                [:chassis-status-req (a/$ :chassis-status)]
                [:chassis-reset-req (a/$ :chassis-reset)]
                [:device-id-req (a/$ :device-id-req)]
@@ -207,7 +207,7 @@
               )
               ))
         [:rmcp-close-session-req (a/$ :rmcp-close-session)]
-         ;[:asf-ping (a/$ :asf-ping)]
+         ;
         )])
 
 (def ipmi-fsm-sample

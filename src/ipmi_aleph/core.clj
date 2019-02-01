@@ -15,7 +15,8 @@
             [ipmi-aleph.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state server-socket fsm-state]]
             [clojure.string :as str]
             [taoensso.timbre :as log]
-            [taoensso.timbre.appenders.core :as appenders]))
+            [taoensso.timbre.appenders.core :as appenders])
+   (:import [java.net InetSocketAddress]))
 
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true}}})
@@ -23,10 +24,12 @@
 ;   {:appenders 
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
-
-  
-
-
+;; Design issues
+;; Should session-less messages be in their own FSM?
+;; Each IPMI "session" should run till completion given we are not supporting any interactive capability
+;; Only rmcpping doesn't follow state-machine.. Lets carve it out seperately.
+;; for each peer [ip:port] process it's own fsm.
+;; 
 
 
 (defn message-handler  [adv message]
@@ -67,17 +70,17 @@
 
 (defn start-udp-server
   [port]
-  (if-not (some-> @server-socket  s/closed? not)
+  (if-not (log/spy (some-> @server-socket  s/closed? not))
     (do
-      (log/info "Starting Server on port " port)
-      (reset! server-socket @(udp/socket {:port port})))
+      (log/info "Starting Server")
+      (reset! server-socket @(udp/socket {:port port :epoll? true})))
     (do
       (log/error "Port in use")
       false)
     ))
 
 (defn close-session []
-  (s/close!   @server-socket))
+  (s/close! @server-socket))
 
 
 (defn start-server [port]
@@ -90,7 +93,7 @@
           (close-session)
           (println "closed socket")))))
 
-(defn -main []
+(defn -main [host port]
     (when (start-udp-server 623)
       (do
         (reset! fsm-state {})
