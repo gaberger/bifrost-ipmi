@@ -1,10 +1,10 @@
 (ns ipmi-aleph.utils
   (:require [gloss.io :refer [encode decode]]
             [taoensso.timbre :as log]
-            [ipmi-aleph.codec :refer [compile-codec] :as c]))
+            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c]))
 
 (defn dump-functions
-  ([m]
+  ([m auth]
    (letfn [(get-command [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :command]))
            (get-function [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :network-function :function]))
            (get-type [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :payload-type :type]))
@@ -13,19 +13,21 @@
 
      (if (map? m)
        (let [ks (vec (keys m))
-             compiled-decoder (compile-codec  :rmcp-rakp-2-hmac-sha1)
+             compiled-decoder (compile-codec auth)
              decoder (partial decode compiled-decoder)
              result (for [k ks
-                          :let [_ (log/debug (k m))
-                                decode (decoder (byte-array (k m)) false)
-                                _ (clojure.pprint/pprint decode)]
+                          :let [decode (decoder (byte-array (k m)) false)
+                                message-type  (try
+                                                (get-message-type decode)
+                                                (catch Exception e
+                                                    (log/error decode)))]
                           :when (contains? (get-in decode [:rmcp-class :ipmi-session-payload]) :ipmi-2-0-payload)]
-                      {:key k :type (get-type decode) :command (get-command decode) :function (get-function decode)})]
+                      {:key k :message message-type :type (get-type decode) :command (get-command decode) :function (get-function decode)})]
          (vec result))
        (println "Expected a map got " (type m)))))
-  ([m keyword]
+  ([m auth keyword]
    (let [new-m (select-keys m [keyword])]
-     (dump-functions new-m))))
+     (dump-functions new-m auth))))
 
 (defn get-session-auth
   "We need this function to select the proper codec negotiated during the open-session-request"
@@ -34,3 +36,10 @@
         confidentiality-codec (->  (get-in state [:value :confidentiality-payload]) c/confidentiality-codec)
         integrity-codec (-> (get-in state [:value :integrity-payload]) c/integrity-codec)]
     {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
+
+(defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
+
+(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
+; (pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
+
+

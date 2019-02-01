@@ -366,3 +366,74 @@
                    :type :ipmi-2-0-session},
                   :type :ipmi-session}}))
 
+(defn hpm-capabilities-msg  [m]
+  (log/debug "HPM Capabilities" m)
+  (let [{:keys [sid]} m]
+    {:version  6,
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-2-0-payload
+       {:session-id              sid,
+        :session-seq             2,
+        :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+        :command                 62,
+        :source-lun              8,
+        :source-address          32,
+        :checksum                217,
+        :header-checksum         203,
+        :target-address          129,
+        :network-function        {:function 45, :target-lun 0},
+        :message-length          8,
+        :command-completion-code 193},
+       :type :ipmi-2-0-session},
+      :type :ipmi-session}}))
+  
+(defn picmg-response-msg  [m]
+  (log/debug "PICMG Response" m)
+  (let [{:keys [sid]} m]
+    {:version 6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-class
+                {:ipmi-session-payload
+                 {:ipmi-2-0-payload
+                  {:session-id sid
+                   :session-seq 6,
+                   :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                   :signature 0,
+                   :command 0,
+                   :source-lun 16,
+                   :source-address 129,
+                   :checksum 111,
+                   :header-checksum 48,
+                   :target-address 32,
+                   :network-function {:function 44, :target-lun 0},
+                   :message-length 8},
+                  :type :ipmi-2-0-session},
+                 :type :ipmi-session}}))
+   
+(defn vso-response-msg [m]
+  (log/debug "VSO Capabilities" m)
+  (let [{:keys [sid]} m]
+    {:version    6,
+     :reserved   0,
+     :sequence   255,
+     :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:session-id       sid,
+                                                            :session-seq      13,
+                                                            :payload-type     {:encrypted?     false
+                                                                               :authenticated? false
+                                                                               :type           0},
+                                                            :signature        3,
+                                                            :command          0,
+                                                            :source-lun       20,
+                                                            :source-address   129,
+                                                            :checksum         104,
+                                                            :header-checksum  48,
+                                                            :target-address   32,
+                                                            :network-function {:function   44
+                                                                               :target-lun 0},
+                                                            :message-length   8},
+                                         :type             :ipmi-2-0-session},
+                  :type                 :ipmi-session}}))

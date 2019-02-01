@@ -4,12 +4,13 @@
         cheshire {:mvn/version "5.8.1"}
         aleph {:mvn/version "0.4.7-alpha4"}
         automat {:mvn/version "0.2.4"}
-        gloss {:mvn/version "0.2.6"}
+       ; gloss {:mvn/version "0.2.6"}
         danlentz/clj-uuid {:mvn/version "0.1.7"}
         buddy {:mvn/version "2.0.0"}
         mockery {:mvn/version "0.1.4"}
         eftest {:mvn/version "0.5.4"}
-        org.clojure/core.async {:mvn/version "0.4.490"}}
+        org.clojure/core.async {:mvn/version "0.4.490"}
+        gloss {:git/url "https://github.com/gaberger/gloss.git", :sha "880bfcfad8f614ca6671344da41673913719c488"}}
 
  :paths ["src", "test"]
  :aliases {:nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.20.0"}

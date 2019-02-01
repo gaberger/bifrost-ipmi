@@ -11,8 +11,7 @@
             [automat.viz :refer [view]]
             [ipmi-aleph.codec :as c :refer [compile-codec]]
             [ipmi-aleph.handlers :as h]
-            [ipmi-aleph.utils :as u]
-            [ipmi-aleph.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state udp-session fsm-state]]
+            [ipmi-aleph.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state server-socket fsm-state]]
             [clojure.string :as str]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]))
@@ -22,8 +21,6 @@
 ;(log/merge-config!
 ;   {:appenders 
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
-
- 
 
 
 (defn message-handler  [adv message]
@@ -50,47 +47,44 @@
                          (condp = (:value fsm-state)
                            nil fsm-state-var
                            fsm-state))]
-    (log/debug "STATE-INDEX " (:state-index new-fsm-state))
-    (log/debug "STATE-ACCEPT " (:accepted? new-fsm-state))
+    (log/debug "STATE-INDEX " (:state-index new-fsm-state) " STATE-ACCEPT " (:accepted? new-fsm-state))
     (reset! fsm-state new-fsm-state)))
 
 (defn start-consumer
   [server-socket]
   (let [fsm (bind-fsm)]
     (->> server-socket
-         (s/consume #(message-handler (bind-fsm) %)))))
+         (s/consume #(message-handler fsm %)))))
 
 (defn send-message [socket host port message]
   (s/put! socket {:host host, :port port, :message message}))
 
 (defn start-udp-server
   [port]
-  (log/info "Starting Server on port " port)
-  (let [server-socket @(udp/socket {:port port})]
-    server-socket))
+  (if (s/closed?  @server-socket)
+    (do
+      (log/info "Starting Server on port " port)
+      (reset! server-socket @(udp/socket {:port port})))
+    (log/error "Port in use")))
 
 (defn start-server [port]
-  (let [server-socket (start-udp-server port)]
-    (swap! udp-session assoc :socket server-socket)
+  (do
+    (start-udp-server port)
     (reset! fsm-state {})
-    (start-consumer server-socket)
+    (start-consumer  @server-socket)
     (future
       (Thread/sleep 200000)
-      (s/close! server-socket)
-      (println "closed socket"))
-    server-socket))
-
-
+      (s/close! @server-socket)
+      (println "closed socket"))))
 
 (defn -main []
-  (let [server-socket (start-udp-server 623)]
-    (swap! udp-session assoc :socket server-socket)
-    (start-consumer server-socket)
+  (do
+    (start-udp-server 623)
+    (reset! fsm-state {})
+    (start-consumer  @server-socket)
     (future
       (while true
         (Thread/sleep 1000)))))
 
-(defn close-session [udp-session]
-  (s/close! (:socket udp-session)))
-
-
+(defn close-session []
+  (s/close! @server-socket))

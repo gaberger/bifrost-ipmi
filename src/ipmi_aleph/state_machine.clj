@@ -16,6 +16,7 @@
 
 (def udp-session (atom {}))
 (def fsm-state   (atom {}))
+(def server-socket (atom (s/stream)))
 
 (declare ipmi-fsm)
 (declare ipmi-handler)
@@ -40,16 +41,15 @@
     {:host address :port port}))
 
 (defn send-udp [session message]
-  (let [server-socket (get @udp-session :socket)
-        host (get session :host)
+  (let [host (get session :host)
         port (get session :port)]
     (log/debug "Sending Message to host:" host " port:" port)
     (log/debug  "Bytes" (-> message
                             bs/to-byte-array
                             codecs/bytes->hex))
-    (s/put! server-socket {:host host
-                           :port port
-                           :message message})))
+    (s/put! @server-socket {:host host
+                            :port port
+                            :message message})))
 
 (defmulti send-message :type)
 (defmethod send-message :chassis-status [m]
@@ -126,7 +126,7 @@
     (send-udp input encoded-message)))
 
 (defmethod send-message :session-priv-level [m]
-  (log/info "Sending Session Privi Level Response")
+  (log/info "Sending Session Privi Level Response" m)
   (let [{:keys [input sid]} m
         message             (h/set-session-priv-level-rsp-msg sid)
         codec               (c/compile-codec)
@@ -155,6 +155,45 @@
     (log/debug message)
     (send-udp input encoded-message)))
 
+(defmethod send-message :hpm-capabilities-req [m]
+  (log/info "Sending HPM Capabilities Response" m)
+  (let [{:keys [input]} m
+        message                     (h/hpm-capabilities-msg m)
+        codec                       (c/compile-codec)
+        ipmi-encode                 (partial encode codec)
+        encoded-message             (try
+                                       (ipmi-encode message)
+                                       (catch Exception e
+                                         (log/error "Caught Exception " e)))]
+    (log/debug message)
+    (send-udp input encoded-message)))
+
+(defmethod send-message :picmg-properties-req [m]
+  (log/info "Sending PICMG Properties Response" m)
+  (let [{:keys [input]} m
+        message                     (h/picmg-response-msg m)
+        codec                       (c/compile-codec)
+        ipmi-encode                 (partial encode codec)
+        encoded-message             (try
+                                       (ipmi-encode message)
+                                       (catch Exception e
+                                         (log/error "Caught Exception " e)))]
+    (log/debug message)
+    (send-udp input encoded-message)))
+
+(defmethod send-message :vso-capabilities-req [m]
+  (log/info "Sending VSO Capabilities Response" m)
+  (let [{:keys [input]} m
+        message                     (h/vso-response-msg m)
+        codec                       (c/compile-codec)
+        ipmi-encode                 (partial encode codec)
+        encoded-message             (try
+                                       (ipmi-encode message)
+                                       (catch Exception e
+                                         (log/error "Caught Exception " e)))]
+    (log/debug message)
+    (send-udp input encoded-message)))
+
 (defn send-rmcp-ack [session seq-no]
   (log/info "Sending rmcp-ack " seq-no)
   (let [message         (h/rmcp-ack seq-no)
@@ -165,19 +204,22 @@
 
 (def ipmi-fsm
   [(a/* (a/$ :init)
+        (a/*
+         [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+          :open-session-request (a/$ :open-session-request)
+          :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+          :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+         (a/* (a/or
+               [:chassis-status-req (a/$ :chassis-status)]
+               [:chassis-reset-req (a/$ :chassis-reset)]
+               [:device-id-req (a/$ :device-id-req)]
+               [:hpm-capabilities-req (a/$ :hpm-capabilities-req)]
+               [:picmg-properties-req (a/$ :picmg-properties-req)]
+               [:vso-capabilities-req (a/$ :vso-capabilities-req)]
+               [:set-session-prv-level-req (a/$ :session-priv-level)])))
         (a/or
          [:asf-ping (a/$ :asf-ping)]
-         (a/*
-          [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-           :open-session-request (a/$ :open-session-request)
-           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-           :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
-          (a/* (a/or
-                [:chassis-status-req (a/$ :chassis-status)]
-                [:chassis-reset-req (a/$ :chassis-reset)]
-                [:device-id-req (a/$ :device-id-req)]
-                [:set-session-prv-level-req (a/$ :session-priv-level)]))
-          [:rmcp-close-session-req (a/$ :rmcp-close-session)])))])
+         [:rmcp-close-session-req (a/$ :rmcp-close-session)]))])
 
 (def ipmi-fsm-sample
   [(a/or (a/* [:Z])
@@ -185,9 +227,27 @@
                     (a/or [:D] [:E] [:F])
                     [:G])))])
 
+
+;;TODO create schemas for send-message input to test handlers
+
 (def ipmi-handler
   {:signal   #(:type  (log/spy (c/get-message-type %)))
    :reducers {:init                     (fn [state _] (assoc state :last-message []))
+              :hpm-capabilities-req     (fn [state input]
+                                          (log/debug "HPM Capabilities")
+                                          (send-message {:type :hpm-capabilities-req
+                                                         :input input :sid  (get state :sidm)})
+                                          state)
+              :picmg-properties-req     (fn [state input]
+                                          (log/debug "PICMG Properties")
+                                          (send-message {:type :picmg-properties-req
+                                                         :input input :sid  (get state :sidm)})
+                                          state)
+              :vso-capabilities-req     (fn [state input]
+                                          (log/debug "VSO Capabilities")
+                                          (send-message {:type :vso-capabilities-req
+                                                         :input input :sid  (get state :sidm)})
+                                          state)
               :chassis-status           (fn [state input]
                                           (log/debug "Chassis Status Request")
                                           (let [message (conj {} (c/get-message-type input))
@@ -322,7 +382,7 @@
                                             (send-message m)
                                             state))
               :session-priv-level (fn [state input]
-                                    (log/debug "Set Session Priv Level")
+                                    (log/debug "Set Session Priv Level" state)
                                     (let [message (conj {} (c/get-message-type input))
                                           sid     (get state :sidm)
                                           seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)

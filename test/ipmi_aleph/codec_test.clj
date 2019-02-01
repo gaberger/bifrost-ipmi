@@ -9,12 +9,12 @@
             [buddy.core.codecs :as codecs]
             [byte-streams :as bs]))
 
-(deftest test-rmcp-ack
-  (testing "ack"
-    (let [codec (compile-codec)
-          decode (partial i/decode codec)]
-      (is (=  {:version 6, :reserved 0, :sequence 255, :rmcp-class  {:type :rmcp-ack}}
-              (decode (byte-array (:rmcp-ack rmcp-payloads))))))))
+;; (deftest test-rmcp-ack
+;;   (testing "ack"
+;;     (let [codec (compile-codec)
+;;           decode (partial i/decode codec)]
+;;       (is (=  {:version 6, :reserved 0, :sequence 255, :rmcp-class  {:type :rmcp-ack}}
+;;               (decode (byte-array (:rmcp-ack rmcp-payloads))))))))
 
 (deftest  test-rmcp-presence
   (testing "Test PING"
@@ -672,6 +672,119 @@
                 :type :ipmi-session}}
               (decode result))))))
 
+(deftest group-extensions-test
+  (testing "hpm properties request"
+    (let [codec   (compile-codec)
+          decode  (partial i/decode codec)
+          encode  (partial i/encode codec)
+          payload (encode (decode (byte-array (rmcp-payloads :hpm-capabilities-req))))]
+      (is (= {:version  6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-class
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:session-id       9868,
+                 :session-seq      4,
+                 :payload-type     {:encrypted? false, :authenticated? false, :type 0},
+                 :signature        0,
+                 :command          62,
+                 :source-lun       8,
+                 :source-address   129,
+                 :checksum         55,
+                 :header-checksum  48,
+                 :target-address   32,
+                 :network-function {:function 44, :target-lun 0},
+                 :message-length   9,
+                 :data             2},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
+             (decode payload)))))
+  (testing "hpm properties response"
+    (let [codec   (compile-codec)
+          decode  (partial i/decode codec)
+          encode  (partial i/encode codec)
+          payload (encode (decode (byte-array (rmcp-payloads :hpm-capabilities-rsp))))]
+      (is (=  {:version  6,
+               :reserved 0,
+               :sequence 255,
+               :rmcp-class
+               {:ipmi-session-payload
+                {:ipmi-2-0-payload
+                 {:session-id              2695013284,
+                  :session-seq             2,
+                  :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+                  :command                 62,
+                  :source-lun              8,
+                  :source-address          32,
+                  :checksum                217,
+                  :header-checksum         203,
+                  :target-address          129,
+                  :network-function        {:function 45, :target-lun 0},
+                  :message-length          8,
+                  :command-completion-code 193},
+                 :type :ipmi-2-0-session},
+                :type :ipmi-session}}
+              (decode payload)))))
+  (testing "vso capabilities req"
+    (let [codec   (compile-codec)
+          decode  (partial i/decode codec)
+          encode  (partial i/encode codec)
+          payload (encode (decode (byte-array (rmcp-payloads :vso-capabilities-req))))]
+      (is (bs/compare-bytes
+           payload
+           (byte-array (rmcp-payloads :vso-capabilities-req))))
+      (is (=     {:version 6,
+                  :reserved 0,
+                  :sequence 255,
+                  :rmcp-class
+                  {:ipmi-session-payload
+                   {:ipmi-2-0-payload
+                    {:session-id 9868,
+                     :session-seq 13,
+                     :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                     :signature 3,
+                     :command 0,
+                     :source-lun 20,
+                     :source-address 129,
+                     :checksum 104,
+                     :header-checksum 48,
+                     :target-address 32,
+                     :network-function {:function 44, :target-lun 0},
+                     :message-length 8},
+                    :type :ipmi-2-0-session},
+                   :type :ipmi-session}}
+                 (decode payload)))))
+  (testing "picmg properties"
+    (let [codec   (compile-codec)
+          decode  (partial i/decode codec)
+          encode  (partial i/encode codec)
+          payload (encode (decode (byte-array (rmcp-payloads :picmg-properties-req))))]
+      (is (bs/compare-bytes
+           payload
+           (byte-array (rmcp-payloads :picmg-properties-req))))
+      (is (=   {:version 6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-class
+                {:ipmi-session-payload
+                 {:ipmi-2-0-payload
+                  {:session-id 130,
+                   :session-seq 6,
+                   :payload-type {:encrypted? false, :authenticated? false, :type 0},
+                   :signature 0,
+                   :command 0,
+                   :source-lun 16,
+                   :source-address 129,
+                   :checksum 111,
+                   :header-checksum 48,
+                   :target-address 32,
+                   :network-function {:function 44, :target-lun 0},
+                   :message-length 8},
+                  :type :ipmi-2-0-session},
+                 :type :ipmi-session}}
+               (decode payload))))))
+
 (def ipmi-decode (partial i/decode (compile-codec)))
 
 (deftest test-message-select
@@ -725,7 +838,20 @@
   (testing "Chassis Reset"
     (is (=  {:type :chassis-reset-req, :command 2}
             (get-message-type (ipmi-decode (byte-array (:chassis-reset-req
-                                                        rmcp-payloads))))))))
+                                                        rmcp-payloads)))))))
+  (testing "HPM Capabilities"
+    (is (=  {:type :hpm-capabilities-req, :command 62}
+            (get-message-type (ipmi-decode (byte-array (:hpm-capabilities-req
+                                                        rmcp-payloads)))))))
+  (testing "VSO Capabilities"
+    (is (=  {:type :vso-capabilities-req, :signature 3}
+            (get-message-type (ipmi-decode (byte-array (:vso-capabilities-req
+                                                        rmcp-payloads)) false)))))
+  (testing "PICMG Properties")
+  (is (= {:type :picmg-properties-req, :signature 0}
+         (get-message-type (ipmi-decode (byte-array (:picmg-properties-req
+                                                     rmcp-payloads)) false)))))
+
                                         ; (deftest test-set-priv-level
 ; (deftest test-set-priv-level
 ;   (testing "Test set priv level"
