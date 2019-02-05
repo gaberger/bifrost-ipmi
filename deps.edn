@@ -10,7 +10,8 @@
         mockery {:mvn/version "0.1.4"}
         eftest {:mvn/version "0.5.4"}
         org.clojure/core.async {:mvn/version "0.4.490"}
-        gloss {:git/url "https://github.com/gaberger/gloss.git", :sha "880bfcfad8f614ca6671344da41673913719c488"}}
+        gloss {:git/url "https://github.com/gaberger/gloss.git", :sha "880bfcfad8f614ca6671344da41673913719c488"}
+        overtone/at-at {:mvn/version "1.2.0"}}
 
  :paths ["src", "test"]
  :aliases {:nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.20.0"}

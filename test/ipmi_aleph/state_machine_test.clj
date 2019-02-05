@@ -46,7 +46,7 @@
            (= 0)
            (:state-index
             result)))))
-  (testing "test PING"
+  #_(testing "test PING"
     (let [ipmi-decode (partial decode (compile-codec))
           adv         (bind-fsm)
           result      (-> nil

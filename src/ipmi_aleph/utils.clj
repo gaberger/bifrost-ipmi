@@ -1,7 +1,9 @@
 (ns ipmi-aleph.utils
   (:require [gloss.io :refer [encode decode]]
+            [ipmi-aleph.core :refer [chan-map]]
             [taoensso.timbre :as log]
-            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c]))
+            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c])
+  (:import [java.time Duration Instant]))
 
 (defn dump-functions
   ([m auth]
@@ -20,7 +22,7 @@
                                 message-type  (try
                                                 (get-message-type decode)
                                                 (catch Exception e
-                                                    (log/error decode)))]
+                                                  (log/error decode)))]
                           :when (contains? (get-in decode [:rmcp-class :ipmi-session-payload]) :ipmi-2-0-payload)]
                       {:key k :message message-type :type (get-type decode) :command (get-command decode) :function (get-function decode)})]
          (vec result))
@@ -39,7 +41,13 @@
 
 (defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
 
-(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
+;(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
 ; (pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
 
 
+(defn inspect-chan-map []
+  (for [[k v]     @chan-map
+        :let  [n (.toInstant (java.util.Date.))
+               t (if (contains? v :created-at ) (.toInstant (:created-at v)) nil)
+               duration (if-not (nil? t) (.toMinutes (Duration/between t n)) nil)]]
+    {:chan k :duration duration}))
