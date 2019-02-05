@@ -1,9 +1,8 @@
-(ns ipmi-aleph.utils
+(ns bifrost.ipmi.utils
   (:require [gloss.io :refer [encode decode]]
-            [ipmi-aleph.core :refer [app-state]]
             [taoensso.timbre :as log]
-            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c]
-            [ipmi-aleph.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]])
+            [bifrost.ipmi.codec :refer [compile-codec get-message-type] :as c]
+            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]])
   (:import [java.time Duration Instant]))
 
 (defn dump-functions
@@ -41,7 +40,7 @@
     {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
 
 (defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
-(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
-; (pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
+(pp bifrost.ipmi.test-payloads/rmcp-payloads :rmcp-rakp)
+; (pp bifrost.ipmi.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
 
 

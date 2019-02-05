@@ -1,4 +1,4 @@
-(ns ipmi-aleph.gloss-test
+(ns bifrost.ipmi.gloss-test
   (:require [clojure.test :refer :all]
             [gloss.core :refer :all]
             [gloss.io :refer :all]))

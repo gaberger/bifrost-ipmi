@@ -1,12 +1,10 @@
-(ns ipmi-aleph.crypto
+(ns bifrost.ipmi.crypto
   (:require [buddy.core.mac :as mac]
-            [taoensso.timbre :as log]
             [byte-streams :as bs]
             [gloss.io :refer [encode]]
             [buddy.core.codecs :as codecs]
-            [clj-uuid :as uuid]
             [buddy.core.bytes :as bytes]
-            [ipmi-aleph.codec :refer [int->bytes]]))
+            [bifrost.ipmi.codec :refer [int->bytes]]))
 
 (defn calc-sha1-key [k input]
   (let [hmac (mac/hash input {:key k :alg :hmac :digest :sha1})]

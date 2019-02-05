@@ -1,4 +1,4 @@
-(ns ipmi-aleph.handlers
+(ns bifrost.ipmi.handlers
   (:require [taoensso.timbre :as log]))
 
 ; Page 126

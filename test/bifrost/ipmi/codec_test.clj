@@ -1,12 +1,9 @@
-(ns ipmi-aleph.codec-test
+(ns bifrost.ipmi.codec-test
   (:require [clojure.test :refer :all]
             [mockery.core :refer [with-mocks]]
             [gloss.io :as i]
-            [ipmi-aleph.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]]
-            [ipmi-aleph.handlers :as h]
-            [ipmi-aleph.codec :refer [compile-codec get-message-type]]
-            [taoensso.timbre :as log]
-            [buddy.core.codecs :as codecs]
+            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]]
+            [bifrost.ipmi.codec :refer [compile-codec get-message-type]]
             [byte-streams :as bs]))
 
 ;; (deftest test-rmcp-ack

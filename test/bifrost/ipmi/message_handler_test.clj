@@ -1,24 +1,24 @@
-(ns ipmi-aleph.message-handler-test
+(ns bifrost.ipmi.message-handler-test
   (:require [clojure.test :refer :all]
             [gloss.io :refer :all]
             [mockery.core :refer [with-mocks with-mock]]
-            [ipmi-aleph.test-payloads :refer :all]
-            [ipmi-aleph.state-machine :refer [bind-fsm]]
-            [ipmi-aleph.handlers :as h]
-            [ipmi-aleph.codec :refer :all]
-            [ipmi-aleph.core :refer [message-handler app-state reset-app-state]]
+            [bifrost.ipmi.test-payloads :refer :all]
+            [bifrost.ipmi.state-machine :refer [bind-fsm]]
+            [bifrost.ipmi.handlers :as h]
+            [bifrost.ipmi.codec :refer :all]
+            [bifrost.ipmi.core :refer [message-handler app-state reset-app-state]]
             [taoensso.timbre :as log]))
 
 (defn mock-send [f]
   (with-mock _
-    {:target :ipmi-aleph.state-machine/send-udp
+    {:target :bifrost.ipmi.state-machine/send-udp
      :return true
      :side-effect #(println "Mock: send-udp")}
     (f)))
 
 (defn mock-get [f]
   (with-mock _
-    {:target  :ipmi-aleph.state-machine/get-session-state
+    {:target  :bifrost.ipmi.state-machine/get-session-state
      :return  {:host "127.0.0.1" :port 4000}
      :side-effect #(log/debug "Mock: get-session-state ")}
     (f)))
@@ -39,9 +39,9 @@
                    {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
                    {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]]
       #_(doall)
-   (map #(message-handler %) payload)
-   (is (= ""
-             @app-state)))))
+     (map #(message-handler %) payload)
+     (is (= ""
+               @app-state)))))
 
       ;   @peer-set))))
           ;(-> (get @chan-map (first @peer-set)) :state :accepted?)))))
@@ -78,7 +78,6 @@
      ;      (:accepted? @fsm-state))))
       (doall
        (-> (map #(message-handler %) payload) first))
-      (is (empty? @peer-set))
-      (is (empty? @chan-map)))))
+      )))
                                         ;   @peer-set))))
                                         ;(-> (get @chan-map (first @peer-set)) :state :accepted?)))))

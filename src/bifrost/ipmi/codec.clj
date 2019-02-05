@@ -1,4 +1,4 @@
-(ns ipmi-aleph.codec
+(ns bifrost.ipmi.codec
   (:require [gloss.core :refer [defcodec compile-frame bit-map
                                 ordered-map header finite-frame
                                 string enum]]

@@ -1,22 +1,22 @@
-(ns ipmi-aleph.state-machine-test
+(ns bifrost.ipmi.state-machine-test
   (:require [clojure.test :refer :all]
-            [ipmi-aleph.codec :refer [compile-codec]]
-            [ipmi-aleph.state-machine :refer [bind-fsm]]
-            [ipmi-aleph.test-payloads :refer :all]
+            [bifrost.ipmi.codec :refer [compile-codec]]
+            [bifrost.ipmi.state-machine :refer [bind-fsm]]
+            [bifrost.ipmi.test-payloads :refer :all]
             [gloss.io :refer [decode]]
             [automat.core :as a]
             [mockery.core :refer [with-mock]]))
 
 (defn mock-send [f]
   (with-mock _
-    {:target :ipmi-aleph.state-machine/send-udp
+    {:target :bifrost.ipmi.state-machine/send-udp
      :return true
      :side-effect #(println "Mock: send-udp")}
     (f)))
 
 (defn mock-get [f]
   (with-mock _
-    {:target  :ipmi-aleph.state-machine/get-session-state
+    {:target  :bifrost.ipmi.state-machine/get-session-state
      :return  {:host "127.0.0.1" :port 54123}
      :side-effect #(println "Mock: get-session-state")}
     (f)))
@@ -47,11 +47,11 @@
            (:state-index
             result)))))
   #_(testing "test PING"
-    (let [ipmi-decode (partial decode (compile-codec))
-          adv         (bind-fsm)
-          result      (-> nil
-                          (adv  (ipmi-decode (byte-array (:rmcp-ping rmcp-payloads)))))]
-      (is (true?
-           (:accepted?
+     (let [ipmi-decode (partial decode (compile-codec))
+           adv         (bind-fsm)
+           result      (-> nil
+                           (adv  (ipmi-decode (byte-array (:rmcp-ping rmcp-payloads)))))]
+       (is (true?
+            (:accepted?
 
-            result))))))
+             result))))))

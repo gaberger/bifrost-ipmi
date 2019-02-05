@@ -4,7 +4,6 @@
         cheshire {:mvn/version "5.8.1"}
         aleph {:mvn/version "0.4.7-alpha4"}
         automat {:mvn/version "0.2.4"}
-       ; gloss {:mvn/version "0.2.6"}
         danlentz/clj-uuid {:mvn/version "0.1.7"}
         buddy {:mvn/version "2.0.0"}
         mockery {:mvn/version "0.1.4"}
@@ -32,7 +31,7 @@
                   ;:main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:report,eftest.report.pretty/report,:capture-output?,false,:multithread?,false})"]}
                   :main-opts ["-e" "(require,'[eftest.runner,:refer,[find-tests,run-tests]]),(run-tests,(find-tests,\"test\"),{:multithread?,false})"]}
            :native-image
-           {:main-opts ["-m clj.native-image ipmi-aleph.core"
+           {:main-opts ["-m clj.native-image biforst.ipmi.core"
                         "--report-unsupported-elements-at-runtime"
                         "--enable-url-protocols=http,https"
                         "-Dclojure.compiler.direct-linking=true"
@@ -47,4 +46,4 @@
              org.clojure/tools.namespace  {:mvn/version "0.2.11"}
              db/driver {:local/root "/mnt/jamastore1/WIP/cambada/target/cambada-1.0.0-SNAPSHOT.jar"}}
             :main-opts ["-m" "cambada.uberjar"
-                        "-m" "githubid.core"]}}}
+                        "-m" "bifrost.ipmi.core"]}}}

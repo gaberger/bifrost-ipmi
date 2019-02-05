@@ -1,14 +1,12 @@
-(ns ipmi-aleph.state-machine
+(ns bifrost.ipmi.state-machine
   (:require
    [automat.viz :refer [view]]
    [automat.core :as a]
    [gloss.io :refer [encode decode]]
-   [ipmi-aleph.codec :as c]
-   [ipmi-aleph.packet :as p]
-   [ipmi-aleph.crypto :refer [calc-sha1-key calc-rakp-1 calc-rakp-3 calc-rakp-4-sidm calc-rakp-4-sik]]
+   [bifrost.ipmi.codec :as c]
+   [bifrost.ipmi.crypto :refer [calc-sha1-key calc-rakp-1 calc-rakp-3 calc-rakp-4-sidm calc-rakp-4-sik]]
    [manifold.stream :as s]
-   [manifold.deferred :as d]
-   [ipmi-aleph.handlers :as h]
+   [bifrost.ipmi.handlers :as h]
    [taoensso.timbre :as log]
    [clj-uuid :as uuid]
    [buddy.core.codecs :as codecs]
