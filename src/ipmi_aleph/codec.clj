@@ -2,10 +2,7 @@
   (:require [gloss.core :refer [defcodec compile-frame bit-map
                                 ordered-map header finite-frame
                                 string enum]]
-            [clojure.string :as str]
-            [gloss.io :refer [decode encode]]
-            [taoensso.timbre :as log]
-            [taoensso.timbre.appenders.core :as appenders]))
+            [clojure.string :as str]))
 
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
@@ -92,21 +89,21 @@
                          64  {:type :asf-pong :message message-type})]
       selector)
     (let [selector (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
-                     :ipmi-1-5-payload (let [response?    (contains? (get-in m [:rmcp-class
-                                                                                :ipmi-session-payload
-                                                                                :ipmi-1-5-payload
-                                                                                :ipmb-payload])
-                                                                     :command-completion-code)
-                                             message-type (get-in m [:rmcp-class
-                                                                     :ipmi-session-payload
-                                                                     :ipmi-1-5-payload
-                                                                     :ipmb-payload
-                                                                     :command])]
-                                         (if response?
-                                           (condp = message-type
-                                             0x38 {:type :get-channel-auth-cap-rsp :message 56})
-                                           (condp = message-type
-                                             0x38 {:type :get-channel-auth-cap-req :message 56})))
+                     :ipmi-1-5-payload (let [function (get-in m [:rmcp-class
+                                                                 :ipmi-session-payload
+                                                                 :ipmi-1-5-payload
+                                                                 :ipmb-payload
+                                                                 :network-function
+                                                                 :function])
+                                             command  (get-in m [:rmcp-class
+                                                                 :ipmi-session-payload
+                                                                 :ipmi-1-5-payload
+                                                                 :ipmb-payload
+                                                                 :command])]
+                                         (condp = command
+                                           0x38 (condp = function
+                                                  6 {:type :get-channel-auth-cap-req :message 56}
+                                                  7 {:type :get-channel-auth-cap-req :message 56})))
                      :ipmi-2-0-payload (let [function     (get-in m [:rmcp-class
                                                                      :ipmi-session-payload
                                                                      :ipmi-2-0-payload
@@ -153,13 +150,13 @@
                                                           0 {:type :picmg-properties-req :signature 0}
                                                           3 {:type :vso-capabilities-req :signature 3})
                                                      62 {:type :hpm-capabilities-req :command 62})
-                                                45  (condp = command
-                                                      0  (condp = signature
-                                                           0 {:type :picmg-properties-rsp :signature 0}
-                                                           3 {:type :vso-capabilities-rsp :signature 3})
+                                                45 (condp = command
+                                                     0  (condp = signature
+                                                          0 {:type :picmg-properties-rsp :signature 0}
+                                                          3 {:type :vso-capabilities-rsp :signature 3})
                                                      62 {:type :hpm-capabilities-req :command 62})))))]
 
-     selector)))
+      selector)))
 
 (defcodec channel-auth-cap-req
   (ordered-map
@@ -335,7 +332,7 @@
   (condp = (:signature h)
     0x0 picmg-properties-req
     0x3 vso-capabilities-req))
- 
+
 (defn get-picmg-signature-response-codec [h]
   (condp = (:signature h)
     0x0 picmg-properties-rsp
@@ -357,7 +354,6 @@
            #(get-picmg-signature-response-codec %))
           (fn [b]
             b)))
-
 
 (defcodec ipmb-header
   (ordered-map
@@ -415,7 +411,6 @@
   (condp = (:command h)
     0x01 chassis-status-rsp
     0x02 chassis-control-rsp))
-
 
 (defn get-group-extensions-command-request-codec [h]
   (condp = (:command h)
@@ -516,6 +511,8 @@
 
 
 ;; RAKP Encodings
+
+
 (defcodec rmcp-plus-rakp-1
   (ordered-map
    :message-tag :ubyte
@@ -630,7 +627,6 @@
 (defcodec rmcp-ack
   {:type :rmcp-ack})
 
-
 (defn compile-codec
   ([auth]
    (let [ipmb-message (compile-frame
@@ -656,7 +652,7 @@
                                         0x15 (condp = auth
                                                :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-4-hmac-sha1
                                                rmcp-plus-rakp-4))))
-         
+
          authentication-type (compile-frame (enum :ubyte
                                                   {:ipmi-1-5-session 0x00
                                                    :ipmi-2-0-session 0x06}))
@@ -705,6 +701,8 @@
                                         :sequence :ubyte
                                         :rmcp-class rmcp-class-header)]
      (compile-frame rmcp-header)))
-  ([] (compile-codec nil)))
+  ([] (compile-codec
+
+       nil)))
 
 

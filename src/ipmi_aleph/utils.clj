@@ -1,8 +1,9 @@
 (ns ipmi-aleph.utils
   (:require [gloss.io :refer [encode decode]]
-            [ipmi-aleph.core :refer [chan-map]]
+            [ipmi-aleph.core :refer [app-state]]
             [taoensso.timbre :as log]
-            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c])
+            [ipmi-aleph.codec :refer [compile-codec get-message-type] :as c]
+            [ipmi-aleph.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]])
   (:import [java.time Duration Instant]))
 
 (defn dump-functions
@@ -40,14 +41,7 @@
     {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
 
 (defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
-
-;(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
+(pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp)
 ; (pp ipmi-aleph.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
 
 
-(defn inspect-chan-map []
-  (for [[k v]     @chan-map
-        :let  [n (.toInstant (java.util.Date.))
-               t (if (contains? v :created-at ) (.toInstant (:created-at v)) nil)
-               duration (if-not (nil? t) (.toMinutes (Duration/between t n)) nil)]]
-    {:chan k :duration duration}))

@@ -202,11 +202,7 @@
                [:picmg-properties-req (a/$ :picmg-properties-req)]
                [:vso-capabilities-req (a/$ :vso-capabilities-req)]
                [:set-session-prv-level-req (a/$ :session-priv-level)])))
-              
-              
         [:rmcp-close-session-req (a/$ :rmcp-close-session)])])
-         ;
-        
 
 (def ipmi-fsm-sample
   [(a/or (a/* [:Z])
@@ -265,7 +261,6 @@
                                           (let [message (conj {} (c/get-message-type input))
                                                 state   (update-in state [:last-message] conj message)]
                                             (send-message {:type :get-channel-auth-cap-req :input input})
-                                            #_(reset! fsm-state {})
                                             state))
               :open-session-request     (fn [state input]
                                           (log/info "Open Session Request ")

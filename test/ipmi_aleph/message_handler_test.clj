@@ -3,10 +3,10 @@
             [gloss.io :refer :all]
             [mockery.core :refer [with-mocks with-mock]]
             [ipmi-aleph.test-payloads :refer :all]
-            [ipmi-aleph.state-machine :refer [bind-fsm fsm-state]]
+            [ipmi-aleph.state-machine :refer [bind-fsm]]
             [ipmi-aleph.handlers :as h]
             [ipmi-aleph.codec :refer :all]
-            [ipmi-aleph.core :refer [message-handler peer-set chan-map]]
+            [ipmi-aleph.core :refer [message-handler app-state reset-app-state]]
             [taoensso.timbre :as log]))
 
 (defn mock-send [f]
@@ -29,8 +29,7 @@
 
 (deftest test-message-handler-noauth
   (testing "message-handler-accepted"
-    (reset! peer-set #{})
-    (reset! chan-map {})
+    (reset-app-state)
     (let [payload [;{:message (byte-array (:rmcp-ping rmcp-payloads))}
                    {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}
                    {:message (byte-array (:open-session-request rmcp-payloads))}
@@ -39,12 +38,10 @@
                    {:message (byte-array (:device-id-req rmcp-payloads))}
                    {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
                    {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]]
-      (doall
-       (map #(message-handler %) payload))
-      (is (empty? @peer-set))
-      (is (empty? @chan-map))
-      (is {}
-          (-> (get @chan-map (first @peer-set)) :state :accepted?)))))
+      #_(doall)
+   (map #(message-handler %) payload)
+   (is (= ""
+             @app-state)))))
 
       ;   @peer-set))))
           ;(-> (get @chan-map (first @peer-set)) :state :accepted?)))))

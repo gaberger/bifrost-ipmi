@@ -66,27 +66,6 @@
    :vso-capabilities-req     [0x06 0x00 0xff 0x07 0x06 0x00 0x8c 0x26 0x00 0x00 0x0d 0x00 0x00
                               0x00 0x08 0x00 0x20 0xb0 0x30 0x81 0x14 0x00 0x03 0x68]})
 
-; 0600ff0706008200000004000000090020 b0 308108 3e 00 02 37
-; 0600ff070600 a4a3a2a0 02000000 0800 81 b4 cb2008 3e c1 d9
-; 0600ff070600 a4a3a2a0 04000000 0900 20 b0 308108 3e 00 02 37
-;; |                    :key | :type | :command | :function |
-;; |-------------------------+-------+----------+-----------|
-;; | :set-sess-prv-level-rsp |     0 |       59 |         7 |
-;; |          :device-id-req |     0 |        1 |         6 |
-;; |     :chassis-status-rsp |     0 |        1 |         1 |
-;; |   :open-session-request |    16 |          |           |
-;; | :rmcp-close-session-rsp |     0 |       60 |         7 |
-;; |          :device-id-rsp |     0 |        1 |         7 |
-;; |            :rmcp-rakp-4 |    21 |          |           |
-;; | :rmcp-close-session-req |     0 |       60 |         6 |
-;; |     :chassis-status-req |     0 |        1 |         0 |
-;; |            :rmcp-rakp-3 |    20 |          |           |
-;; |            :rmcp-rakp-2 |    19 |          |           |
-;; | :set-sess-prv-level-req |     0 |       59 |         6 |
-;; |  :open-session-response |    17 |          |           |
-;; |            :rmcp-rakp-1 |    18 |          |           |
-;; |      :chassis-reset-req |     0 |        2 |         0 |
-;; |      :chassis-reset-rsp |     0 |        2 |         1 |
 
 
 (def rmcp-payloads-cipher-1
@@ -121,3 +100,26 @@
 
 
 
+;;|                    :key |                                         :message | :type | :command | :function |
+;;|-------------------------+--------------------------------------------------+-------+----------+-----------|
+;;|   :hpm-capabilities-req |       {:type :hpm-capabilities-req, :command 62} |     0 |       62 |        44 |
+;;| :set-sess-prv-level-rsp |  {:type :set-session-prv-level-rsp, :command 59} |     0 |       59 |         7 |
+;;|          :device-id-req |               {:type :device-id-req, :command 1} |     0 |        1 |         6 |
+;;|     :chassis-status-rsp |          {:type :chassis-status-rsp, :command 1} |     0 |        1 |         1 |
+;;|   :picmg-properties-req |      {:type :picmg-properties-req, :signature 0} |     0 |        0 |        44 |
+;;|   :open-session-request |  {:type :open-session-request, :payload-type 16} |    16 |          |           |
+;;| :rmcp-close-session-rsp |         {:type :rmcp-close-session, :command 60} |     0 |       60 |         7 |
+;;|          :device-id-rsp |               {:type :device-id-rsp, :command 1} |     0 |        1 |         7 |
+;;|   :vso-capabilities-req |      {:type :vso-capabilities-req, :signature 3} |     0 |        0 |        44 |
+;;|            :rmcp-rakp-4 |           {:type :rmcp-rakp-4, :payload-type 21} |    21 |          |           |
+;;| :rmcp-close-session-req |     {:type :rmcp-close-session-req, :command 60} |     0 |       60 |         6 |
+;;|     :chassis-status-req |          {:type :chassis-status-req, :command 1} |     0 |        1 |         0 |
+;;|            :rmcp-rakp-3 |           {:type :rmcp-rakp-3, :payload-type 20} |    20 |          |           |
+;;|            :rmcp-rakp-2 |           {:type :rmcp-rakp-2, :payload-type 19} |    19 |          |           |
+;;| :set-sess-prv-level-req |  {:type :set-session-prv-level-req, :command 59} |     0 |       59 |         6 |
+;;|  :open-session-response | {:type :open-session-response, :payload-type 17} |    17 |          |           |
+;;|      :chassis-reset-rsp |           {:type :chassis-reset-rsp, :command 2} |     0 |        2 |         1 |
+;;|            :rmcp-rakp-1 |           {:type :rmcp-rakp-1, :payload-type 18} |    18 |          |           |
+;;|      :chassis-reset-req |           {:type :chassis-reset-req, :command 2} |     0 |        2 |         0 |
+;;|   :hpm-capabilities-rsp |       {:type :hpm-capabilities-req, :command 62} |     0 |       62 |        45 |  
+  
