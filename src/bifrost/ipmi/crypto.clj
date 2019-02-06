@@ -11,9 +11,9 @@
     hmac))
 
 (defn calc-rakp-1
-  [{:keys [sidm sidc rc guidc rm rolem unamem]}]
-  (let [uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
-        unamem'     (codecs/str->bytes unamem)
+  [{:keys [sidm sidc rc guidc rm rolem unamem uid]}]
+  (let [unamem'     (codecs/str->bytes unamem)
+        guidc'      (byte-array guidc)
         ulengthm    (byte-array 1 (byte (count unamem)))
         sidm'       (-> (encode int->bytes sidm) bs/to-byte-array reverse vec)
         sidc'       (-> (encode int->bytes sidc) bs/to-byte-array reverse vec)
@@ -31,8 +31,8 @@
     rakp2-hmac))
 
 (defn calc-rakp-3
-  [{:keys [sidm rc rolem unamem]}]
-  (let [uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
+  [{:keys [sidm rc rolem unamem uid]}]
+  (let [;uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
         unamem'     (codecs/str->bytes unamem)
         ulengthm    (byte-array 1 (byte (count unamem)))
         sidm'       (-> (encode int->bytes sidm) bs/to-byte-array reverse vec)
@@ -49,8 +49,8 @@
 
 
 (defn calc-rakp-4-sik
-  [{:keys [rm rc rolem unamem]}]
-  (let [uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
+  [{:keys [rm rc rolem unamem uid]}]
+  (let [;uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
         unamem'     (codecs/str->bytes unamem)
         ulengthm    (byte-array 1 (byte (count unamem)))
         rolem'      (byte-array 1 (byte 0x14))

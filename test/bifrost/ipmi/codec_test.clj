@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [mockery.core :refer [with-mocks]]
             [gloss.io :as i]
-            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]]
+            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1 error-payloads]]
             [bifrost.ipmi.codec :refer [compile-codec get-message-type]]
             [byte-streams :as bs]))
 
@@ -12,6 +12,16 @@
 ;;           decode (partial i/decode codec)]
 ;;       (is (=  {:version 6, :reserved 0, :sequence 255, :rmcp-class  {:type :rmcp-ack}}
 ;;               (decode (byte-array (:rmcp-ack rmcp-payloads))))))))
+
+
+(deftest test-error-payloads
+  (testing "RAKP-2"
+    (let [codec (compile-codec :rmcp-rakp-hmac-sha1)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
+          payload (encode (decode (byte-array (:rmcp-rakp-2 error-payloads))))]
+      (is (= {}
+             (decode payload))))))
 
 (deftest  test-rmcp-presence
   (testing "Test PING"

@@ -5,6 +5,7 @@
    [gloss.io :refer [encode decode]]
    [bifrost.ipmi.codec :as c]
    [bifrost.ipmi.crypto :refer [calc-sha1-key calc-rakp-1 calc-rakp-3 calc-rakp-4-sidm calc-rakp-4-sik]]
+   [bifrost.ipmi.registrar :refer :all]
    [manifold.stream :as s]
    [bifrost.ipmi.handlers :as h]
    [taoensso.timbre :as log]
@@ -14,7 +15,6 @@
    [byte-streams :as bs]))
 
 (def server-socket (atom nil))
-
 
 (declare ipmi-fsm)
 (declare ipmi-handler)
@@ -42,9 +42,13 @@
     (log/debug  "Bytes" (-> message
                             bs/to-byte-array
                             codecs/bytes->hex))
-    (s/put! @server-socket {:host host
-                            :port port
-                            :message message})))
+    (try
+      (s/put! @server-socket {:host host
+                              :port port
+                              :message message})
+      (catch Exception e
+        (log/error "send-udp-error " e "data:" host port)))
+     ))
 
 (defmulti send-message :type)
 (defmethod send-message :chassis-status [m]
@@ -101,7 +105,11 @@
                           (c/compile-codec)
                           (c/compile-codec auth))
         ipmi-encode     (partial encode codec)
-        encoded-message (ipmi-encode message)]
+        encoded-message (try
+                           (ipmi-encode message)
+                           (catch Exception e
+                             (log/error "Error encoding message input:" m "message:" message ))
+                             )]
     (send-udp input encoded-message)))
 
 (defmethod send-message :rmcp-rakp-4 [m]
@@ -148,9 +156,9 @@
         codec                       (c/compile-codec)
         ipmi-encode                 (partial encode codec)
         encoded-message             (try
-                                       (ipmi-encode message)
-                                       (catch Exception e
-                                         (log/error "Caught Exception " e)))]
+                                      (ipmi-encode message)
+                                      (catch Exception e
+                                        (log/error "Caught Exception " e)))]
     (send-udp input encoded-message)))
 
 (defmethod send-message :picmg-properties-req [m]
@@ -160,9 +168,9 @@
         codec                       (c/compile-codec)
         ipmi-encode                 (partial encode codec)
         encoded-message             (try
-                                       (ipmi-encode message)
-                                       (catch Exception e
-                                         (log/error "Caught Exception " e)))]
+                                      (ipmi-encode message)
+                                      (catch Exception e
+                                        (log/error "Caught Exception " e)))]
     (send-udp input encoded-message)))
 
 (defmethod send-message :vso-capabilities-req [m]
@@ -172,9 +180,9 @@
         codec                       (c/compile-codec)
         ipmi-encode                 (partial encode codec)
         encoded-message             (try
-                                       (ipmi-encode message)
-                                       (catch Exception e
-                                         (log/error "Caught Exception " e)))]
+                                      (ipmi-encode message)
+                                      (catch Exception e
+                                        (log/error "Caught Exception " e)))]
     (send-udp input encoded-message)))
 
 (defn send-rmcp-ack [session seq-no]
@@ -211,6 +219,7 @@
 
 ;;TODO create schemas for send-message input to test handlers
 
+
 (def ipmi-handler
   {:signal   #(:type  (c/get-message-type %))
    :reducers {:init                     (fn [state _]
@@ -218,18 +227,18 @@
                                           #_(reset! fsm-state {}))
               :hpm-capabilities-req     (fn [state input]
                                           (log/info "HPM Capabilities")
-                                          (send-message {:type :hpm-capabilities-req
-                                                         :input input :sid  (get state :sidm)})
+                                          (send-message {:type  :hpm-capabilities-req
+                                                         :input input :sid (get state :sidm)})
                                           state)
               :picmg-properties-req     (fn [state input]
                                           (log/info "PICMG Properties")
-                                          (send-message {:type :picmg-properties-req
-                                                         :input input :sid  (get state :sidm)})
+                                          (send-message {:type  :picmg-properties-req
+                                                         :input input :sid (get state :sidm)})
                                           state)
               :vso-capabilities-req     (fn [state input]
                                           (log/info "VSO Capabilities")
-                                          (send-message {:type :vso-capabilities-req
-                                                         :input input :sid  (get state :sidm)})
+                                          (send-message {:type  :vso-capabilities-req
+                                                         :input input :sid (get state :sidm)})
                                           state)
               :chassis-status           (fn [state input]
                                           (log/info "Chassis Status Request")
@@ -295,73 +304,89 @@
                                             state))
               :rmcp-rakp-1              (fn [state input]
                                           (log/info "RAKP-1 Request")
-                                          (let [message    (conj {} (c/get-message-type input))
-                                                rm         (get-in input [:rmcp-class :ipmi-session-payload
-                                                                          :ipmi-2-0-payload :remote-console-random-number])
-                                                unamem     (get-in input [:rmcp-class :ipmi-session-payload
-                                                                          :ipmi-2-0-payload :user-name])
-                                                rolem      (get-in input [:rmcp-class :ipmi-session-payload
-                                                                          :ipmi-2-0-payload :requested-max-priv-level
-                                                                          :requested-max-priv-level])
-                                                sidc       (get state :sidc)
-                                                sidm       (get state :sidm)
-                                                auth       (-> (get c/authentication-codec (:authentication-payload state))
-                                                               :codec)
-                                                rc         (vec (take 16 (repeatedly #(rand-int 16))))
-                                                guidc      (vec (uuid/as-byte-array (uuid/v4)))
-                                                rakp2-hmac (if (= :rmcp-rakp-hmac-sha1 auth)
-                                                             (vec (calc-rakp-1 {:rm    rm   :rc   rc   :guidc  guidc
-                                                                                :sidc  sidc :sidm sidm :unamem unamem
-                                                                                :rolem rolem}))
-                                                             nil)
-                                                m          {:type       :rmcp-rakp-2
-                                                            :input      input
-                                                            :sidc       sidc
-                                                            :rc         rc
-                                                            :unamem     unamem
-                                                            :rm         rm
-                                                            :sidm       sidm
-                                                            :guidc      guidc
-                                                            :rakp2-hmac rakp2-hmac
-                                                            :auth       auth}
-                                                state      (-> state
-                                                               (update-in [:last-message] conj message)
-                                                               (merge (select-keys  m [:sidc :sidm :rm :rc :guidc :unamem :rolem])))]
-                                            (send-message m)
-                                            state))
-              :rmcp-rakp-3              (fn [state input]
-                                          (log/info "RAKP-3 Request ")
-                                          (let [message      (conj {} (c/get-message-type input))
-                                                auth         (-> (get c/authentication-codec (:authentication-payload state))
-                                                                 :codec)
-                                                unamem       (get state :unamem)
-                                                sidc         (get state :sidc)
-                                                sidm         (get state :sidm)
-                                                guidc        (get state :guidc)
-                                                rolem        (get state :rolem)
-                                                rm           (get state :rm)
-                                                rc           (get state :rc)
-                                                sidm-hmac-96 (if (= :rmcp-rakp-hmac-sha1 auth)
-                                                               (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
-                                                                                                 :ipmi-2-0-payload :key-exchange-code])
-                                                                     sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem})
-                                                                     sik-hmac     (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem})
-                                                                     _            (comment "Need to truncate sidm-hmac to 96bits")
-                                                                     sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guidc :sik sik-hmac})
-                                                                     sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
+                                          (let [message (conj {} (c/get-message-type input))
+                                                rm      (get-in input [:rmcp-class :ipmi-session-payload
+                                                                       :ipmi-2-0-payload :remote-console-random-number])
+                                                unamem  (get-in input [:rmcp-class :ipmi-session-payload
+                                                                       :ipmi-2-0-payload :user-name])
+                                                rolem   (get-in input [:rmcp-class :ipmi-session-payload
+                                                                       :ipmi-2-0-payload :requested-max-priv-level
+                                                                       :requested-max-priv-level])
+                                                sidc    (get state :sidc)
+                                                sidm    (get state :sidm)
+                                                auth    (-> (get c/authentication-codec (:authentication-payload state))
+                                                            :codec)
+                                                rc      (vec (take 16 (repeatedly #(rand-int 16))))
+                                                uid     (lookup-password-key unamem)
+                                                guid    (get-device-id-bytes unamem)]
+
+                                            (if-not (nil? (lookup-userid unamem))
+                                              (let [rakp2-hmac (when (= :rmcp-rakp-hmac-sha1 auth)
+                                                                 (vec (calc-rakp-1 {:rm    rm    :rc   rc   :guidc  guid
+                                                                                    :sidc  sidc  :sidm sidm :unamem unamem
+                                                                                    :rolem rolem :uid  uid})))
+                                                    m          {:type       :rmcp-rakp-2
+                                                                :input      input
+                                                                :sidc       sidc
+                                                                :uid        uid
+                                                                :rc         rc
+                                                                :unamem     unamem
+                                                                :rm         rm
+                                                                :status     0x00
+                                                                :sidm       sidm
+                                                                :guidc      guid
+                                                                :rakp2-hmac rakp2-hmac
+                                                                :auth       auth}
+                                                    state      (-> state
+                                                                   (update-in [:last-message] conj message)
+                                                                   (merge (select-keys  m [:sidc :sidm :rm :rc :guidc :unamem :rolem])))]
+                                                (send-message m)
+                                                state)
+                                              (let [m {:type       :rmcp-rakp-2
+                                                       :input      input
+                                                       :auth auth
+                                                       :rc         rc
+                                                       :sidm       sidm
+                                                       :status     0x12
+                                                       :guidc      guid
+                                                       :rakp2-hmac [0]}]
+                                                (log/error (format "User %s  Not Found.." unamem))
+                                                (send-message m)
+                                                nil))))
+
+              :rmcp-rakp-3 (fn [state input]
+                             (log/info "RAKP-3 Request ")
+                             (let [message (conj {} (c/get-message-type input))
+                                   auth    (-> (get c/authentication-codec (:authentication-payload state))
+                                               :codec)
+                                   unamem  (get state :unamem)
+                                   uid     (lookup-password-key unamem)
+                                   guid    (get-device-id-bytes unamem)
+                                   sidc    (get state :sidc)
+                                   sidm    (get state :sidm)
+                                   rolem   (get state :rolem)
+                                   rm      (get state :rm)
+                                   rc      (get state :rc)
+
+                                   sidm-hmac-96 (if (= :rmcp-rakp-hmac-sha1 auth)
+                                                  (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
+                                                                                    :ipmi-2-0-payload :key-exchange-code])
+                                                        sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                        sik-hmac     (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                        _            (comment "Need to truncate sidm-hmac to 96bits")
+                                                        sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik-hmac :uid uid})
+                                                        sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
 
                                         ;(assert (= kec sidc-hmac))
-                                                                 (vec sidm-hmac-96))
-                                                               nil)
+                                                    (vec sidm-hmac-96))
+                                                  nil)
 
-                                                state (-> state
-                                                          (update-in [:last-message] conj message)
-                                                          (merge {:sidm-hmac sidm-hmac-96}))
-                                                m     {:type :rmcp-rakp-4 :auth auth :input input :sidm sidm :sidm-hmac sidm-hmac-96}]
-                                            #_(reset! session-atom {:auth auth :sidm sidm :sidc sidc
-                                                                    :sidm-hmac sidm-hmac-96 :guidc guidc :unamem unamem})
-                                            (send-message m)
-                                            state))
+                                   state (-> state
+                                             (update-in [:last-message] conj message)
+                                             (merge {:sidm-hmac sidm-hmac-96}))
+                                   m     {:type :rmcp-rakp-4 :auth auth :input input :sidm sidm :sidm-hmac sidm-hmac-96}]
+                               (send-message m)
+                               state))
               :session-priv-level (fn [state input]
                                     (log/info "Set Session Priv Level")
                                     (let [message (conj {} (c/get-message-type input))
@@ -385,11 +410,11 @@
               :rmcp-close-session (fn [state input]
                                     (log/info "Session Closing ")
                                     (let [message (conj {} (c/get-message-type input))
-                                          sid (get state :sidm)
-                                          seq (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
+                                          sid     (get state :sidm)
+                                          seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
                                           state   (-> state
-                                                   (update-in [:last-message] conj message)
-                                                   (assoc :seq seq))]
+                                                      (update-in [:last-message] conj message)
+                                                      (assoc :seq seq))]
                                       (send-message {:type :rmcp-close-session :input input :sid sid :seq seq})
                                       state))}})
 

@@ -273,7 +273,7 @@
 (defmulti rmcp-rakp-2-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp [m]
   (log/debug "RMCP-RAKP Response")
-  (let [{:keys [sidm rc guidc]} m]
+  (let [{:keys [sidm rc guidc status]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -287,7 +287,7 @@
          :authenticated? false,
          :type           19},
         :managed-system-random-number rc
-        :status-code                  0,
+        :status-code                  status,
         :message-tag                  0,
         :reserved                     [0 0],
         :message-length               40
@@ -298,7 +298,7 @@
 
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp-hmac-sha1 [m]
   (log/debug "RMCP-RAKP-HMAC-SHA1 Response")
-  (let [{:keys [sidm rc guidc rakp2-hmac]} m]
+  (let [{:keys [sidm rc guidc rakp2-hmac status]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
