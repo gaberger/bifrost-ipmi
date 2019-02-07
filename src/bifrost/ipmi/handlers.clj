@@ -389,6 +389,35 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}}))
 
+(defn error-response-msg  [m]
+  (log/debug "Error Response")
+  (let [{:keys [sid status]} m]
+    {:version  6,
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-2-0-payload
+       {:session-id              sid,
+        :session-seq             2,
+        :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+        :command                 62,
+        :source-lun              8,
+        :source-address          32,
+        :checksum                217,
+        :header-checksum         203,
+        :target-address          129,
+        :network-function        {:function 45, :target-lun 0},
+        :message-length          8,
+        :command-completion-code status},
+       :type :ipmi-2-0-session},
+      :type :ipmi-session}}))
+
+
+
+
+
+
 (defn picmg-response-msg  [m]
   (log/debug "PICMG Response")
   (let [{:keys [sid]} m]

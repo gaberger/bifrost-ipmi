@@ -1,4 +1,4 @@
-(ns ipmi-aleph.packet
+(ns bifrost.driver.packet
   (:require [aleph.http :as http]
             [byte-streams :as bs]
             [cheshire.core :as json]

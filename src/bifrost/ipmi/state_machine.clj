@@ -48,6 +48,18 @@
                              :port    port
                              :message bytes})))
 
+
+(defmulti send-message :type)
+(defmethod send-message :error-response [m]
+  (log/info "Sending Error Response: ")
+  (let [{:keys [input]} m
+        message             (h/chassis-status-response-msg m )
+        codec               (c/compile-codec)
+        ipmi-encode         (partial encode codec)
+        encoded-message     (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
+
+
 (defmulti send-message :type)
 (defmethod send-message :chassis-status [m]
   (log/info "Sending Status Chassis Response: ")
@@ -208,18 +220,18 @@
                                           (assoc state :last-message []))
               :hpm-capabilities-req     (fn [state input]
                                           (log/info "HPM Capabilities")
-                                          (send-message {:type  :hpm-capabilities-req
-                                                         :input input :sid (get state :sidm)})
+                                          (send-message {:type  :error-response
+                                                         :input input :sid (get state :sidm) :status 0xC1})
                                           state)
               :picmg-properties-req     (fn [state input]
                                           (log/info "PICMG Properties")
-                                          (send-message {:type  :picmg-properties-req
-                                                         :input input :sid (get state :sidm)})
+                                          (send-message {:type  :error-response
+                                                         :input input :sid (get state :sidm) :status 0xC1})
                                           state)
               :vso-capabilities-req     (fn [state input]
                                           (log/info "VSO Capabilities")
-                                          (send-message {:type  :vso-capabilities-req
-                                                         :input input :sid (get state :sidm)})
+                                          (send-message {:type  :error-response
+                                                         :input input :sid (get state :sidm) :status 0xC1})
                                           state)
               :chassis-status           (fn [state input]
                                           (log/info "Chassis Status Request")
@@ -244,8 +256,8 @@
                                                 unamem  (get state :unamem)]
                                             (if-not (nil? (log/spy (get-driver-device-id (keyword unamem))))
                                               (do
-                                                 (safe (reboot-server {:driver :packet :user-key (keyword unamem)}))
-                                                 (send-message {:type :chassis-reset :input input :sid sid :seq seq :status 0}))
+                                                (safe (reboot-server {:driver :packet :user-key (keyword unamem)}))
+                                                (send-message {:type :chassis-reset :input input :sid sid :seq seq :status 0}))
                                               (send-message {:type :chassis-reset :input input :sid sid :seq seq :status 0x12}))
                                             state))
               :get-channel-auth-cap-req (fn [state input]
@@ -332,7 +344,7 @@
                                                        :auth       auth
                                                        :rc         rc
                                                        :sidm       sidm
-                                                       :status     0x12
+                                                       :status     0x0D ;; TODO enum error codes
                                                        :guidc      guid
                                                        :rakp2-hmac [0]}]
                                                 (log/error (format "User %s  Not Found.." unamem))
