@@ -77,7 +77,7 @@
 
 (defmulti reboot-server :driver)
 (defmethod reboot-server :packet [m]
-  (log/debug "Calling reboot using driver " (:driver m) (:user-key m))
+  (log/info "Calling reboot using driver " (:driver m) (:user-key m))
   (let [user-key  (get m :user-key)
         deviceid (get-driver-device-id user-key)
         api (get-driver-api-key user-key)]
