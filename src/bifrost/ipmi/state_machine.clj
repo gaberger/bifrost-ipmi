@@ -45,20 +45,18 @@
                             bs/to-byte-array
                             codecs/bytes->hex))
     (s/put! @server-socket {:host    host
-                             :port    port
-                             :message bytes})))
-
+                            :port    port
+                            :message bytes})))
 
 (defmulti send-message :type)
 (defmethod send-message :error-response [m]
   (log/info "Sending Error Response: ")
   (let [{:keys [input]} m
-        message             (h/chassis-status-response-msg m )
+        message             (log/spy (h/error-response-msg m))
         codec               (c/compile-codec)
         ipmi-encode         (partial encode codec)
         encoded-message     (safe (ipmi-encode message))]
     (safe (send-udp input encoded-message))))
-
 
 (defmulti send-message :type)
 (defmethod send-message :chassis-status [m]
@@ -220,19 +218,41 @@
                                           (assoc state :last-message []))
               :hpm-capabilities-req     (fn [state input]
                                           (log/info "HPM Capabilities")
-                                          (send-message {:type  :error-response
-                                                         :input input :sid (get state :sidm) :status 0xC1})
+                                          (log/debug "Incoming " input)
+                                          (let [message  (c/get-message-type input)
+                                                seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
+                                                sa    (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-address] 0)
+                                                ta  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :target-address] 0)
+                                                c (:command message)
+                                                f (:response message)]
+                                            (send-message {:type  :error-response
+                                                           :input input :sid (get state :sidm) :sa sa :ta ta :seq seq :command c :function f :status 0xC1}))
                                           state)
               :picmg-properties-req     (fn [state input]
                                           (log/info "PICMG Properties")
-                                          (send-message {:type  :error-response
-                                                         :input input :sid (get state :sidm) :status 0xC1})
+                                          (log/debug "Incoming " input)
+                                          (let [message  (c/get-message-type input)
+                                                seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
+                                                sa    (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-address] 0)
+                                                ta  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :target-address] 0)
+                                                c (:command message)
+                                                f (:response message)]
+                                            (send-message {:type  :error-response
+                                                           :input input :sid (get state :sidm) :sa sa :ta ta :seq seq :command c :function f :status 0xC1}))
                                           state)
               :vso-capabilities-req     (fn [state input]
                                           (log/info "VSO Capabilities")
-                                          (send-message {:type  :error-response
-                                                         :input input :sid (get state :sidm) :status 0xC1})
+                                          (log/debug "Incoming " input)
+                                          (let [message  (c/get-message-type input)
+                                                seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
+                                                sa    (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-address] 0)
+                                                ta  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :target-address] 0)
+                                                c (:command message)
+                                                f (:response message)]
+                                            (send-message {:type  :error-response
+                                                           :input input :sid (get state :sidm) :sa sa :ta ta :seq seq :command c :function f :status 0xC1}))
                                           state)
+
               :chassis-status           (fn [state input]
                                           (log/info "Chassis Status Request")
                                           (let [message (conj {} (c/get-message-type input))

@@ -391,7 +391,7 @@
 
 (defn error-response-msg  [m]
   (log/debug "Error Response")
-  (let [{:keys [sid status]} m]
+  (let [{:keys [sid sa ta seq command function status]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -399,15 +399,15 @@
      {:ipmi-session-payload
       {:ipmi-2-0-payload
        {:session-id              sid,
-        :session-seq             2,
+        :session-seq             seq,
         :payload-type            {:encrypted? false, :authenticated? false, :type 0},
-        :command                 62,
+        :command                 command,
         :source-lun              8,
-        :source-address          32,
+        :source-address          sa,
         :checksum                217,
         :header-checksum         203,
-        :target-address          129,
-        :network-function        {:function 45, :target-lun 0},
+        :target-address          ta,
+        :network-function        {:function function, :target-lun 0},
         :message-length          8,
         :command-completion-code status},
        :type :ipmi-2-0-session},

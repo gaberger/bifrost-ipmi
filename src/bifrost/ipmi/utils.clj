@@ -9,7 +9,7 @@
   [& body]
   `(try ~@body
         (catch Exception e#
-          (log/error "caught exception:" (.getMessage e#))
+          (throw (IllegalArgumentException. (str "caught exception:" (.getMessage e#))))
           false)))
 
 (defn dump-functions
@@ -46,8 +46,8 @@
         integrity-codec (-> (get-in state [:value :integrity-payload]) c/integrity-codec)]
     {:auth-codec authentication-codec :confidentiality-codec confidentiality-codec :integrity-codec integrity-codec}))
 
-(defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
-(pp bifrost.ipmi.test-payloads/rmcp-payloads :rmcp-rakp)
+;(defn pp [m auth] (clojure.pprint/print-table (dump-functions m auth)))
+;(pp bifrost.ipmi.test-payloads/rmcp-payloads :rmcp-rakp)
 ; (pp bifrost.ipmi.test-payloads/rmcp-payloads :rmcp-rakp-hmac-sha1)
 
 

@@ -841,16 +841,17 @@
             (get-message-type (ipmi-decode (byte-array (:rmcp-ping
                                                         rmcp-payloads)))))))
   (testing "Device ID Request"
-    (is (= {:type :device-id-req :command 1}
+    (is (= {:type :device-id-req :command 1 :function 6}
            (get-message-type (ipmi-decode (byte-array (:device-id-req rmcp-payloads)))))))
 
   (testing "Device ID Response"
-    (is (= {:type :device-id-rsp :command 1}
+    (is (= {:type :device-id-rsp :command 1 :function 7}
            (get-message-type (ipmi-decode (byte-array (:device-id-rsp rmcp-payloads)))))))
 
   (testing "IPMI Capabilities"
-    (is (= {:message 56, :type :get-channel-auth-cap-req}
+    (is (= {:type :get-channel-auth-cap-req :command 56 :function 6}
            (get-message-type (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))))
+
   (testing "IPMI Open Session"
     (is (= {:type :open-session-request :payload-type 16}
            (get-message-type (ipmi-decode (byte-array (:open-session-request rmcp-payloads)))))))
@@ -872,33 +873,33 @@
            (get-message-type (ipmi-decode (byte-array (:rmcp-rakp-4
                                                        rmcp-payloads)))))))
   (testing "Set Session Perms"
-    (is (=  {:type :set-session-prv-level-req, :command 59}
-            (get-message-type (ipmi-decode (byte-array (:set-sess-prv-level-req
-                                                        rmcp-payloads)))))))
+    (is (= {:type :set-session-prv-level-req, :command 59, :function 6}
+           (get-message-type (ipmi-decode (byte-array (:set-sess-prv-level-req
+                                                       rmcp-payloads)))))))
   (testing "Close Session Request"
-    (is (=   {:type :rmcp-close-session-req, :command 60}
+    (is (=   {:type :rmcp-close-session-req, :command 60, :function 6}
              (get-message-type (ipmi-decode (byte-array (:rmcp-close-session-req
                                                          rmcp-payloads)))))))
   (testing "Chassis Request"
-    (is (=  {:type :chassis-status-req, :command 1}
-            (get-message-type (ipmi-decode (byte-array (:chassis-status-req
-                                                        rmcp-payloads)))))))
+    (is (=   {:type :chassis-status-req, :command 1, :function 0}
+             (get-message-type (ipmi-decode (byte-array (:chassis-status-req
+                                                         rmcp-payloads)))))))
   (testing "Chassis Reset"
-    (is (=  {:type :chassis-reset-req, :command 2}
-            (get-message-type (ipmi-decode (byte-array (:chassis-reset-req
-                                                        rmcp-payloads)))))))
+    (is (=    {:type :chassis-reset-req, :command 2, :function 0}
+              (get-message-type (ipmi-decode (byte-array (:chassis-reset-req
+                                                          rmcp-payloads)))))))
   (testing "HPM Capabilities"
-    (is (=  {:type :hpm-capabilities-req, :command 62}
-            (get-message-type (ipmi-decode (byte-array (:hpm-capabilities-req
-                                                        rmcp-payloads)))))))
-  (testing "VSO Capabilities"
-    (is (=  {:type :vso-capabilities-req, :signature 3}
-            (get-message-type (ipmi-decode (byte-array (:vso-capabilities-req
-                                                        rmcp-payloads)) false)))))
-  (testing "PICMG Properties")
-  (is (= {:type :picmg-properties-req, :signature 0}
-         (get-message-type (ipmi-decode (byte-array (:picmg-properties-req
-                                                     rmcp-payloads)) false)))))
+    (is (=   {:type :hpm-capabilities-req, :command 62, :function 44 :response 45}
+             (get-message-type (ipmi-decode (byte-array (:hpm-capabilities-req
+                                                         rmcp-payloads)))))))
+  (testing "VSO Capabilities Request"
+    (is (= {:type :vso-capabilities-req, :command 0, :function 44, :signature 3 :response 45}
+           (get-message-type (ipmi-decode (byte-array (:vso-capabilities-req
+                                                       rmcp-payloads)))))))
+  (testing "PICMG Properties"
+    (is (=  {:type :picmg-properties-req, :command 0, :function 44, :signature 0 :response 45}
+            (get-message-type (ipmi-decode (byte-array (:picmg-properties-req
+                                                        rmcp-payloads)) false))))))
 
                                         ; (deftest test-set-priv-level
 ; (deftest test-set-priv-level

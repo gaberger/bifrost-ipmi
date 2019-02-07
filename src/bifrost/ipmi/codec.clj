@@ -102,8 +102,8 @@
                                                                  :command])]
                                          (condp = command
                                            0x38 (condp = function
-                                                  6 {:type :get-channel-auth-cap-req :message 56}
-                                                  7 {:type :get-channel-auth-cap-req :message 56})))
+                                                  6 {:type :get-channel-auth-cap-req :command 56 :function 6}
+                                                  7 {:type :get-channel-auth-cap-req :command 56 :function 7})))
                      :ipmi-2-0-payload (let [function     (get-in m [:rmcp-class
                                                                      :ipmi-session-payload
                                                                      :ipmi-2-0-payload
@@ -132,29 +132,29 @@
                                            21 {:type :rmcp-rakp-4 :payload-type 21}
                                            0  (condp = function
                                                 0  (condp = command
-                                                     1 {:type :chassis-status-req :command 1}
-                                                     2 {:type :chassis-reset-req :command 2})
+                                                     1 {:type :chassis-status-req :command 1 :function 0}
+                                                     2 {:type :chassis-reset-req :command 2 :function 0})
                                                 1  (condp = command
-                                                     1 {:type :chassis-status-rsp :command 1}
-                                                     2 {:type :chassis-reset-rsp :command 2})
+                                                     1 {:type :chassis-status-rsp :command 1 :function 1}
+                                                     2 {:type :chassis-reset-rsp :command 2 :function 2})
                                                 6  (condp = command
-                                                     1  {:type :device-id-req :command 1}
-                                                     59 {:type :set-session-prv-level-req :command 59}
-                                                     60 {:type :rmcp-close-session-req :command 60})
+                                                     1  {:type :device-id-req :command 1 :function 6}
+                                                     59 {:type :set-session-prv-level-req :command 59 :function 6}
+                                                     60 {:type :rmcp-close-session-req :command 60 :function 6})
                                                 7  (condp = command
-                                                     1  {:type :device-id-rsp :command 1}
-                                                     59 {:type :set-session-prv-level-rsp :command 59}
-                                                     60 {:type :rmcp-close-session :command 60})
+                                                     1  {:type :device-id-rsp :command 1 :function 7}
+                                                     59 {:type :set-session-prv-level-rsp :command 59 :function 7}
+                                                     60 {:type :rmcp-close-session :command 60 :function 7})
                                                 44 (condp = command
                                                      0  (condp = signature
-                                                          0 {:type :picmg-properties-req :signature 0}
-                                                          3 {:type :vso-capabilities-req :signature 3})
-                                                     62 {:type :hpm-capabilities-req :command 62})
+                                                          0 {:type :picmg-properties-req :command 0 :function 44 :response 45 :signature 0}
+                                                          3 {:type :vso-capabilities-req :command 0 :function 44 :response 45 :signature 3})
+                                                     62 {:type :hpm-capabilities-req :command 62 :function 44 :response 45})
                                                 45 (condp = command
                                                      0  (condp = signature
-                                                          0 {:type :picmg-properties-rsp :signature 0}
-                                                          3 {:type :vso-capabilities-rsp :signature 3})
-                                                     62 {:type :hpm-capabilities-req :command 62})))))]
+                                                          0 {:type :picmg-properties-rsp :command 0 :function 45 :signature 0}
+                                                          3 {:type :vso-capabilities-rsp :command 0 :function 45 :signature 3})
+                                                     62 {:type :hpm-capabilities-req :command 62 :function 45})))))]
 
       selector)))
 
@@ -294,6 +294,11 @@
                      :chassis-control 4)
    :checksum :ubyte))
 
+(defcodec default-rsp-codec
+    (ordered-map
+     :command-completion-code :ubyte
+     :checksum :ubyte))
+
 (defcodec chassis-control-rsp
   (ordered-map
    :command-completion-code :ubyte
@@ -333,10 +338,15 @@
     0x0 picmg-properties-req
     0x3 vso-capabilities-req))
 
-(defn get-picmg-signature-response-codec [h]
+#_(defn get-picmg-signature-response-codec [h]
   (condp = (:signature h)
     0x0 picmg-properties-rsp
     0x3 vso-capabilities-rsp))
+
+(defn get-picmg-signature-response-codec [h]
+    picmg-properties-rsp
+    )
+
 
 (defcodec picmg-header
   {:signature :ubyte})
@@ -349,11 +359,13 @@
             b)))
 
 (defcodec ipmb-picmg-message-rsp
-  (header picmg-header
+  default-rsp-codec)
+
+  #_(header picmg-header
           (build-merge-header-with-data
            #(get-picmg-signature-response-codec %))
           (fn [b]
-            b)))
+            b))
 
 (defcodec ipmb-header
   (ordered-map
@@ -419,8 +431,8 @@
 
 (defn get-group-extensions-command-response-codec [h]
   (condp = (:command h)
-    0x00 ipmb-picmg-message-rsp
-    0x3e hpm-capabilities-rsp))
+    0x00 default-rsp-codec
+    0x3e default-rsp-codec))
 
 ;; (defn get-oem-extensions-command-request-codec [h]
 ;;   (condp = (:command h)
