@@ -5,6 +5,13 @@
             [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1]])
   (:import [java.time Duration Instant]))
 
+(defmacro safe
+  [& body]
+  `(try ~@body
+        (catch Exception e#
+          (log/error "caught exception:" (.getMessage e#))
+          false)))
+
 (defn dump-functions
   ([m auth]
    (letfn [(get-command [m] (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :command]))

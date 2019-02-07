@@ -20,7 +20,48 @@
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode (decode (byte-array (:rmcp-rakp-2 error-payloads))))]
-      (is (= {}
+      (is (= {:version 6,
+              :reserved 0,
+              :sequence 255,
+              :rmcp-class
+              {:ipmi-session-payload
+               {:ipmi-2-0-payload
+                {:session-id 0,
+                 :session-seq 0,
+                 :payload-type
+                 {:encrypted? false, :authenticated? false, :type 19},
+                 :managed-system-random-number
+                 [226 199 138 253 50 30 193 15 74 180 202 18 153 69 37 59],
+                 :status-code 18,
+                 :message-tag 0,
+                 :key-exchange-code
+                 [219
+                  28
+                  37
+                  137
+                  157
+                  123
+                  88
+                  139
+                  214
+                  17
+                  13
+                  117
+                  157
+                  146
+                  215
+                  107
+                  254
+                  115
+                  250
+                  233],
+                 :reserved [0 0],
+                 :message-length 60,
+                 :managed-system-guid
+                 [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
+                 :remote-session-console-id 2695013284},
+                :type :ipmi-2-0-session},
+               :type :ipmi-session}}
              (decode payload))))))
 
 (deftest  test-rmcp-presence

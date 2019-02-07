@@ -6,6 +6,7 @@
    [bifrost.ipmi.codec :as c]
    [bifrost.ipmi.crypto :refer [calc-sha1-key calc-rakp-1 calc-rakp-3 calc-rakp-4-sidm calc-rakp-4-sik]]
    [bifrost.ipmi.registrar :refer :all]
+   [bifrost.ipmi.utils :refer [safe]]
    [manifold.stream :as s]
    [bifrost.ipmi.handlers :as h]
    [taoensso.timbre :as log]
@@ -36,19 +37,16 @@
 
 (defn send-udp [session message]
   (let [host (get session :host)
-        port (get session :port)]
+        port (get session :port)
+        bytes (-> message bs/to-byte-array)]
     (assert (not (nil? host)) "Host cannon be nil")
     (log/debug "Sending Message to host:" host " port:" port)
     (log/debug  "Bytes" (-> message
                             bs/to-byte-array
                             codecs/bytes->hex))
-    (try
-      (s/put! @server-socket {:host host
-                              :port port
-                              :message message})
-      (catch Exception e
-        (log/error "send-udp-error " e "data:" host port)))
-     ))
+    (s/put! @server-socket {:host    host
+                             :port    port
+                             :message bytes})))
 
 (defmulti send-message :type)
 (defmethod send-message :chassis-status [m]
@@ -57,8 +55,8 @@
         message             (h/chassis-status-response-msg sid)
         codec               (c/compile-codec)
         ipmi-encode         (partial encode codec)
-        encoded-message     (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message     (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :device-id-req [m]
   (log/info "Sending Device ID  Response: ")
@@ -66,17 +64,17 @@
         message             (h/device-id-response-msg sid)
         codec               (c/compile-codec)
         ipmi-encode         (partial encode codec)
-        encoded-message     (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message     (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :chassis-reset [m]
   (log/info "Sending Chassis Reset Response")
-  (let [{:keys [input sid seq]} m
-        message                 (h/chassis-reset-response-msg sid seq)
+  (let [{:keys [input sid seq status]} m
+        message                 (h/chassis-reset-response-msg sid seq status)
         codec                   (c/compile-codec)
         ipmi-encode             (partial encode codec)
-        encoded-message         (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message         (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :get-channel-auth-cap-req [m]
   (log/info "Sending Chassis Auth Capability Response")
@@ -84,8 +82,8 @@
         message         (h/auth-capabilities-response-msg)
         codec           (c/compile-codec)
         ipmi-encode     (partial encode codec)
-        encoded-message (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :open-session-request [m]
   (log/info "Sending Open Session Response ")
@@ -93,8 +91,8 @@
         message                         (h/rmcp-open-session-response-msg sidc sidm a i c)
         codec                           (c/compile-codec)
         ipmi-encode                     (partial encode codec)
-        encoded-message                 (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message                 (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :rmcp-rakp-2 [m]
   (log/info "Sending RAKP2")
@@ -106,11 +104,10 @@
                           (c/compile-codec auth))
         ipmi-encode     (partial encode codec)
         encoded-message (try
-                           (ipmi-encode message)
-                           (catch Exception e
-                             (log/error "Error encoding message input:" m "message:" message ))
-                             )]
-    (send-udp input encoded-message)))
+                          (safe (ipmi-encode message))
+                          (catch Exception e
+                            (log/error "Error encoding message input:" m "message:" message)))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :rmcp-rakp-4 [m]
   (log/info "Sending RAKP4")
@@ -119,8 +116,8 @@
         auth                 (get m :auth)
         codec                (c/compile-codec auth)
         ipmi-encode          (partial encode codec)
-        encoded-message      (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message      (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :session-priv-level [m]
   (log/info "Sending Session Priv Level Response")
@@ -128,8 +125,8 @@
         message             (h/set-session-priv-level-rsp-msg sid)
         codec               (c/compile-codec)
         ipmi-encode         (partial encode codec)
-        encoded-message     (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message     (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :rmcp-close-session [m]
   (log/info "Sending Session Close Response")
@@ -137,8 +134,8 @@
         message                 (h/rmcp-close-response-msg sid seq)
         codec                   (c/compile-codec)
         ipmi-encode             (partial encode codec)
-        encoded-message         (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message         (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :asf-ping [m]
   (log/info "Sending Ping Response")
@@ -146,51 +143,42 @@
         message                     (h/presence-pong-msg message-tag)
         codec                       (c/compile-codec)
         ipmi-encode                 (partial encode codec)
-        encoded-message             (ipmi-encode message)]
-    (send-udp input encoded-message)))
+        encoded-message             (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :hpm-capabilities-req [m]
   (log/info "Sending HPM Capabilities Response")
   (let [{:keys [input]} m
-        message                     (h/hpm-capabilities-msg m)
-        codec                       (c/compile-codec)
-        ipmi-encode                 (partial encode codec)
-        encoded-message             (try
-                                      (ipmi-encode message)
-                                      (catch Exception e
-                                        (log/error "Caught Exception " e)))]
-    (send-udp input encoded-message)))
+        message         (h/hpm-capabilities-msg m)
+        codec           (c/compile-codec)
+        ipmi-encode     (partial encode codec)
+        encoded-message (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :picmg-properties-req [m]
   (log/info "Sending PICMG Properties Response")
   (let [{:keys [input]} m
-        message                     (h/picmg-response-msg m)
-        codec                       (c/compile-codec)
-        ipmi-encode                 (partial encode codec)
-        encoded-message             (try
-                                      (ipmi-encode message)
-                                      (catch Exception e
-                                        (log/error "Caught Exception " e)))]
-    (send-udp input encoded-message)))
+        message         (h/picmg-response-msg m)
+        codec           (c/compile-codec)
+        ipmi-encode     (partial encode codec)
+        encoded-message (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defmethod send-message :vso-capabilities-req [m]
   (log/info "Sending VSO Capabilities Response")
   (let [{:keys [input]} m
-        message                     (h/vso-response-msg m)
-        codec                       (c/compile-codec)
-        ipmi-encode                 (partial encode codec)
-        encoded-message             (try
-                                      (ipmi-encode message)
-                                      (catch Exception e
-                                        (log/error "Caught Exception " e)))]
-    (send-udp input encoded-message)))
+        message         (h/vso-response-msg m)
+        codec           (c/compile-codec)
+        ipmi-encode     (partial encode codec)
+        encoded-message (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
 
 (defn send-rmcp-ack [session seq-no]
   (log/info "Sending rmcp-ack " seq-no)
   (let [message         (h/rmcp-ack seq-no)
         codec           (c/compile-codec)
         ipmi-encode     (partial encode codec)
-        encoded-message (ipmi-encode message)]
+        encoded-message (safe (ipmi-encode message))]
     (send-message session encoded-message)))
 
 (def ipmi-fsm
@@ -210,12 +198,6 @@
                [:set-session-prv-level-req (a/$ :session-priv-level)])))
         [:rmcp-close-session-req (a/$ :rmcp-close-session)])])
 
-(def ipmi-fsm-sample
-  [(a/or (a/* [:Z])
-         (a/or (a/* [:A :B :C]
-                    (a/or [:D] [:E] [:F])
-                    [:G])))])
-
 
 ;;TODO create schemas for send-message input to test handlers
 
@@ -223,8 +205,7 @@
 (def ipmi-handler
   {:signal   #(:type  (c/get-message-type %))
    :reducers {:init                     (fn [state _]
-                                          (assoc state :last-message [])
-                                          #_(reset! fsm-state {}))
+                                          (assoc state :last-message []))
               :hpm-capabilities-req     (fn [state input]
                                           (log/info "HPM Capabilities")
                                           (send-message {:type  :hpm-capabilities-req
@@ -259,9 +240,13 @@
                                           (let [message (conj {} (c/get-message-type input))
                                                 state   (update-in state [:last-message] conj message)
                                                 sid     (get state :sidm)
-                                                seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)]
-                                            (send-message {:type :chassis-reset :input input :sid sid :seq seq})
-                                        ;(reboot-device [device api-key])
+                                                seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
+                                                unamem  (get state :unamem)]
+                                            (if-not (nil? (log/spy (get-driver-device-id (keyword unamem))))
+                                              (do
+                                                 (safe (reboot-server {:driver :packet :user-key (keyword unamem)}))
+                                                 (send-message {:type :chassis-reset :input input :sid sid :seq seq :status 0}))
+                                              (send-message {:type :chassis-reset :input input :sid sid :seq seq :status 0x12}))
                                             state))
               :get-channel-auth-cap-req (fn [state input]
                                           (log/info "Auth Capabilities Request")
@@ -344,15 +329,14 @@
                                                 state)
                                               (let [m {:type       :rmcp-rakp-2
                                                        :input      input
-                                                       :auth auth
+                                                       :auth       auth
                                                        :rc         rc
                                                        :sidm       sidm
                                                        :status     0x12
                                                        :guidc      guid
                                                        :rakp2-hmac [0]}]
                                                 (log/error (format "User %s  Not Found.." unamem))
-                                                (send-message m)
-                                                nil))))
+                                                (send-message m) state))))
 
               :rmcp-rakp-3 (fn [state input]
                              (log/info "RAKP-3 Request ")
@@ -380,7 +364,6 @@
                                         ;(assert (= kec sidc-hmac))
                                                     (vec sidm-hmac-96))
                                                   nil)
-
                                    state (-> state
                                              (update-in [:last-message] conj message)
                                              (merge {:sidm-hmac sidm-hmac-96}))
@@ -420,6 +403,3 @@
 
 (defn view-fsm []
   (automat.viz/view (a/compile ipmi-fsm ipmi-handler)))
-
-(defn view-fsm-sample []
-  (automat.viz/view (a/compile ipmi-fsm-sample ipmi-handler)))

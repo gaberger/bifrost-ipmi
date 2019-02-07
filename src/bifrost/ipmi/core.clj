@@ -7,7 +7,7 @@
             [byte-streams :as bs]
             [overtone.at-at :as at]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
-            [bifrost.ipmi.registrar :refer [registration-db register-user]]
+            [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
             [bifrost.ipmi.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state server-socket]]
             [clojure.string :as str]
             [clojure.core.async :refer [chan close! pub sub >!! <! <!! go-loop unsub-all timeout alt! alts!! thread]]
@@ -183,6 +183,7 @@
       (log/error "Port in use")
       false)))
 
+
 (defn stop-server []
   (s/close! @server-socket)
   (at/stop-and-reset-pool! task-pool))
@@ -201,8 +202,7 @@
           (Thread/sleep 600000)
           (stop-server)
           (println "closed socket"))))
-    (log/error "Please register users first"))
-  )
+    (log/error "Please register users first")))
 
 ;;TODO Make sure to check fore registrations
 
