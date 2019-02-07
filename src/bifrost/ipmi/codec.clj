@@ -374,7 +374,9 @@
                               :target-lun 2)
    :header-checksum :ubyte
    :source-address :ubyte
-   :source-lun :ubyte))
+   :source-lun (bit-map
+                :seq-no 6
+                :source-lun 2)))
 
 (defcodec set-session-priv-level-req
   (ordered-map

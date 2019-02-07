@@ -7,7 +7,8 @@
             [bifrost.ipmi.registrar :refer [reboot-server]]
             [gloss.io :refer [decode]]
             [automat.core :as a]
-            [mockery.core :refer [with-mock]]))
+            [mockery.core :refer [with-mock]]
+            [clj-uuid :as uuid]))
 
 (defn mock-send [f]
   (with-mock _
@@ -30,10 +31,38 @@
      :side-effect #(println "Mock: Reboot")}
     (f)))
 
+(defn mock-lookup-password-key [f]
+  (with-mock _
+    {:target  :bifrost.ipmi.registrar/lookup-password-key
+     :return  "ADMIN"}
+    (f)))
+
+(defn mock-get-device-id-bytes [f]
+  (with-mock _
+    {:target  :bifrost.ipmi.registrar/get-device-id-bytes
+     :return  [00 00 00 00 00 00 00 00]}
+    (f)))
+
+(defn mock-lookup-userid [f]
+  (with-mock _
+    {:target  :bifrost.ipmi.registrar/lookup-userid
+     :return  true
+     :side-effect #(println "Mock: Reboot")}
+    (f)))
+
+(defn mock-get-driver-device-id [f]
+  (with-mock _
+    {:target  :bifrost.ipmi.registrar/get-driver-device-id
+     :return  true
+     :side-effect #(println "Mock: Reboot")}
+    (f)))
+
 
 (use-fixtures
   :once
-  mock-send mock-get mock-packet-reset)
+  mock-send mock-get mock-packet-reset mock-lookup-password-key
+  mock-lookup-userid mock-get-device-id-bytes
+  mock-get-driver-device-id)
 
 (deftest test-fsm-handlers
   (testing "test crypto 0"
