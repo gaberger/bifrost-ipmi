@@ -54,7 +54,7 @@
      :type :ipmi-2-0-session}
     :type :ipmi-session}})
 
-(defn chassis-reset-response-msg [sid seq]
+(defn chassis-reset-response-msg [sid seq status]
   {:version 6,
    :reserved 0,
    :sequence 255,
@@ -72,46 +72,46 @@
       :target-address 129,
       :network-function {:function 1, :target-lun 0},
       :message-length 8,
-      :command-completion-code 0},
+      :command-completion-code status},
      :type :ipmi-2-0-session},
     :type :ipmi-session}})
 
 (defn device-id-response-msg [sid]
-  {:version 6,
+  {:version  6,
    :reserved 0,
    :sequence 255,
    :rmcp-class
    {:ipmi-session-payload
     {:ipmi-2-0-payload
-     {:session-id sid,
+     {:session-id              sid,
       :major-firmware-revision 8,
-      :session-seq 3,
-      :payload-type {:encrypted? false, :authenticated? false, :type 0},
-      :device-id 0,
+      :session-seq             3,
+      :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+      :device-id               0,
       :additional-device-support
-      {:chassis true,
-       :bridge false,
+      {:chassis         true,
+       :bridge          false,
        :event-generator false,
-       :event-receiver true,
-       :fru-invetory true,
-       :sel true,
-       :sdr-repository true,
-       :sensor true},
+       :event-receiver  true,
+       :fru-invetory    true,
+       :sel             true,
+       :sdr-repository  true,
+       :sensor          true},
       :device-revision
       {:provides-sdr false, :reserved 0, :device-revision 3},
-      :command 1,
-      :source-lun 12,
-      :auxiliary-firmware 0,
-      :source-address 32,
-      :manufacturer-id [145 18 0],
-      :checksum 106,
-      :header-checksum 99,
-      :target-address 129,
-      :network-function {:function 7, :target-lun 0},
-      :message-length 23,
+      :command                 1,
+      :source-lun              12,
+      :auxiliary-firmware      0,
+      :source-address          32,
+      :manufacturer-id         [145 18 0],
+      :checksum                106,
+      :header-checksum         99,
+      :target-address          129,
+      :network-function        {:function 7, :target-lun 0},
+      :message-length          23,
       :command-completion-code 0,
-      :product-id 3842,
-      :ipmi-version 2,
+      :product-id              3842,
+      :ipmi-version            2,
       :device-availability
       {:operation false, :major-firmware-revision 9}},
      :type :ipmi-2-0-session},
@@ -211,7 +211,6 @@
                                        :type :ipmi-1-5-session},
                 :type :ipmi-session}})
 
-
 (defn rmcp-close-response-msg [sid seq]
   {:version 6,
    :reserved 0,
@@ -273,7 +272,7 @@
 (defmulti rmcp-rakp-2-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp [m]
   (log/debug "RMCP-RAKP Response")
-  (let [{:keys [sidm rc guidc]} m]
+  (let [{:keys [sidm rc guidc status]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -287,7 +286,7 @@
          :authenticated? false,
          :type           19},
         :managed-system-random-number rc
-        :status-code                  0,
+        :status-code                  status,
         :message-tag                  0,
         :reserved                     [0 0],
         :message-length               40
@@ -298,7 +297,7 @@
 
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp-hmac-sha1 [m]
   (log/debug "RMCP-RAKP-HMAC-SHA1 Response")
-  (let [{:keys [sidm rc guidc rakp2-hmac]} m]
+  (let [{:keys [sidm rc guidc rakp2-hmac status]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -324,7 +323,7 @@
 
 (defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp [m]
-  (log/debug "RMCP-RAKP-4 Response" )
+  (log/debug "RMCP-RAKP-4 Response")
   (let [{:keys [sidm]} m]
     {:version 6,
      :reserved 0,
@@ -345,7 +344,7 @@
 
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [m]
   (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")
-  (let [{:keys [sidm sidm-hmac]} m ]
+  (let [{:keys [sidm sidm-hmac]} m]
     {:version    6,
      :reserved   0,
      :sequence   255,
@@ -367,7 +366,7 @@
                   :type :ipmi-session}}))
 
 (defn hpm-capabilities-msg  [m]
-  (log/debug "HPM Capabilities" )
+  (log/debug "HPM Capabilities")
   (let [{:keys [sid]} m]
     {:version  6,
      :reserved 0,
@@ -389,33 +388,33 @@
         :command-completion-code 193},
        :type :ipmi-2-0-session},
       :type :ipmi-session}}))
-  
+
 (defn picmg-response-msg  [m]
-  (log/debug "PICMG Response" )
+  (log/debug "PICMG Response")
   (let [{:keys [sid]} m]
     {:version 6,
-                :reserved 0,
-                :sequence 255,
-                :rmcp-class
-                {:ipmi-session-payload
-                 {:ipmi-2-0-payload
-                  {:session-id sid
-                   :session-seq 6,
-                   :payload-type {:encrypted? false, :authenticated? false, :type 0},
-                   :signature 0,
-                   :command 0,
-                   :source-lun 16,
-                   :source-address 129,
-                   :checksum 111,
-                   :header-checksum 48,
-                   :target-address 32,
-                   :network-function {:function 44, :target-lun 0},
-                   :message-length 8},
-                  :type :ipmi-2-0-session},
-                 :type :ipmi-session}}))
-   
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-2-0-payload
+       {:session-id sid
+        :session-seq 6,
+        :payload-type {:encrypted? false, :authenticated? false, :type 0},
+        :signature 0,
+        :command 0,
+        :source-lun 16,
+        :source-address 129,
+        :checksum 111,
+        :header-checksum 48,
+        :target-address 32,
+        :network-function {:function 44, :target-lun 0},
+        :message-length 8},
+       :type :ipmi-2-0-session},
+      :type :ipmi-session}}))
+
 (defn vso-response-msg [m]
-  (log/debug "VSO Capabilities" )
+  (log/debug "VSO Capabilities")
   (let [{:keys [sid]} m]
     {:version    6,
      :reserved   0,

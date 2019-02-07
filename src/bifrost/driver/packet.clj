@@ -38,5 +38,4 @@
                        :content-type :json
                        :body (json/encode {:type "reboot"
                                            :force_delete false})})))))
-                     
 

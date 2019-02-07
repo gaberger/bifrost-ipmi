@@ -7,6 +7,7 @@
             [byte-streams :as bs]
             [overtone.at-at :as at]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
+            [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
             [bifrost.ipmi.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state server-socket]]
             [clojure.string :as str]
             [clojure.core.async :refer [chan close! pub sub >!! <! <!! go-loop unsub-all timeout alt! alts!! thread]]
@@ -35,8 +36,10 @@
 
 (defonce task-pool (at/mk-pool))
 
-(def app-state (atom {:peer-set #{}
-                      :chan-map {}}))
+(defonce app-state (atom {:peer-set #{}
+                          :chan-map {}}))
+
+
 (def input-chan (chan))
 (def publisher  (pub input-chan :router))
 
@@ -70,9 +73,6 @@
 (defn get-chan-map []
   (get-in @app-state [:chan-map]))
 
-(defn get-chan-map-channel [h]
-  (get-in @app-state [:chan-map h :channel]))
-
 (defn update-chan-map-state [h state]
   (swap! app-state assoc-in [:chan-map h :state] state))
 
@@ -85,7 +85,8 @@
 (declare reset-peer)
 
 (defn task-set [f time-in-ms]
-  (at/every time-in-ms #(f) task-pool))
+  (future
+    (at/every time-in-ms #(f) task-pool)))
 
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (count-peer))
@@ -155,9 +156,7 @@
       (do
         (channel-sub-listener h)
         (log/debug "Create session " h)
-        (upsert-chan h  {:channel    input-chan
-                         :created-at (Date.)
-                         :pub        publisher
+        (upsert-chan h  {:created-at (Date.)
                          :host-map   host-map
                          :state      {}})
         (>!! input-chan {:router  h
@@ -184,19 +183,28 @@
       (log/error "Port in use")
       false)))
 
+
 (defn stop-server []
-  (s/close! @server-socket))
+  (s/close! @server-socket)
+  (at/stop-and-reset-pool! task-pool))
 
 (defn start-server [port]
-  (when (start-udp-server port)
-    (let [reaper (task-set run-reaper 30000)]
-      (reset-app-state)
-      (start-consumer  @server-socket)
-      (future
-        (Thread/sleep 600000)
-        (at/stop reaper)
-        (stop-server)
-        (println "closed socket")))))
+  (log/info "Starting Server on Port " port)
+  (log/merge-config! {:appenders {:println {:enabled? true
+                                            :async? true
+                                            :min-level :debug}}})
+  (if-not (empty? @registration-db)
+    (when (start-udp-server port)
+      (let [reaper (task-set run-reaper 30000)]
+        (reset-app-state)
+        (start-consumer  @server-socket)
+        (future
+          (Thread/sleep 600000)
+          (stop-server)
+          (println "closed socket"))))
+    (log/error "Please register users first")))
+
+;;TODO Make sure to check fore registrations
 
 (defn -main [port]
   (log/info "Starting Server on Port " port)
@@ -217,5 +225,6 @@
 
 ;; (def system
 ;;   (ig/init config))
+
 
 
