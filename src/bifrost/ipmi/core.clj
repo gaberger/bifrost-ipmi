@@ -12,7 +12,8 @@
             [clojure.string :as str]
             [clojure.core.async :refer [chan close! pub sub >!! <! <!! go-loop unsub-all timeout alt! alts!! thread]]
             [taoensso.timbre :as log]
-            [taoensso.timbre.appenders.core :as appenders])
+            [taoensso.timbre.appenders.core :as appenders]
+            [jvm-alloc-rate-meter.core :as ameter])
   (:import [java.net InetSocketAddress]
            [java.util.concurrent Executors]
            [java.util Date TimerTask Timer]
@@ -33,6 +34,21 @@
 ;; for each peer [ip:port] process it's own fsm.
 ;; 
 
+(def stop-meter (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
+
+(defn stop-log []
+  (log/merge-config! {:appenders {:println {:enabled? false}
+                                          :async? true
+                                          :min-level :info}}))
+
+(defn debug-log []
+  (log/merge-config! {:appenders {:println {:enabled? true}
+                                  :async? true
+                                  :min-level :debug}}))
+(defn info-log []
+  (log/merge-config! {:appenders {:println {:enabled? true}
+                                  :async? true
+                                  :min-level :debug}}))
 
 (defonce task-pool (at/mk-pool))
 

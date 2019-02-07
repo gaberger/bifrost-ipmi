@@ -283,7 +283,7 @@
                                         (send-message {:type     :error-response
                                                        :input    input :sid    (get state :sidm)
                                                        :sa   sa :ta ta :seq seq :command c :seq-no seq-no
-                                                       :function f     :status 0xC1              :csum 0x17}))
+                                                       :function f     :status 0    :csum 204}))
                                       state)
 
               :chassis-status           (fn [state input]
