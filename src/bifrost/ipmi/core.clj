@@ -6,9 +6,10 @@
             [buddy.core.codecs :as codecs]
             [byte-streams :as bs]
             [overtone.at-at :as at]
+            [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [bind-fsm ipmi-fsm ipmi-handler get-session-state server-socket]]
+            [bifrost.ipmi.state-machine :refer [server-socket bind-fsm ipmi-fsm ipmi-handler get-session-state]]
             [clojure.string :as str]
             [clojure.core.async :refer [chan close! pub sub >!! <! <!! go-loop unsub-all timeout alt! alts!! thread]]
             [taoensso.timbre :as log]
@@ -22,7 +23,7 @@
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
-                                          :min-level :info}}})
+                                          :min-level :debug}}})
 ;(log/merge-config!
 ;   {:appenders 
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
@@ -34,7 +35,10 @@
 ;; for each peer [ip:port] process it's own fsm.
 ;; 
 
-(def stop-meter (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
+(defn start-stop-meter []
+   (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
+
+(def dump-registrar @registration-db)
 
 (defn stop-log []
   (log/merge-config! {:appenders {:println {:enabled? false}
@@ -51,10 +55,8 @@
                                   :min-level :debug}}))
 
 (defonce task-pool (at/mk-pool))
-
 (defonce app-state (atom {:peer-set #{}
                           :chan-map {}}))
-
 
 (def input-chan (chan))
 (def publisher  (pub input-chan :router))
@@ -83,6 +85,9 @@
   (let [peer-set (get-in @app-state [:peer-set])]
     (some #{h} peer-set)))
 
+(defn get-peers []
+  (get-in @app-state [:peer-set]))
+
 (defn count-peer []
   (count (get-in @app-state [:peer-set])))
 
@@ -104,9 +109,18 @@
   (future
     (at/every time-in-ms #(f) task-pool)))
 
+
+(defn dump-app-state []
+     (for [[k v] (get-chan-map)
+           :let  [n (.toInstant (java.util.Date.))
+                  t (.toInstant (:created-at v))
+                  duration (.toMillis (Duration/between t n))]]
+       {:hash k :duration duration}
+     ))
+
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (count-peer))
-  (doall
+  (safe
    (for [[k v] (get-chan-map)
          :let  [n (.toInstant (java.util.Date.))
                 t (.toInstant (:created-at v))
@@ -128,31 +142,33 @@
             fsm                      (bind-fsm)
             fsm-state                (get-chan-map-state  hash)
             auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-            _                        (log/debug "Using Authentication Codec " auth)
-            compiled-codec           (compile-codec auth)
+            conf                     (-> fsm-state :value :confidentiality-payload c/confidentiality-codec :codec)
+            integ                    (-> fsm-state :value :integrity-payload c/integrity-codec :codec)
+            _                        (log/debug "Authentication " auth "Integrity " integ " Confidentiality " conf)
+            compiled-codec           (compile-codec auth integ conf)
             decoder                  (partial decode compiled-codec)
             host-map                 (get-chan-map-host-map hash)
             _                        (log/debug  "Packet In Channel" (-> message
                                                                          :message
                                                                          bs/to-byte-array
                                                                          codecs/bytes->hex))
-            decoded                      (try
-                                           (decoder (:message message))
-                                           (catch Exception e
-                                             (do
-                                               (log/error "Caught decoding error:" (.getMessage e) (codecs/bytes->hex (:message  message)))
-                                               {})))
-            m                            (merge host-map decoded)
-            new-fsm-state                (let [s (try
-                                                   (fsm fsm-state m)
-                                                   (catch Exception e
-                                                     (do
-                                                       (log/error "State Machine Error " (.getMessage e)
-                                                                  "FSM State " fsm-state "Input " m))))]
-                                           (condp = (:value s)
-                                             nil fsm-state
-                                             s))
-            complete?                    (-> new-fsm-state :accepted? true?)]
+            decoded                  (try
+                                       (decoder (:message message))
+                                       (catch Exception e
+                                         (do
+                                           (log/error "Caught decoding error:" (.getMessage e) (codecs/bytes->hex (:message  message)))
+                                           {})))
+            m                        (merge host-map decoded)
+            new-fsm-state            (let [s (try
+                                               (fsm fsm-state m)
+                                               (catch Exception e
+                                                 (do
+                                                   (log/error "State Machine Error " (.getMessage e)
+                                                              "FSM State " fsm-state "Input " m))))]
+                                       (condp = (:value s)
+                                         nil fsm-state
+                                         s))
+            complete?                (-> new-fsm-state :accepted? true?)]
 
         (update-chan-map-state hash new-fsm-state)
         (if complete?
@@ -199,10 +215,18 @@
       (log/error "Port in use")
       false)))
 
+(defn start-reaper [time-to-recur]
+  (future
+    (loop []
+      (run-reaper)
+      (Thread/sleep time-to-recur )
+      (recur)
+        )))
 
 (defn stop-server []
-  (s/close! @server-socket)
-  (at/stop-and-reset-pool! task-pool))
+  (safe (s/close! @server-socket))
+  (shutdown-agents))
+
 
 (defn start-server [port]
   (log/info "Starting Server on Port " port)
@@ -211,26 +235,28 @@
                                             :min-level :debug}}})
   (if-not (empty? @registration-db)
     (when (start-udp-server port)
-      (let [reaper (task-set run-reaper 30000)]
         (reset-app-state)
         (start-consumer  @server-socket)
+        (start-reaper 10000)
         (future
           (Thread/sleep 600000)
           (stop-server)
           (println "closed socket"))))
-    (log/error "Please register users first")))
+    (log/error "Please register users first"))
 
 ;;TODO Make sure to check fore registrations
 
 (defn -main [port]
   (log/info "Starting Server on Port " port)
   (when (start-udp-server  (Integer. port))
-    (let [reaper (task-set run-reaper 30000)]
+    (let []
       (start-consumer  @server-socket)
-      (future
+      (start-reaper 10000)
+      #_(future
         (while true
           (Thread/sleep
-           1000))))))
+           1000)))
+      (future ))))
 
 ;; (def config
 ;;   {:handler/reaper {:schedule 10000 :function #(reaper)}

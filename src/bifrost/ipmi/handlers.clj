@@ -240,7 +240,6 @@
       :type :ipmi-session}}))
 
 (defn rmcp-open-session-response-msg [m]
-  (log/debug "OSRM " m)
   (let [{:keys [sidc sidm a i c]} m]
     (comment Page 148)
     {:version  6,
@@ -398,7 +397,7 @@
       :type :ipmi-session}}))
 
 (defn error-response-msg  [m]
-  (log/debug "Error Response")
+  (log/debug "Send Response")
   (let [{:keys [sid sa ta seq command seq-no function status csum]} m]
     {:version  6,
      :reserved 0,

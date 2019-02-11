@@ -57,7 +57,6 @@
      :side-effect #(println "Mock: Reboot")}
     (f)))
 
-
 (use-fixtures
   :once
   mock-send mock-get mock-packet-reset mock-lookup-password-key
@@ -85,12 +84,23 @@
            (= 0)
            (:state-index
             result)))))
-  #_(testing "test PING"
-      (let [ipmi-decode (partial decode (compile-codec))
-            adv         (bind-fsm)
-            result      (-> nil
-                            (adv  (safe (ipmi-decode (byte-array (:rmcp-ping rmcp-payloads))))))]
-        (is (true?
-             (:accepted?
-
-              result))))))
+  (testing "test crypto 1"
+    (let [ipmi-decode (partial decode (compile-codec :rmcp-rakp-hmac-sha1))
+          adv         (bind-fsm)
+          result      (-> nil
+                          (adv (safe (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:open-session-request rmcp-payloads-cipher-1)))))
+                          (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1)))))
+                          (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1)))))
+                          (adv (safe (ipmi-decode (byte-array (:hpm-capabilities-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:set-sess-prv-level-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:chassis-status-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:chassis-reset-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:device-id-req rmcp-payloads)))))
+                          (adv (safe (ipmi-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))))]
+      (is (and
+           (true?
+            (:accepted? result))
+           (= 0)
+           (:state-index
+            result))))))

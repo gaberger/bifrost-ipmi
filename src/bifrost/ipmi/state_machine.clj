@@ -15,7 +15,8 @@
    [buddy.core.bytes :as bytes]
    [byte-streams :as bs]))
 
-(def server-socket (atom nil))
+
+(defonce server-socket (atom nil))
 
 (declare ipmi-fsm)
 (declare ipmi-handler)
@@ -50,7 +51,7 @@
 
 (defmulti send-message :type)
 (defmethod send-message :error-response [m]
-  (log/info "Sending Error Response: ")
+  (log/info "Sending Response: ")
   (let [{:keys [input]} m
         message             (log/spy (h/error-response-msg m))
         codec               (c/compile-codec)
@@ -121,6 +122,7 @@
 
 (defmethod send-message :rmcp-rakp-4 [m]
   (log/info "Sending RAKP4")
+  (log/debug ">>>" m)
   (let [{:keys [input sidm]} m
         message              (h/rmcp-rakp-4-response-msg m)
         auth                 (get m :auth)
@@ -193,7 +195,7 @@
 
 (def ipmi-fsm
   [(a/* (a/$ :init)
-        (a/*
+        (a/+
          [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
           :open-session-request (a/$ :open-session-request)
           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
@@ -272,7 +274,6 @@
                                       state)
               :vso-capabilities-req (fn [state input]
                                       (log/info "VSO Capabilities")
-                                      (log/debug "Incoming " input)
                                       (let [message (c/get-message-type input)
                                             seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
                                             seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun :seq-no])
@@ -424,21 +425,21 @@
                                    rm      (get state :rm)
                                    rc      (get state :rc)
 
-                                   sidm-hmac-96 (if (= :rmcp-rakp-hmac-sha1 auth)
+                                   [sidm-hmac-96 sik] (if (= :rmcp-rakp-hmac-sha1 auth)
                                                   (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
                                                                                     :ipmi-2-0-payload :key-exchange-code])
                                                         sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
-                                                        sik-hmac     (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                        sik    (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
                                                         _            (comment "Need to truncate sidm-hmac to 96bits")
-                                                        sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik-hmac :uid uid})
+                                                        sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik :uid uid})
                                                         sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
 
                                         ;(assert (= kec sidc-hmac))
-                                                    (vec sidm-hmac-96))
+                                                    [(vec sidm-hmac-96) (vec sik)])
                                                   nil)
                                    state (-> state
                                              (update-in [:last-message] conj message)
-                                             (merge {:sidm-hmac sidm-hmac-96}))
+                                             (merge {:sidm-hmac sidm-hmac-96 :sik sik}))
                                    m     {:type :rmcp-rakp-4 :auth auth :input input :sidm sidm :sidm-hmac sidm-hmac-96}]
                                (send-message m)
                                state))

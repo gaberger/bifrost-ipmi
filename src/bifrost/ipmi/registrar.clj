@@ -2,7 +2,9 @@
   (:require  [clj-uuid :as uuid]
              [bifrost.driver.packet :refer [reboot-device]]
              [buddy.core.hash :as hash]
+             [buddy.core.codecs.base64 :as base64]
              [buddy.core.bytes :as bytes]
+             [buddy.core.nonce :as nonce]
              [buddy.core.codecs :as codecs]
              [taoensso.timbre :as log]))
 
@@ -19,6 +21,7 @@
 (defn reset-plugindb []
   (reset! plugin-db  {}))
 
+
 (defn register-user
   "This function is used to create the user-identifier which is used create the virtual-BMC intance. A user needs
   the user-key and a user-password to login to the digital twin. We will demux on the user-key and confirm through IPMI
@@ -27,9 +30,9 @@
   techniques like oAUTH, JWT, etc.. What is needed is a way to manage these keys and allow them to be created, destroyed
   and queried so that other systems can easily leverage the gateway service"
   []
-  (let [user-key (-> (hash/sha1 (uuid/to-string (uuid/squuid))) (bytes/slice 0 8) (codecs/bytes->hex))
-        user-password  (-> (hash/sha1 (uuid/to-string (uuid/squuid))) (bytes/slice 0 8) (codecs/bytes->hex))
-        device-guid (uuid/squuid)]
+  (let [user-key      (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
+        user-password (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
+        device-guid   (uuid/squuid)]
     (swap! registration-db #(conj % {:device-guid device-guid :user-key user-key :user-password user-password}))))
 
 (defn update-sidm

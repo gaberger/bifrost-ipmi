@@ -642,7 +642,7 @@
   {:type :rmcp-ack})
 
 (defn compile-codec
-  ([auth]
+  ([auth integ conf]
    (let [ipmb-message (compile-frame
                        (header ipmb-header
                                (build-merge-header-with-data
@@ -715,8 +715,9 @@
                                         :sequence :ubyte
                                         :rmcp-class rmcp-class-header)]
      (compile-frame rmcp-header)))
-  ([] (compile-codec
-
-       nil)))
+  ([] (compile-codec :rmcp-rakp  :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality ))
+  ([auth] (compile-codec auth :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality ))
+  ([auth integ] (compile-codec auth integ :rmcp-rakp-1-none-confidentiality ))
+  )
 
 
