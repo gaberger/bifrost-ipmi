@@ -195,7 +195,7 @@
 
 (def ipmi-fsm
   [(a/* (a/$ :init)
-        (a/+
+        (a/*
          [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
           :open-session-request (a/$ :open-session-request)
           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
@@ -426,17 +426,17 @@
                                    rc      (get state :rc)
 
                                    [sidm-hmac-96 sik] (if (= :rmcp-rakp-hmac-sha1 auth)
-                                                  (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
-                                                                                    :ipmi-2-0-payload :key-exchange-code])
-                                                        sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
-                                                        sik    (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
-                                                        _            (comment "Need to truncate sidm-hmac to 96bits")
-                                                        sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik :uid uid})
-                                                        sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
+                                                       (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
+                                                                                         :ipmi-2-0-payload :key-exchange-code])
+                                                             sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                             sik    (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                             _            (comment "Need to truncate sidm-hmac to 96bits")
+                                                             sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik :uid uid})
+                                                             sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
 
                                         ;(assert (= kec sidc-hmac))
-                                                    [(vec sidm-hmac-96) (vec sik)])
-                                                  nil)
+                                                         [(vec sidm-hmac-96) (vec sik)])
+                                                       nil)
                                    state (-> state
                                              (update-in [:last-message] conj message)
                                              (merge {:sidm-hmac sidm-hmac-96 :sik sik}))

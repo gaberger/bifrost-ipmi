@@ -115,8 +115,8 @@
            :let  [n (.toInstant (java.util.Date.))
                   t (.toInstant (:created-at v))
                   duration (.toMillis (Duration/between t n))]]
-       {:hash k :duration duration}
-     ))
+       {:hash k :duration duration}))
+     
 
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (count-peer))
@@ -219,9 +219,9 @@
   (future
     (loop []
       (run-reaper)
-      (Thread/sleep time-to-recur )
-      (recur)
-        )))
+      (Thread/sleep time-to-recur)
+      (recur))))
+        
 
 (defn stop-server []
   (safe (s/close! @server-socket))
@@ -242,7 +242,7 @@
           (Thread/sleep 600000)
           (stop-server)
           (println "closed socket"))))
-    (log/error "Please register users first"))
+  (log/error "Please register users first"))
 
 ;;TODO Make sure to check fore registrations
 
@@ -253,10 +253,10 @@
       (start-consumer  @server-socket)
       (start-reaper 10000)
       #_(future
-        (while true
-          (Thread/sleep
-           1000)))
-      (future ))))
+         (while true
+           (Thread/sleep
+            1000)))
+      (future))))
 
 ;; (def config
 ;;   {:handler/reaper {:schedule 10000 :function #(reaper)}
