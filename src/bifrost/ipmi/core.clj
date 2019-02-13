@@ -2,10 +2,8 @@
   (:require [aleph.udp :as udp]
             [manifold.stream :as s]
             [gloss.io :refer [decode encode]]
-            [integrant.core :as ig]
             [buddy.core.codecs :as codecs]
             [byte-streams :as bs]
-            [overtone.at-at :as at]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
@@ -54,7 +52,6 @@
                                   :async? true
                                   :min-level :debug}}))
 
-(defonce task-pool (at/mk-pool))
 (defonce app-state (atom {:peer-set #{}
                           :chan-map {}}))
 
@@ -86,29 +83,24 @@
     (some #{h} peer-set)))
 
 (defn get-peers []
-  (get-in @app-state [:peer-set]))
+  (get-in @app-state [:peer-set] #{}))
 
 (defn count-peer []
   (count (get-in @app-state [:peer-set])))
 
 (defn get-chan-map []
-  (get-in @app-state [:chan-map]))
+  (get-in @app-state [:chan-map] {}))
 
 (defn update-chan-map-state [h state]
   (swap! app-state assoc-in [:chan-map h :state] state))
 
 (defn get-chan-map-state [h]
-  (get-in @app-state [:chan-map h :state]))
+  (get-in @app-state [:chan-map h :state] {}))
 
 (defn get-chan-map-host-map [h]
-  (get-in @app-state [:chan-map h :host-map]))
+  (get-in @app-state [:chan-map h :host-map] {}))
 
 (declare reset-peer)
-
-(defn task-set [f time-in-ms]
-  (future
-    (at/every time-in-ms #(f) task-pool)))
-
 
 (defn dump-app-state []
      (for [[k v] (get-chan-map)
@@ -116,7 +108,6 @@
                   t (.toInstant (:created-at v))
                   duration (.toMillis (Duration/between t n))]]
        {:hash k :duration duration}))
-     
 
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (count-peer))
@@ -142,10 +133,7 @@
             fsm                      (bind-fsm)
             fsm-state                (get-chan-map-state  hash)
             auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-            conf                     (-> fsm-state :value :confidentiality-payload c/confidentiality-codec :codec)
-            integ                    (-> fsm-state :value :integrity-payload c/integrity-codec :codec)
-            _                        (log/debug "Authentication " auth "Integrity " integ " Confidentiality " conf)
-            compiled-codec           (compile-codec auth integ conf)
+            compiled-codec           (compile-codec auth)
             decoder                  (partial decode compiled-codec)
             host-map                 (get-chan-map-host-map hash)
             _                        (log/debug  "Packet In Channel" (-> message
@@ -155,16 +143,14 @@
             decoded                  (try
                                        (decoder (:message message))
                                        (catch Exception e
-                                         (do
-                                           (log/error "Caught decoding error:" (.getMessage e) (codecs/bytes->hex (:message  message)))
-                                           {})))
+                                         (throw (ex-info "Decoding error" {:error (.getMessage e)
+                                                                           :data (codecs/bytes->hex (:message message))}))
+                                         {}))
             m                        (merge host-map decoded)
             new-fsm-state            (let [s (try
                                                (fsm fsm-state m)
                                                (catch Exception e
-                                                 (do
-                                                   (log/error "State Machine Error " (.getMessage e)
-                                                              "FSM State " fsm-state "Input " m))))]
+                                                 (throw (ex-info "State Machine Error" {:error (.getMessage e)}))))]
                                        (condp = (:value s)
                                          nil fsm-state
                                          s))
@@ -190,6 +176,9 @@
         (log/debug "Create session " h)
         (upsert-chan h  {:created-at (Date.)
                          :host-map   host-map
+                         :login-state {:auth 0
+                                       :integ 0
+                                       :conf 0}
                          :state      {}})
         (>!! input-chan {:router  h
                          :message message}))
@@ -228,13 +217,13 @@
   (shutdown-agents))
 
 
-(defn start-server [port]
-  (log/info "Starting Server on Port " port)
+(defn start-server []
+  (log/info "Starting Server on Port " 623)
   (log/merge-config! {:appenders {:println {:enabled? true
                                             :async? true
                                             :min-level :debug}}})
   (if-not (empty? @registration-db)
-    (when (start-udp-server port)
+    (when (start-udp-server 623)
         (reset-app-state)
         (start-consumer  @server-socket)
         (start-reaper 10000)
@@ -257,16 +246,3 @@
            (Thread/sleep
             1000)))
       (future))))
-
-;; (def config
-;;   {:handler/reaper {:schedule 10000 :function #(reaper)}
-;;    :process/ipmi-server {:port 623}})
-
-;; (defmethod ig/init-key :handler/reaper [_ {:keys [handler] :as opts}]
-;;   (task-set handler (-> opts (dissoc :handler) (assoc :join? false))))
-
-;; (def system
-;;   (ig/init config))
-
-
-

@@ -6,10 +6,12 @@
              [buddy.core.bytes :as bytes]
              [buddy.core.nonce :as nonce]
              [buddy.core.codecs :as codecs]
+             [clojure.java.io :as io]
              [taoensso.timbre :as log]))
 
 
-;;This module is used to create the digital twin instance, create a unique user-id and handle the creation and delivery of symmetric passwords
+;;This module is used to create the digital twin instance, create a unique user-id and handle the creation
+;;and delivery of symmetric passwords
 
 
 (def registration-db (atom []))
@@ -29,11 +31,17 @@
   to create a virtual instance. The mechanism by which to grant this is orthognal from this but can use any number of
   techniques like oAUTH, JWT, etc.. What is needed is a way to manage these keys and allow them to be created, destroyed
   and queried so that other systems can easily leverage the gateway service"
-  []
-  (let [user-key      (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
-        user-password (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
-        device-guid   (uuid/squuid)]
-    (swap! registration-db #(conj % {:device-guid device-guid :user-key user-key :user-password user-password}))))
+  ([env]
+   (let [user-key      (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
+         password-key (-> (nonce/random-bytes 12) base64/encode codecs/bytes->str)
+         device-guid   (uuid/squuid)]
+     (swap! registration-db #(conj % {:device-guid device-guid :user-key user-key :user-password password-key}))
+     (when env
+       (with-open [w (io/writer (io/file ".settings/user.edn")
+                                :append false)]
+         (spit w {:user user-key :password password-key})))))
+  ([]
+   (register-user false)))
 
 (defn update-sidm
   "Add SIDM key to registrar"

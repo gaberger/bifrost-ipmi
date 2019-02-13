@@ -15,7 +15,6 @@
    [buddy.core.bytes :as bytes]
    [byte-streams :as bs]))
 
-
 (defonce server-socket (atom nil))
 
 (declare ipmi-fsm)
@@ -37,17 +36,25 @@
     {:host address :port port}))
 
 (defn send-udp [session message]
-  (let [host (get session :host)
-        port (get session :port)
+  (let [host  (get session :host)
+        port  (get session :port)
         bytes (-> message bs/to-byte-array)]
     (assert (not (nil? host)) "Host cannon be nil")
     (log/debug "Sending Message to host:" host " port:" port)
     (log/debug  "Bytes" (-> message
                             bs/to-byte-array
                             codecs/bytes->hex))
-    (s/put! @server-socket {:host    host
-                            :port    port
-                            :message bytes})))
+    (try
+      (s/put! @server-socket {:host    host
+                              :port    port
+                              :message bytes})
+      (catch Exception e
+        (throw (ex-info "Exception sending udp"
+                        {:host    host
+                         :port    port
+                         :message bytes
+                         :error   (.getMessage e)}))
+        false))))
 
 (defmulti send-message :type)
 (defmethod send-message :error-response [m]
@@ -426,17 +433,17 @@
                                    rc      (get state :rc)
 
                                    [sidm-hmac-96 sik] (if (= :rmcp-rakp-hmac-sha1 auth)
-                                                       (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
-                                                                                         :ipmi-2-0-payload :key-exchange-code])
-                                                             sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
-                                                             sik    (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
-                                                             _            (comment "Need to truncate sidm-hmac to 96bits")
-                                                             sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik :uid uid})
-                                                             sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
+                                                        (let [kec          (get-in input [:rmcp-class :ipmi-session-payload
+                                                                                          :ipmi-2-0-payload :key-exchange-code])
+                                                              sidc-hmac    (calc-rakp-3 {:sidm sidm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                              sik    (calc-rakp-4-sik {:rm rm :rc rc :rolem rolem :unamem unamem :uid uid})
+                                                              _            (comment "Need to truncate sidm-hmac to 96bits")
+                                                              sidm-hmac    (calc-rakp-4-sidm {:rm rm :sidc sidc :guidc guid :sik sik :uid uid})
+                                                              sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12))]
 
                                         ;(assert (= kec sidc-hmac))
-                                                         [(vec sidm-hmac-96) (vec sik)])
-                                                       nil)
+                                                          [(vec sidm-hmac-96) (vec sik)])
+                                                        nil)
                                    state (-> state
                                              (update-in [:last-message] conj message)
                                              (merge {:sidm-hmac sidm-hmac-96 :sik sik}))
