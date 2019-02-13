@@ -9,8 +9,8 @@
   [& body]
   `(try ~@body
         (catch Exception e#
-          (throw (IllegalArgumentException. (str "caught exception:" (.getMessage e#))))
-          false)))
+          (throw (ex-info "Caught exception"
+                          {:error (.getMessage e#)})))))
 
 (defn dump-functions
   ([m auth]

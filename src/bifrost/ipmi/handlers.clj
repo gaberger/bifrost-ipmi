@@ -303,7 +303,7 @@
       :type :ipmi-session}}))
 
 (defmethod rmcp-rakp-2-response-msg :rmcp-rakp-hmac-sha1 [m]
-  (log/debug "RMCP-RAKP-HMAC-SHA1 Response")
+  (log/debug "Create RMCP-RAKP-HMAC-SHA1 Response")
   (let [{:keys [sidm rc guidc rakp2-hmac status]} m]
     {:version 6,
      :reserved 0,

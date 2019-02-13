@@ -36,6 +36,7 @@
 
 (defn calc-rakp-3
   [{:keys [sidm rc rolem unamem uid]}]
+  {:pre  [(string? unamem)]}
   (let [;uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
         unamem'     (codecs/str->bytes unamem)
         ulengthm    (byte-array 1 (byte (count unamem)))

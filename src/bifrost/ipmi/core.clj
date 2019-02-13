@@ -7,14 +7,14 @@
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [server-socket bind-fsm ipmi-fsm ipmi-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [server-socket bind-fsm ipmi-fsm ipmi-handler mock-handler get-session-state]]
             [clojure.string :as str]
-            [clojure.core.async :refer [chan close! pub sub >!! <! <!! go-loop unsub-all timeout alt! alts!! thread]]
+            [clojure.core.async :refer [sliding-buffer chan close! pub sub >!! <! <!!
+                                        go-loop unsub-all timeout alt! alts!! thread]]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
             [jvm-alloc-rate-meter.core :as ameter])
   (:import [java.net InetSocketAddress]
-           [java.util.concurrent Executors]
            [java.util Date TimerTask Timer]
            [java.time Duration Instant]))
 
@@ -23,7 +23,7 @@
                                           :async? true
                                           :min-level :debug}}})
 ;(log/merge-config!
-;   {:appenders 
+;   {:appenders
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 ;; Design issues
@@ -31,17 +31,17 @@
 ;; Each IPMI "session" should run till completion given we are not supporting any interactive capability
 ;; Only rmcpping doesn't follow state-machine.. Lets carve it out seperately.
 ;; for each peer [ip:port] process it's own fsm.
-;; 
+;;
 
 (defn start-stop-meter []
-   (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
+  (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
 
 (def dump-registrar @registration-db)
 
 (defn stop-log []
   (log/merge-config! {:appenders {:println {:enabled? false}
-                                          :async? true
-                                          :min-level :info}}))
+                                  :async? true
+                                  :min-level :info}}))
 
 (defn debug-log []
   (log/merge-config! {:appenders {:println {:enabled? true}
@@ -56,7 +56,9 @@
                           :chan-map {}}))
 
 (def input-chan (chan))
-(def publisher  (pub input-chan :router))
+
+(def publisher
+  (pub input-chan :router))
 
 (defn reset-app-state []
   (reset! app-state  {:peer-set #{}
@@ -103,15 +105,15 @@
 (declare reset-peer)
 
 (defn dump-app-state []
-     (for [[k v] (get-chan-map)
-           :let  [n (.toInstant (java.util.Date.))
-                  t (.toInstant (:created-at v))
-                  duration (.toMillis (Duration/between t n))]]
-       {:hash k :duration duration}))
+  (for [[k v] (get-chan-map)
+        :let  [n (.toInstant (java.util.Date.))
+               t (.toInstant (:created-at v))
+               duration (.toMillis (Duration/between t n))]]
+    {:hash k :duration duration}))
 
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (count-peer))
-  (safe
+  (doall
    (for [[k v] (get-chan-map)
          :let  [n (.toInstant (java.util.Date.))
                 t (.toInstant (:created-at v))
@@ -125,43 +127,42 @@
   (delete-chan hash))
 
 (defn channel-sub-listener [hash]
-  (log/debug "Channel sub listener " hash)
-  (let [c (chan)]
-    (sub publisher hash c)
-    (go-loop []
-      (let [{:keys [router message]} (<! c)
-            fsm                      (bind-fsm)
-            fsm-state                (get-chan-map-state  hash)
-            auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-            compiled-codec           (compile-codec auth)
-            decoder                  (partial decode compiled-codec)
-            host-map                 (get-chan-map-host-map hash)
-            _                        (log/debug  "Packet In Channel" (-> message
-                                                                         :message
-                                                                         bs/to-byte-array
-                                                                         codecs/bytes->hex))
-            decoded                  (try
-                                       (decoder (:message message))
-                                       (catch Exception e
-                                         (throw (ex-info "Decoding error" {:error (.getMessage e)
-                                                                           :data (codecs/bytes->hex (:message message))}))
-                                         {}))
-            m                        (merge host-map decoded)
-            new-fsm-state            (let [s (try
-                                               (fsm fsm-state m)
-                                               (catch Exception e
-                                                 (throw (ex-info "State Machine Error" {:error (.getMessage e)}))))]
-                                       (condp = (:value s)
-                                         nil fsm-state
-                                         s))
-            complete?                (-> new-fsm-state :accepted? true?)]
+  (let [output-chan (chan)]
+   (alts!! [output-chan (timeout 1000)])
+   (sub publisher hash output-chan)
+   (go-loop []
+     (let [{:keys [router message]} (<! output-chan)
+           fsm                      (bind-fsm)
+           fsm-state                (get-chan-map-state hash)
+           auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
+           compiled-codec           (compile-codec auth)
+           decoder                  (partial decode compiled-codec)
+           host-map                 (get-chan-map-host-map hash)
+           decoded                  (safe (decoder (:message message)))
+           m                        (merge host-map decoded)]
 
-        (update-chan-map-state hash new-fsm-state)
-        (if complete?
-          (do
-            (delete-chan hash)
-            (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
-        (recur)))))
+       (log/debug  "Packet In Channel" (-> message
+                                             :message
+                                             bs/to-byte-array
+                                             codecs/bytes->hex))
+
+       (let [new-fsm-state    (let [ret  (try
+                                             (fsm fsm-state m)
+                                             (catch IllegalArgumentException e
+                                               (log/error (ex-info "State Machine Error"
+                                                                   {:error (.getMessage e)
+                                                                    :message m
+                                                                    :fsm-state fsm-state}))))]
+                                  (condp = (:value ret)
+                                    nil fsm-state
+                                    ret))
+               complete? (-> new-fsm-state :accepted? true?)]
+           (if complete?
+             (delete-chan hash)
+             (update-chan-map-state hash new-fsm-state))
+
+           (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
+     (recur))))
 
 (defn message-handler  [message]
   (let [host-map (get-session-state message)
@@ -172,7 +173,6 @@
                                 codecs/bytes->hex))
     (if (nil? (channel-exists? h))
       (do
-        (channel-sub-listener h)
         (log/debug "Create session " h)
         (upsert-chan h  {:created-at (Date.)
                          :host-map   host-map
@@ -180,14 +180,22 @@
                                        :integ 0
                                        :conf 0}
                          :state      {}})
+        (future
+          (channel-sub-listener h))
+        ;(try
         (>!! input-chan {:router  h
                          :message message}))
-                                        ;(log/error "Channel is blocked or closed")))
+        ;  (catch Exception e
+         ;     (throw (ex-info "Error sending in channel"
+          ;                    {:error (.getMessage e)})))))
       (do
         (log/debug "Found session " h)
+        ;(try
         (>!! input-chan {:router  h
                          :message message})))))
-                                        ; (log/error "Channel is blocked or closed"))))))
+          ; (catch Exception e
+          ;   (throw (ex-info "Error sending in channel"
+           ;                {:error (.getMessage e)})))))
 
 
 (defn start-consumer [server-socket]
@@ -210,28 +218,26 @@
       (run-reaper)
       (Thread/sleep time-to-recur)
       (recur))))
-        
 
 (defn stop-server []
-  (safe (s/close! @server-socket))
-  (shutdown-agents))
+  (safe (s/close! @server-socket)))
 
-
-(defn start-server []
+(defn start-server [port]
   (log/info "Starting Server on Port " 623)
-  (log/merge-config! {:appenders {:println {:enabled? true
-                                            :async? true
+  (log/merge-config! {:appenders {:println {:enabled?  true
+                                            :async?    true
                                             :min-level :debug}}})
   (if-not (empty? @registration-db)
-    (when (start-udp-server 623)
+    (when (start-udp-server port)
+      (do
         (reset-app-state)
         (start-consumer  @server-socket)
-        (start-reaper 10000)
+        (start-reaper 60000)
         (future
-          (Thread/sleep 600000)
+          (Thread/sleep 120000)
           (stop-server)
           (println "closed socket"))))
-  (log/error "Please register users first"))
+    (log/error "Please register users first")))
 
 ;;TODO Make sure to check fore registrations
 
@@ -240,9 +246,9 @@
   (when (start-udp-server  (Integer. port))
     (let []
       (start-consumer  @server-socket)
-      (start-reaper 10000)
+      (start-reaper 30000)
       #_(future
-         (while true
-           (Thread/sleep
-            1000)))
+          (while true
+            (Thread/sleep
+             1000)))
       (future))))

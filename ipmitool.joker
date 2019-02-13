@@ -1,0 +1,22 @@
+(ns ipmitool.joke)
+
+(def user (read-string (slurp ".settings/user.edn")))
+(def command-line  (into []  (nnext (joker.os/args))))
+
+(defn- exit-err
+  [& args]
+  (apply println-err args)
+(joker.os/exit 1))
+
+(defn- exec
+  [& args]
+  (let [command (nnext (joker.os/args))
+        args (concat args command)
+        _ (println "Executing with args " args)
+        res (apply joker.os/sh args)]
+    (when-not (:success res)
+      (exit-err (str "'" (joker.string/join " " args) "'") "failed:" (:out res) (:err res)))
+    (:out res)))
+
+
+(exec "ipmitool" "-vvvvv" "-C" "1" "-H" "127.0.0.1" "-U" (:user user) "-P"(:password user))

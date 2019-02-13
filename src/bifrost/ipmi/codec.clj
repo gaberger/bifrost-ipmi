@@ -2,7 +2,8 @@
   (:require [gloss.core :refer [defcodec compile-frame bit-map
                                 ordered-map header finite-frame
                                 string enum]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [taoensso.timbre :as log]))
 
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
@@ -82,81 +83,86 @@
       :codec :rmcp-rakp-1-xrc4-40-confidentiality}})
 
 (defn get-message-type [m]
-  (if (-> (:rmcp-class m) (contains? :asf-payload))
-    (let [message-type (get-in m [:rmcp-class :asf-payload :asf-message-header :asf-message-type])
-          selector     (condp = message-type
-                         128 {:type :asf-ping :message message-type}
-                         64  {:type :asf-pong :message message-type})]
-      selector)
-    (let [selector (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
-                     :ipmi-1-5-payload (let [function (get-in m [:rmcp-class
-                                                                 :ipmi-session-payload
-                                                                 :ipmi-1-5-payload
-                                                                 :ipmb-payload
-                                                                 :network-function
-                                                                 :function])
-                                             command  (get-in m [:rmcp-class
-                                                                 :ipmi-session-payload
-                                                                 :ipmi-1-5-payload
-                                                                 :ipmb-payload
-                                                                 :command])]
-                                         (condp = command
-                                           0x38 (condp = function
-                                                  6 {:type :get-channel-auth-cap-req :command 56 :function 6}
-                                                  7 {:type :get-channel-auth-cap-req :command 56 :function 7})))
-                     :ipmi-2-0-payload (let [function     (get-in m [:rmcp-class
-                                                                     :ipmi-session-payload
-                                                                     :ipmi-2-0-payload
-                                                                     :network-function
-                                                                     :function] nil)
-                                             payload-type (get-in m [:rmcp-class
-                                                                     :ipmi-session-payload
-                                                                     :ipmi-2-0-payload
-                                                                     :payload-type
-                                                                     :type] nil)
-                                             command      (get-in m [:rmcp-class
-                                                                     :ipmi-session-payload
-                                                                     :ipmi-2-0-payload
-                                                                     :command] nil)
-                                             signature    (get-in m [:rmcp-class
-                                                                     :ipmi-session-payload
-                                                                     :ipmi-2-0-payload
-                                                                     :signature] nil)]
+  (let [type
+        (if (= (:rmcp-payload m) :error)
+          {:type :error}
+          (if (-> (:rmcp-class m) (contains? :asf-payload))
+            (let [message-type (get-in m [:rmcp-class :asf-payload :asf-message-header :asf-message-type])
+                  selector     (condp = message-type
+                                 128 {:type :asf-ping :message message-type}
+                                 64  {:type :asf-pong :message message-type})]
+              selector)
+            (let [selector (condp = (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
+                             :ipmi-1-5-payload (let [function (get-in m [:rmcp-class
+                                                                         :ipmi-session-payload
+                                                                         :ipmi-1-5-payload
+                                                                         :ipmb-payload
+                                                                         :network-function
+                                                                         :function])
+                                                     command  (get-in m [:rmcp-class
+                                                                         :ipmi-session-payload
+                                                                         :ipmi-1-5-payload
+                                                                         :ipmb-payload
+                                                                         :command])]
+                                                 (condp = command
+                                                   0x38 (condp = function
+                                                          6 {:type :get-channel-auth-cap-req :command 56 :function 6}
+                                                          7 {:type :get-channel-auth-cap-req :command 56 :function 7})))
+                             :ipmi-2-0-payload (let [function     (get-in m [:rmcp-class
+                                                                             :ipmi-session-payload
+                                                                             :ipmi-2-0-payload
+                                                                             :network-function
+                                                                             :function] nil)
+                                                     payload-type (get-in m [:rmcp-class
+                                                                             :ipmi-session-payload
+                                                                             :ipmi-2-0-payload
+                                                                             :payload-type
+                                                                             :type] nil)
+                                                     command      (get-in m [:rmcp-class
+                                                                             :ipmi-session-payload
+                                                                             :ipmi-2-0-payload
+                                                                             :command] nil)
+                                                     signature    (get-in m [:rmcp-class
+                                                                             :ipmi-session-payload
+                                                                             :ipmi-2-0-payload
+                                                                             :signature] nil)]
 
-                                         (condp = payload-type
-                                           16 {:type :open-session-request :payload-type 16}
-                                           17 {:type :open-session-response :payload-type 17}
-                                           18 {:type :rmcp-rakp-1 :payload-type 18}
-                                           19 {:type :rmcp-rakp-2 :payload-type 19}
-                                           20 {:type :rmcp-rakp-3 :payload-type 20}
-                                           21 {:type :rmcp-rakp-4 :payload-type 21}
-                                           0  (condp = function
-                                                0  (condp = command
-                                                     1 {:type :chassis-status-req :command 1 :function 0}
-                                                     2 {:type :chassis-reset-req :command 2 :function 0})
-                                                1  (condp = command
-                                                     1 {:type :chassis-status-rsp :command 1 :function 1}
-                                                     2 {:type :chassis-reset-rsp :command 2 :function 2})
-                                                6  (condp = command
-                                                     1  {:type :device-id-req :command 1 :function 6}
-                                                     59 {:type :set-session-prv-level-req :command 59 :function 6}
-                                                     60 {:type :rmcp-close-session-req :command 60 :function 6})
-                                                7  (condp = command
-                                                     1  {:type :device-id-rsp :command 1 :function 7}
-                                                     59 {:type :set-session-prv-level-rsp :command 59 :function 7}
-                                                     60 {:type :rmcp-close-session :command 60 :function 7})
-                                                44 (condp = command
-                                                     0  (condp = signature
-                                                          0 {:type :picmg-properties-req :command 0 :function 44 :response 45 :signature 0}
-                                                          3 {:type :vso-capabilities-req :command 0 :function 44 :response 45 :signature 3})
-                                                     62 {:type :hpm-capabilities-req :command 62 :function 44 :response 45})
-                                                45 (condp = command
-                                                     0  (condp = signature
-                                                          0 {:type :picmg-properties-rsp :command 0 :function 45 :signature 0}
-                                                          3 {:type :vso-capabilities-rsp :command 0 :function 45 :signature 3})
-                                                     62 {:type :hpm-capabilities-req :command 62 :function 45})))))]
+                                                 (condp = payload-type
+                                                   16 {:type :open-session-request :payload-type 16}
+                                                   17 {:type :open-session-response :payload-type 17}
+                                                   18 {:type :rmcp-rakp-1 :payload-type 18}
+                                                   19 {:type :rmcp-rakp-2 :payload-type 19}
+                                                   20 {:type :rmcp-rakp-3 :payload-type 20}
+                                                   21 {:type :rmcp-rakp-4 :payload-type 21}
+                                                   0  (condp = function
+                                                        0  (condp = command
+                                                             1 {:type :chassis-status-req :command 1 :function 0}
+                                                             2 {:type :chassis-reset-req :command 2 :function 0})
+                                                        1  (condp = command
+                                                             1 {:type :chassis-status-rsp :command 1 :function 1}
+                                                             2 {:type :chassis-reset-rsp :command 2 :function 2})
+                                                        6  (condp = command
+                                                             1  {:type :device-id-req :command 1 :function 6}
+                                                             59 {:type :set-session-prv-level-req :command 59 :function 6}
+                                                             60 {:type :rmcp-close-session-req :command 60 :function 6})
+                                                        7  (condp = command
+                                                             1  {:type :device-id-rsp :command 1 :function 7}
+                                                             59 {:type :set-session-prv-level-rsp :command 59 :function 7}
+                                                             60 {:type :rmcp-close-session :command 60 :function 7})
+                                                        44 (condp = command
+                                                             0  (condp = signature
+                                                                  0 {:type :picmg-properties-req :command 0 :function 44 :response 45 :signature 0}
+                                                                  3 {:type :vso-capabilities-req :command 0 :function 44 :response 45 :signature 3})
+                                                             62 {:type :hpm-capabilities-req :command 62 :function 44 :response 45})
+                                                        45 (condp = command
+                                                             0  (condp = signature
+                                                                  0 {:type :picmg-properties-rsp :command 0 :function 45 :signature 0}
+                                                                  3 {:type :vso-capabilities-rsp :command 0 :function 45 :signature 3})
+                                                             62 {:type :hpm-capabilities-req :command 62 :function 45})))))]
 
-      selector)))
+              selector)))]
+    (log/debug "Get Message Type: " type)
+    type))
 
 (defcodec channel-auth-cap-req
   (ordered-map
@@ -295,9 +301,9 @@
    :checksum :ubyte))
 
 (defcodec default-rsp-codec
-    (ordered-map
-     :command-completion-code :ubyte
-     :checksum :ubyte))
+  (ordered-map
+   :command-completion-code :ubyte
+   :checksum :ubyte))
 
 (defcodec chassis-control-rsp
   (ordered-map
@@ -339,14 +345,12 @@
     0x3 vso-capabilities-req))
 
 #_(defn get-picmg-signature-response-codec [h]
-  (condp = (:signature h)
-    0x0 picmg-properties-rsp
-    0x3 vso-capabilities-rsp))
+    (condp = (:signature h)
+      0x0 picmg-properties-rsp
+      0x3 vso-capabilities-rsp))
 
 (defn get-picmg-signature-response-codec [h]
-    picmg-properties-rsp
-    )
-
+  picmg-properties-rsp)
 
 (defcodec picmg-header
   {:signature :ubyte})
@@ -361,7 +365,7 @@
 (defcodec ipmb-picmg-message-rsp
   default-rsp-codec)
 
-  #_(header picmg-header
+#_(header picmg-header
           (build-merge-header-with-data
            #(get-picmg-signature-response-codec %))
           (fn [b]
@@ -715,9 +719,12 @@
                                         :sequence :ubyte
                                         :rmcp-class rmcp-class-header)]
      (compile-frame rmcp-header)))
-  ([] (compile-codec :rmcp-rakp  :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality ))
-  ([auth] (compile-codec auth :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality ))
-  ([auth integ] (compile-codec auth integ :rmcp-rakp-1-none-confidentiality ))
-  )
+  ([] (compile-codec :rmcp-rakp  :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
+  ([auth] (compile-codec auth :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
+  ([auth integ] (compile-codec auth integ
+
+
+
+                               :rmcp-rakp-1-none-confidentiality)))
 
 
