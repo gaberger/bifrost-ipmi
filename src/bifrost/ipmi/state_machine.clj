@@ -202,10 +202,13 @@
 (def ipmi-fsm
   [(a/* (a/$ :init)
         (a/*
-         [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+         (a/or
+         [:asf-ping (a/$ :asf-ping)]
+        (a/*
+         [(a/+ :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req))
           :open-session-request (a/$ :open-session-request)
           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-           :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+          :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
          (a/* (a/or
                [:chassis-status-req (a/$ :chassis-status-req)]
                [:chassis-reset-req (a/$ :chassis-reset)]
@@ -214,9 +217,7 @@
                [:picmg-properties-req (a/$ :picmg-properties-req)]
                [:vso-capabilities-req (a/$ :vso-capabilities-req)]
                [:set-session-prv-level-req (a/$ :session-priv-level-req)])))
-        (a/or
-         [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]
-         [:asf-ping (a/$ :asf-ping)]))])
+         [:rmcp-close-session-req (a/$ :rmcp-close-session-req)])))])
 
 
 ;;TODO create schemas for send-message input to test handlers
@@ -359,9 +360,12 @@
               :get-channel-auth-cap-req (fn [state input]
                                           (log/info "Auth Capabilities Request")
                                           (let [message (conj {} (c/get-message-type input))
+                                                seq     (get-in input [:rmcp-class :ipmi-session-payload
+                                                                       :ipmi-1-5-payload :ipmb-payload
+                                                                       :source-lun :seq-no] 0)
                                                 state   (update-in state [:last-message] conj message)]
 
-                                            (send-message {:type :get-channel-auth-cap-req :input input})
+                                            (send-message {:type :get-channel-auth-cap-req :input input :seq seq})
                                             state))
               :open-session-request (fn [state input]
                                       (log/info "Open Session Request ")

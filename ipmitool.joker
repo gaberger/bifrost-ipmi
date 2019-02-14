@@ -19,4 +19,4 @@
     (:out res)))
 
 
-(exec "ipmitool" "-vvvvv" "-C" "1" "-H" "127.0.0.1" "-U" (:user user) "-P"(:password user))
+(exec "ipmitool" "-vvvvv" "-C" "0" "-H" "127.0.0.1" "-U" (:user user) "-P"(:password user))

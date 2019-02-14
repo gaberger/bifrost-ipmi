@@ -7,7 +7,7 @@
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [server-socket bind-fsm ipmi-fsm ipmi-handler mock-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm ipmi-handler mock-handler get-session-state]]
             [clojure.string :as str]
             [clojure.core.async :refer [sliding-buffer chan close! pub sub >!! <! <!!
                                         go-loop unsub-all timeout alt! alts!! thread]]
@@ -126,9 +126,27 @@
   (log/info "Closing session for " hash)
   (delete-chan hash))
 
+(defn asf-ping-handler [hash]
+  (let [output-chan (chan)]
+    (sub publisher :ping output-chan)
+    (go-loop []
+      (let [{:keys [message]} (<! output-chan)
+            compiled-codec (compile-codec)
+            decoder (partial decode compiled-codec)
+            host-map (get-chan-map-host-map hash)
+            decoded (safe (decoder (:message message)))
+            message-tag  (get-in decoded [:rmcp-class
+                                              :asf-payload
+                                              :asf-message-header
+                                          :message-tag])]
+
+        (send-message {:type :asf-ping :input message :message-tag message-tag})
+
+            ))))
+
 (defn channel-sub-listener [hash]
   (let [output-chan (chan)]
-   (alts!! [output-chan (timeout 1000)])
+   ;(alts!! [output-chan (timeout 60000)])
    (sub publisher hash output-chan)
    (go-loop []
      (let [{:keys [router message]} (<! output-chan)
@@ -157,10 +175,10 @@
                                     nil fsm-state
                                     ret))
                complete? (-> new-fsm-state :accepted? true?)]
-           (if complete?
-             (delete-chan hash)
-             (update-chan-map-state hash new-fsm-state))
-
+           ;;(if complete?
+             ;;(delete-chan hash)
+           ;;  nil
+           (update-chan-map-state hash new-fsm-state)
            (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
      (recur))))
 
@@ -180,8 +198,7 @@
                                        :integ 0
                                        :conf 0}
                          :state      {}})
-        (future
-          (channel-sub-listener h))
+        (channel-sub-listener h)
         ;(try
         (>!! input-chan {:router  h
                          :message message}))
@@ -199,9 +216,8 @@
 
 
 (defn start-consumer [server-socket]
-  (future
     (->> server-socket
-         (s/consume #(message-handler %)))))
+         (s/consume #(message-handler %))))
 
 (defn start-udp-server
   [port]
@@ -213,31 +229,30 @@
       false)))
 
 (defn start-reaper [time-to-recur]
-  (future
-    (loop []
+    (go-loop []
       (run-reaper)
       (Thread/sleep time-to-recur)
-      (recur))))
+      (recur)))
 
 (defn stop-server []
   (safe (s/close! @server-socket)))
 
-(defn start-server [port]
+(defn start-server
+  ([port]
   (log/info "Starting Server on Port " 623)
-  (log/merge-config! {:appenders {:println {:enabled?  true
-                                            :async?    true
-                                            :min-level :debug}}})
   (if-not (empty? @registration-db)
     (when (start-udp-server port)
       (do
         (reset-app-state)
         (start-consumer  @server-socket)
         (start-reaper 60000)
-        (future
+        #_(future
           (Thread/sleep 120000)
           (stop-server)
           (println "closed socket"))))
     (log/error "Please register users first")))
+  ([]
+   (start-server 623)))
 
 ;;TODO Make sure to check fore registrations
 
