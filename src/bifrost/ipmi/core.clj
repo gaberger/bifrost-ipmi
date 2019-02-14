@@ -24,7 +24,6 @@
                                           :async? true
                                           :min-level :debug}}})
 
-(def input-chan (chan))
 ;(log/merge-config!
 ;   {:appenders
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
@@ -140,71 +139,71 @@
 
 ;;         (send-message {:type :asf-ping :input message :message-tag message-tag})))))
 
-(defn register-subscription [pub t]
-  (let [reader (chan)]
-    (log/debug "Subscribing to topic" t)
-    (sub pub t reader)
-    reader))
+(def input-chan (chan))
+(def publisher (pub input-chan :router))
 
-(defn channel-sub-listener [hash reader]
-  (go-loop []
-    (let [{:keys [router message]} (log/spy (<! reader))
-          fsm                      (bind-fsm)
-          fsm-state                (get-chan-map-state hash)
-          auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-          compiled-codec           (compile-codec auth)
-          decoder                  (partial decode compiled-codec)
-          host-map                 (get-chan-map-host-map hash)
-          decoded                  (safe (decoder (:message message)))
-          m                        (merge host-map decoded)]
-      (log/debug "Received message on " router)
+(defn channel-sub-listener [t]
+  (let [reader (chan)]
+    (sub publisher t reader)
+   (go-loop []
+     (let [{:keys [router message]} (log/spy (<! reader))
+           fsm                      (bind-fsm)
+           fsm-state                (get-chan-map-state hash)
+           auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
+           compiled-codec           (compile-codec auth)
+           decoder                  (partial decode compiled-codec)
+           host-map                 (get-session-state message)
+           decoded                  (safe (decoder (:message message)))
+           m                        (merge host-map decoded)]
       (log/debug  "Packet In Channel" (-> message
                                           :message
                                           bs/to-byte-array
                                           codecs/bytes->hex))
 
-      (let [new-fsm-state    (let [ret  (try (log/spy (fsm fsm-state m))
-                                            (catch IllegalArgumentException e
-                                              (log/error (ex-info "State Machine Error"
-                                                                  {:error (.getMessage e)
-                                                                   :message m
-                                                                   :fsm-state fsm-state}))
-                                               fsm-state))]
-                                (condp = (:value ret)
-                                     nil fsm-state
-                                     ret))
+      (let [new-fsm-state (let [ret (try (log/spy (fsm fsm-state m))
+                                         (catch IllegalArgumentException e
+                                           (log/error (ex-info "State Machine Error"
+                                                               {:error     (.getMessage e)
+                                                                :message   m
+                                                                :fsm-state fsm-state}))
+                                           fsm-state))]
+                            (condp = (:value ret)
+                              nil fsm-state
+                              ret))
 
             complete? (-> new-fsm-state :accepted? true?)]
+        (update-chan-map-state hash new-fsm-state)
         (if complete?
-          (delete-chan hash)
-          (update-chan-map-state hash new-fsm-state))
+          (delete-chan hash))
         (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
-    (recur)))
+    (recur))))
+
+
+(defn publish [data]
+  (go (>! input-chan data))
+  data)
 
 (defn message-handler  [message]
   (let [host-map   (get-session-state message)
-        h          (hash host-map)
-       input-chan (chan)
-        publisher  (pub input-chan :router)]
+        h          (hash host-map)]
     (log/debug  "Packet In" (-> message
                                 :message
                                 bs/to-byte-array
                                 codecs/bytes->hex))
 
     (when-not (log/spy (channel-exists? h))
-      (let [reader (register-subscription publisher h)]
+      (do
+        (log/debug "Creating subscriber for topic " h)
+        (channel-sub-listener h)
         (upsert-chan h  {:created-at (Date.)
                          :host-map    host-map
                          :login-state {:auth  0
                                        :integ 0
                                        :conf  0}
-                         :state       {}})
-        (log/debug "Create new subscription for " h)
-        (channel-sub-listener h reader)))
-
+                         :state       {}})))
     (log/debug "Publish message on topic " h)
-    (thread (>!! input-chan {:router  h
-                     :message message}))))
+    (publish  {:router  h
+               :message message})))
 
 (defn start-consumer [server-socket]
   (->> server-socket
@@ -236,7 +235,7 @@
        (do
          (reset-app-state)
          (start-consumer  @server-socket)
-         (start-reaper 60000)
+         #_(start-reaper 60000)
          #_(future
              (Thread/sleep 120000)
              (stop-server)
@@ -252,7 +251,7 @@
   (when (start-udp-server  (Integer. port))
     (let []
       (start-consumer  @server-socket)
-      (start-reaper 30000)
+      #_(start-reaper 30000)
       #_(future
           (while true
             (Thread/sleep
