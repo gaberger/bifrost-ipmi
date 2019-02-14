@@ -7,3 +7,4 @@ hs_err_pid19661.log ipmi-aleph.codec.log ipmi-aleph.core.log
 package-lock.json
 .rebl
 classes/
+user.edn
