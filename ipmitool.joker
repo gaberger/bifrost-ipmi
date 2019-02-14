@@ -21,4 +21,4 @@
     (:out res)))
 
 
-(exec "ipmitool" (if debug "-vvvvv" "-v") "-I" "lanplus" "-H" "127.0.0.1"  "-U"(:user user) "-P"(:password user))
+(exec "ipmitool" (if debug "-vvvvv" "-v") "-I" "lanplus" "-C" "1"  "-H" "127.0.0.1"  "-U"(:user user) "-P"(:password user))

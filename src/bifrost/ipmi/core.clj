@@ -148,7 +148,7 @@
    (go-loop []
      (let [{:keys [router message]} (log/spy (<! reader))
            fsm                      (bind-fsm)
-           fsm-state                (get-chan-map-state hash)
+           fsm-state                (log/spy (get-chan-map-state router))
            auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
            compiled-codec           (compile-codec auth)
            decoder                  (partial decode compiled-codec)
@@ -172,7 +172,7 @@
                               ret))
 
             complete? (-> new-fsm-state :accepted? true?)]
-        (update-chan-map-state hash new-fsm-state)
+        (update-chan-map-state router new-fsm-state)
         (if complete?
           (delete-chan hash))
         (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))

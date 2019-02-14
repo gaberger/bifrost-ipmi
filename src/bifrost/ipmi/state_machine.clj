@@ -31,6 +31,8 @@
 
 
 ;; TODO update for IPV6 sources
+
+
 (defn get-session-state [msg]
   (let [sender (:sender msg)
         address (-> (.getAddress sender) (.getHostAddress))
@@ -201,23 +203,23 @@
 
 (def ipmi-fsm
   [(a/* (a/$ :init)
-        (a/*
-         (a/or
-         [:asf-ping (a/$ :asf-ping)]
-        (a/*
-         [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-          :open-session-request (a/$ :open-session-request)
-          :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-          :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
-         (a/* (a/or
-               [:chassis-status-req (a/$ :chassis-status-req)]
-               [:chassis-reset-req (a/$ :chassis-reset)]
-               [:device-id-req (a/$ :device-id-req)]
-               [:hpm-capabilities-req (a/$ :hpm-capabilities-req)]
-               [:picmg-properties-req (a/$ :picmg-properties-req)]
-               [:vso-capabilities-req (a/$ :vso-capabilities-req)]
-               [:set-session-prv-level-req (a/$ :session-priv-level-req)])))
-         [:rmcp-close-session-req (a/$ :rmcp-close-session-req)])))])
+        [(a/or
+          [:asf-ping (a/$ :asf-ping)]
+          (a/*
+           [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+            :open-session-request (a/$ :open-session-request)
+            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+           (a/*
+            (a/or
+             [:chassis-status-req (a/$ :chassis-status-req)]
+             [:chassis-reset-req (a/$ :chassis-reset)]
+             [:device-id-req (a/$ :device-id-req)]
+             [:hpm-capabilities-req (a/$ :hpm-capabilities-req)]
+             [:picmg-properties-req (a/$ :picmg-properties-req)]
+             [:vso-capabilities-req (a/$ :vso-capabilities-req)]
+             [:set-session-prv-level-req (a/$ :session-priv-level-req)]))))])
+   [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]])
 
 
 ;;TODO create schemas for send-message input to test handlers
@@ -327,14 +329,14 @@
                                       state)
 
               :chassis-status-req        (fn [state input]
-                                          (log/info "Chassis Status Request")
-                                          (let [message (conj {} (c/get-message-type input))
-                                                state   (update-in state [:last-message] conj message)
-                                                sid     (get state :sidm)
-                                                seq-no  (get-in input [:rmcp-class :ipmi-session-payload
-                                                                       :ipmi-2-0-payload :source-lun :seq-no])]
-                                            (send-message {:type :chassis-status :input input :sid sid :seq-no seq-no})
-                                            state))
+                                           (log/info "Chassis Status Request")
+                                           (let [message (conj {} (c/get-message-type input))
+                                                 state   (update-in state [:last-message] conj message)
+                                                 sid     (get state :sidm)
+                                                 seq-no  (get-in input [:rmcp-class :ipmi-session-payload
+                                                                        :ipmi-2-0-payload :source-lun :seq-no])]
+                                             (send-message {:type :chassis-status :input input :sid sid :seq-no seq-no})
+                                             state))
               :device-id-req            (fn [state input]
                                           (log/info "Device ID Request")
                                           (let [message (conj {} (c/get-message-type input))
