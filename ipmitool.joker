@@ -3,6 +3,8 @@
 (def user (read-string (slurp ".settings/user.edn")))
 (def command-line  (into []  (nnext (joker.os/args))))
 
+(def debug false)
+
 (defn- exit-err
   [& args]
   (apply println-err args)
@@ -12,11 +14,11 @@
   [& args]
   (let [command (nnext (joker.os/args))
         args (concat args command)
-        _ (println "Executing with args " args)
         res (apply joker.os/sh args)]
+    (println res)
     (when-not (:success res)
       (exit-err (str "'" (joker.string/join " " args) "'") "failed:" (:out res) (:err res)))
     (:out res)))
 
 
-(exec "ipmitool" "-vvvvv" "-C" "0" "-H" "127.0.0.1" "-U" (:user user) "-P"(:password user))
+(exec "ipmitool" (if debug "-vvvvv" "-v") "-I" "lanplus" "-H" "127.0.0.1"  "-U"(:user user) "-P"(:password user))

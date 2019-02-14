@@ -69,7 +69,6 @@
           adv         (bind-fsm)
           result      (-> nil
                           (adv (safe (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))
-                          (adv (safe (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))
                           (adv (safe (ipmi-decode (byte-array (:open-session-request rmcp-payloads)))))
                           (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads)))))
                           (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads)))))

@@ -205,7 +205,7 @@
          (a/or
          [:asf-ping (a/$ :asf-ping)]
         (a/*
-         [(a/+ :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req))
+         [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
           :open-session-request (a/$ :open-session-request)
           :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
           :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
@@ -326,7 +326,7 @@
                                                        :function f     :status 0    :csum 204}))
                                       state)
 
-              :chassis-status           (fn [state input]
+              :chassis-status-req        (fn [state input]
                                           (log/info "Chassis Status Request")
                                           (let [message (conj {} (c/get-message-type input))
                                                 state   (update-in state [:last-message] conj message)

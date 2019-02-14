@@ -7,9 +7,10 @@
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm ipmi-handler mock-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
+                                                ipmi-handler mock-handler get-session-state]]
             [clojure.string :as str]
-            [clojure.core.async :refer [sliding-buffer chan close! pub sub >!! <! <!!
+            [clojure.core.async :refer [go sliding-buffer chan close! pub sub >!! <! <!! >!
                                         go-loop unsub-all timeout alt! alts!! thread]]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
@@ -22,6 +23,8 @@
 (log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
                                           :min-level :debug}}})
+
+(def input-chan (chan))
 ;(log/merge-config!
 ;   {:appenders
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
@@ -55,11 +58,6 @@
 (defonce app-state (atom {:peer-set #{}
                           :chan-map {}}))
 
-(def input-chan (chan))
-
-(def publisher
-  (pub input-chan :router))
-
 (defn reset-app-state []
   (reset! app-state  {:peer-set #{}
                       :chan-map {}}))
@@ -82,7 +80,7 @@
 
 (defn channel-exists? [h]
   (let [peer-set (get-in @app-state [:peer-set])]
-    (some #{h} peer-set)))
+    (-> (some #{h} peer-set) boolean)))
 
 (defn get-peers []
   (get-in @app-state [:peer-set] #{}))
@@ -126,98 +124,92 @@
   (log/info "Closing session for " hash)
   (delete-chan hash))
 
-(defn asf-ping-handler [hash]
-  (let [output-chan (chan)]
-    (sub publisher :ping output-chan)
-    (go-loop []
-      (let [{:keys [message]} (<! output-chan)
-            compiled-codec (compile-codec)
-            decoder (partial decode compiled-codec)
-            host-map (get-chan-map-host-map hash)
-            decoded (safe (decoder (:message message)))
-            message-tag  (get-in decoded [:rmcp-class
-                                              :asf-payload
-                                              :asf-message-header
-                                          :message-tag])]
+;; (defn asf-ping-handler [hash]
+;;   (let [output-chan (chan)]
+;;     (sub publisher :ping output-chan)
+;;     (go-loop []
+;;       (let [{:keys [message]} (<! output-chan)
+;;             compiled-codec (compile-codec)
+;;             decoder (partial decode compiled-codec)
+;;             host-map (get-chan-map-host-map hash)
+;;             decoded (safe (decoder (:message message)))
+;;             message-tag  (get-in decoded [:rmcp-class
+;;                                           :asf-payload
+;;                                           :asf-message-header
+;;                                           :message-tag])]
 
-        (send-message {:type :asf-ping :input message :message-tag message-tag})
+;;         (send-message {:type :asf-ping :input message :message-tag message-tag})))))
 
-            ))))
+(defn register-subscription [pub t]
+  (let [reader (chan)]
+    (log/debug "Subscribing to topic" t)
+    (sub pub t reader)
+    reader))
 
-(defn channel-sub-listener [hash]
-  (let [output-chan (chan)]
-   ;(alts!! [output-chan (timeout 60000)])
-   (sub publisher hash output-chan)
-   (go-loop []
-     (let [{:keys [router message]} (<! output-chan)
-           fsm                      (bind-fsm)
-           fsm-state                (get-chan-map-state hash)
-           auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-           compiled-codec           (compile-codec auth)
-           decoder                  (partial decode compiled-codec)
-           host-map                 (get-chan-map-host-map hash)
-           decoded                  (safe (decoder (:message message)))
-           m                        (merge host-map decoded)]
+(defn channel-sub-listener [hash reader]
+  (go-loop []
+    (let [{:keys [router message]} (<! reader)
+          fsm                      (bind-fsm)
+          fsm-state                (get-chan-map-state hash)
+          auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
+          compiled-codec           (compile-codec auth)
+          decoder                  (partial decode compiled-codec)
+          host-map                 (get-chan-map-host-map hash)
+          decoded                  (safe (decoder (:message message)))
+          m                        (merge host-map decoded)]
+      (log/debug "Received message on " router)
+      (log/debug  "Packet In Channel" (-> message
+                                          :message
+                                          bs/to-byte-array
+                                          codecs/bytes->hex))
 
-       (log/debug  "Packet In Channel" (-> message
-                                             :message
-                                             bs/to-byte-array
-                                             codecs/bytes->hex))
+      (let [new-fsm-state    (let [ret  (try (log/spy (fsm fsm-state m))
+                                            (catch IllegalArgumentException e
+                                              (log/error (ex-info "State Machine Error"
+                                                                  {:error (.getMessage e)
+                                                                   :message m
+                                                                   :fsm-state fsm-state}))
+                                               fsm-state))]
+                                (condp = (:value ret)
+                                     nil fsm-state
+                                     ret))
 
-       (let [new-fsm-state    (let [ret  (try
-                                             (fsm fsm-state m)
-                                             (catch IllegalArgumentException e
-                                               (log/error (ex-info "State Machine Error"
-                                                                   {:error (.getMessage e)
-                                                                    :message m
-                                                                    :fsm-state fsm-state}))))]
-                                  (condp = (:value ret)
-                                    nil fsm-state
-                                    ret))
-               complete? (-> new-fsm-state :accepted? true?)]
-           ;;(if complete?
-             ;;(delete-chan hash)
-           ;;  nil
-           (update-chan-map-state hash new-fsm-state)
-           (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
-     (recur))))
+            complete? (-> new-fsm-state :accepted? true?)]
+        (if complete?
+          (delete-chan hash)
+          nil)
+        (update-chan-map-state hash new-fsm-state)
+        (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
+    (recur)))
 
 (defn message-handler  [message]
-  (let [host-map (get-session-state message)
-        h        (hash host-map)]
+  (let [host-map   (get-session-state message)
+        h          (hash host-map)
+        ;input-chan (chan)
+        publisher  (pub input-chan :router)]
     (log/debug  "Packet In" (-> message
                                 :message
                                 bs/to-byte-array
                                 codecs/bytes->hex))
-    (if (nil? (channel-exists? h))
-      (do
-        (log/debug "Create session " h)
-        (upsert-chan h  {:created-at (Date.)
-                         :host-map   host-map
-                         :login-state {:auth 0
-                                       :integ 0
-                                       :conf 0}
-                         :state      {}})
-        (channel-sub-listener h)
-        ;(try
-        (>!! input-chan {:router  h
-                         :message message}))
-        ;  (catch Exception e
-         ;     (throw (ex-info "Error sending in channel"
-          ;                    {:error (.getMessage e)})))))
-      (do
-        (log/debug "Found session " h)
-        ;(try
-        (>!! input-chan {:router  h
-                         :message message})))))
-          ; (catch Exception e
-          ;   (throw (ex-info "Error sending in channel"
-           ;                {:error (.getMessage e)})))))
 
+    (when-not (log/spy (channel-exists? h))
+      (let [reader (register-subscription publisher h)]
+        (upsert-chan h  {:created-at (Date.)
+                         :host-map    host-map
+                         :login-state {:auth  0
+                                       :integ 0
+                                       :conf  0}
+                         :state       {}})
+        (log/debug "Create new subscription for " h)
+        (channel-sub-listener h reader)))
+
+    (log/debug "Publish message on topic " h)
+    (>!! input-chan {:router  h
+                     :message message})))
 
 (defn start-consumer [server-socket]
-    (->> server-socket
-         (s/consume #(message-handler %))))
+  (->> server-socket
+       (s/consume #(message-handler %))))
 
 (defn start-udp-server
   [port]
@@ -229,28 +221,28 @@
       false)))
 
 (defn start-reaper [time-to-recur]
-    (go-loop []
-      (run-reaper)
-      (Thread/sleep time-to-recur)
-      (recur)))
+  (go-loop []
+    (run-reaper)
+    (Thread/sleep time-to-recur)
+    (recur)))
 
 (defn stop-server []
   (safe (s/close! @server-socket)))
 
 (defn start-server
   ([port]
-  (log/info "Starting Server on Port " 623)
-  (if-not (empty? @registration-db)
-    (when (start-udp-server port)
-      (do
-        (reset-app-state)
-        (start-consumer  @server-socket)
-        (start-reaper 60000)
-        #_(future
-          (Thread/sleep 120000)
-          (stop-server)
-          (println "closed socket"))))
-    (log/error "Please register users first")))
+   (log/info "Starting Server on Port " 623)
+   (if-not (empty? @registration-db)
+     (when (start-udp-server port)
+       (do
+         (reset-app-state)
+         (start-consumer  @server-socket)
+         (start-reaper 60000)
+         #_(future
+             (Thread/sleep 120000)
+             (stop-server)
+             (println "closed socket"))))
+     (log/error "Please register users first")))
   ([]
    (start-server 623)))
 
