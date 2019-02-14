@@ -148,7 +148,7 @@
 
 (defn channel-sub-listener [hash reader]
   (go-loop []
-    (let [{:keys [router message]} (<! reader)
+    (let [{:keys [router message]} (log/spy (<! reader))
           fsm                      (bind-fsm)
           fsm-state                (get-chan-map-state hash)
           auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
@@ -177,15 +177,14 @@
             complete? (-> new-fsm-state :accepted? true?)]
         (if complete?
           (delete-chan hash)
-          nil)
-        (update-chan-map-state hash new-fsm-state)
+          (update-chan-map-state hash new-fsm-state))
         (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
     (recur)))
 
 (defn message-handler  [message]
   (let [host-map   (get-session-state message)
         h          (hash host-map)
-        ;input-chan (chan)
+       input-chan (chan)
         publisher  (pub input-chan :router)]
     (log/debug  "Packet In" (-> message
                                 :message
@@ -204,8 +203,8 @@
         (channel-sub-listener h reader)))
 
     (log/debug "Publish message on topic " h)
-    (>!! input-chan {:router  h
-                     :message message})))
+    (thread (>!! input-chan {:router  h
+                     :message message}))))
 
 (defn start-consumer [server-socket]
   (->> server-socket
