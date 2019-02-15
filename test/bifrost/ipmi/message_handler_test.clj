@@ -3,11 +3,11 @@
             [gloss.io :refer :all]
             [mockery.core :refer [with-mocks with-mock]]
             [bifrost.ipmi.test-payloads :refer :all]
-            [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
+            [bifrost.ipmi.state-machine :refer [app-state bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :refer :all :as c]
-            [bifrost.ipmi.core :refer [message-handler app-state reset-app-state]]
+            [bifrost.ipmi.core :refer [message-handler reset-app-state]]
             [taoensso.timbre :as log]
             [automat.core :as a]))
 

@@ -7,10 +7,10 @@
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c :refer [compile-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
-                                                ipmi-handler mock-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [app-state send-message server-socket bind-fsm ipmi-fsm
+                                                get-login-state ipmi-handler mock-handler get-session-state]]
             [clojure.string :as str]
-            [clojure.core.async :refer [go sliding-buffer chan close! pub sub >!! <! <!! >!
+            [clojure.core.async :refer [go dropping-buffer sliding-buffer chan close! pub sub >!! <! <!! >!
                                         go-loop unsub-all timeout alt! alts!! thread]]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
@@ -53,9 +53,6 @@
   (log/merge-config! {:appenders {:println {:enabled? true}
                                   :async? true
                                   :min-level :debug}}))
-
-(defonce app-state (atom {:peer-set #{}
-                          :chan-map {}}))
 
 (defn reset-app-state []
   (reset! app-state  {:peer-set #{}
@@ -142,46 +139,67 @@
 (def input-chan (chan))
 (def publisher (pub input-chan :router))
 
+(defn decode-message [decoder message]
+  (log/debug "Decode Message ")
+  (let [decoded (try
+                  (decoder (:message message))
+                  (catch Exception e
+                    (log/error (ex-info "Decoder exception"
+                                        {:error (.getMessage e)}))
+                    false))]
+    (log/debug "Decoded Message " decoded)
+    decoded))
+
+(defn process-message [fsm fsm-state message]
+  (log/debug "State Machine Process Message")
+  (let [new-fsm-state (try (log/spy (fsm fsm-state message))
+                           (catch IllegalArgumentException e
+                             (log/error (ex-info "State Machine Error"
+                                                 {:error     (.getMessage e)
+                                                  :message   message
+                                                  :fsm-state fsm-state}))
+                             fsm-state))]
+    #_(condp = (:value ret)
+        nil fsm-state
+        ret)
+    (log/debug "FSM-State "  new-fsm-state)
+    new-fsm-state))
+
 (defn channel-sub-listener [t]
   (let [reader (chan)]
     (sub publisher t reader)
-   (go-loop []
-     (let [{:keys [router message]} (log/spy (<! reader))
-           fsm                      (bind-fsm)
-           fsm-state                (log/spy (get-chan-map-state router))
-           auth                     (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-           compiled-codec           (compile-codec auth)
-           decoder                  (partial decode compiled-codec)
-           host-map                 (get-session-state message)
-           decoded                  (safe (decoder (:message message)))
-           m                        (merge host-map decoded)]
-      (log/debug  "Packet In Channel" (-> message
-                                          :message
-                                          bs/to-byte-array
-                                          codecs/bytes->hex))
+    (try
+      (go-loop []
+        (let [{:keys [router message]} (log/spy (<! reader))
+              _                        (log/debug  "Packet In Channel" (-> message
+                                                                           :message
+                                                                           bs/to-byte-array
+                                                                           codecs/bytes->hex))
+              fsm                      (bind-fsm)
+              fsm-state                (log/spy (get-chan-map-state router))
+              login-state (log/spy (get-login-state router))
+              auth        (log/spy (-> (get c/authentication-codec (:auth login-state)) :codec))
 
-      (let [new-fsm-state (let [ret (try (log/spy (fsm fsm-state m))
-                                         (catch IllegalArgumentException e
-                                           (log/error (ex-info "State Machine Error"
-                                                               {:error     (.getMessage e)
-                                                                :message   m
-                                                                :fsm-state fsm-state}))
-                                           fsm-state))]
-                            (condp = (:value ret)
-                              nil fsm-state
-                              ret))
+              compiled-codec           (compile-codec auth)
+              decoder                  (partial decode compiled-codec)
+              host-map                 (get-session-state message)]
 
-            complete? (-> new-fsm-state :accepted? true?)]
-        (update-chan-map-state router new-fsm-state)
-        (if complete?
-          (delete-chan hash))
-        (log/info "Completion State:" complete?  "Queued Requests " (count-peer))))
-    (recur))))
-
+          (if-let [decoded (decode-message decoder message)]
+            (let [m             (merge {:hash router} host-map decoded)
+                  new-fsm-state (process-message fsm fsm-state m)
+                  complete?     (-> new-fsm-state :accepted? true?)]
+              (update-chan-map-state router new-fsm-state)
+              (when complete?
+                (delete-chan hash))
+              (log/info "Completion State:" complete?  "Queued Requests " (count-peer)))
+            #_(delete-chan hash))
+          (recur)))
+      (catch Exception e (ex-data e)))))
 
 (defn publish [data]
-  (go (>! input-chan data))
-  data)
+  (try (go (>! input-chan data))
+       (catch Exception e (ex-info "Exception during publish" {:error (.getMessage e)}))
+       (finally data)))
 
 (defn message-handler  [message]
   (let [host-map   (get-session-state message)
@@ -190,11 +208,16 @@
                                 :message
                                 bs/to-byte-array
                                 codecs/bytes->hex))
+    (log/debug "APP-STATE" @app-state)
 
     (when-not (log/spy (channel-exists? h))
       (do
         (log/debug "Creating subscriber for topic " h)
-        (channel-sub-listener h)
+        (thread
+          (try
+            (channel-sub-listener h)
+            (catch Exception e (ex-data e))))
+
         (upsert-chan h  {:created-at (Date.)
                          :host-map    host-map
                          :login-state {:auth  0

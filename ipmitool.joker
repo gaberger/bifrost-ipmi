@@ -10,15 +10,19 @@
   (apply println-err args)
 (joker.os/exit 1))
 
-(defn- exec
-  [& args]
-  (let [command (nnext (joker.os/args))
-        args (concat args command)
-        res (apply joker.os/sh args)]
-    (println res)
+(defn -main []
+  (let [args (joker.os/args)
+        arglen (count args)
+        cipher (-> (subvec args (dec arglen) arglen) first)
+        command (-> args nnext vec pop pop)
+        command-v (concat ["ipmitool" (if debug "-vvvvvv" "-v") "-I" "lanplus" "-H" "127.0.0.1" "-U"(:user user) "-P"(:password user) "-C" cipher] command)
+        _   (println command-v)
+        res (apply joker.os/sh command-v)]
+  
     (when-not (:success res)
       (exit-err (str "'" (joker.string/join " " args) "'") "failed:" (:out res) (:err res)))
-    (:out res)))
+    (println res)))
 
 
-(exec "ipmitool" (if debug "-vvvvv" "-v") "-I" "lanplus" "-C" "1"  "-H" "127.0.0.1"  "-U"(:user user) "-P"(:password user))
+
+(-main)

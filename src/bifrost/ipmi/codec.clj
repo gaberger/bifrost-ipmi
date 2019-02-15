@@ -721,10 +721,6 @@
      (compile-frame rmcp-header)))
   ([] (compile-codec :rmcp-rakp  :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
   ([auth] (compile-codec auth :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
-  ([auth integ] (compile-codec auth integ
-
-
-
-                               :rmcp-rakp-1-none-confidentiality)))
+  ([auth integ] (compile-codec auth integ :rmcp-rakp-1-none-confidentiality)))
 
 
