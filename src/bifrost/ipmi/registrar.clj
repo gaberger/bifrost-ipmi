@@ -6,6 +6,7 @@
              [buddy.core.bytes :as bytes]
              [buddy.core.nonce :as nonce]
              [buddy.core.codecs :as codecs]
+             [clj-uuid :as uuid]
              [clojure.java.io :as io]
              [taoensso.timbre :as log]))
 
@@ -68,7 +69,8 @@
               (vec (uuid/as-byte-array (:device-guid u)))
               (vec (uuid/as-byte-array (uuid/null)))))
           @registration-db)
-     first)))
+     first)
+    (vec (uuid/as-byte-array uuid/null ))))
 
 (defn add-packet-driver [user device api]
   (swap! plugin-db #(conj % {(keyword user) {:driver      :packet

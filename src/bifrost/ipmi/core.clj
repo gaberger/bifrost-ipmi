@@ -6,7 +6,7 @@
             [byte-streams :as bs]
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.utils :refer [safe]]
-            [bifrost.ipmi.codec :as c :refer [compile-codec get-login-state]]
+            [bifrost.ipmi.codec :as c :refer [compile-codec get-login-state get-authentication-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
             [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
                                                 ipmi-handler mock-handler get-session-state]]
@@ -149,7 +149,7 @@
 
 (defn process-message [fsm fsm-state message]
   (log/debug "State Machine Process Message")
-  (let [new-fsm-state (try (log/spy (fsm fsm-state message))
+  (let [new-fsm-state (try (fsm fsm-state message)
                            (catch IllegalArgumentException e
                              (log/error (ex-info "State Machine Error"
                                                  {:error     (.getMessage e)
@@ -175,7 +175,7 @@
               fsm                      (bind-fsm)
               fsm-state                (get-chan-map-state router)
               login-state              (get-login-state router)
-              auth                     (-> (get c/authentication-codec (:auth login-state)) :codec)
+              auth                     (get-authentication-codec router)
 
               compiled-codec (compile-codec router)
               decoder        (partial decode compiled-codec)

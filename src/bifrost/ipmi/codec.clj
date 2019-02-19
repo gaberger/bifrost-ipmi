@@ -754,7 +754,6 @@
                                (fn [b]
                                  b)))
          grpl                     (fn [{:keys [payload-type auth]}]
-                                    (log/debug "++++" auth)
                                     (let [t              (get-in payload-type [:payload-type :type])
                                           message-length (:message-length payload-type)]
                                       (condp = t

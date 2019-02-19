@@ -130,11 +130,9 @@
 
 
 
-
-
-(def e (decode aes-codec payload))
-(println (map #(format "%x" %) (:auth-code e)))
-(println e)
+;(def e (decode aes-codec payload))
+;(println (map #(format "%x" %) (:auth-code e)))
+;(println e)
 
 
 

@@ -4,6 +4,7 @@
             [mockery.core :refer [with-mocks with-mock]]
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.test-payloads :refer :all]
+            [bifrost.ipmi.registrar :refer [lookup-userid]]
             [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
@@ -15,19 +16,17 @@
 (defn mock-send [f]
   (with-mock _
     {:target :bifrost.ipmi.state-machine/send-udp
-     :return true
-     :side-effect #(println "Mock: send-udp")}
+     :return true}
     (f)))
 
 (defn mock-get [f]
   (with-mock _
     {:target  :bifrost.ipmi.state-machine/get-session-state
-     :return  {:host "127.0.0.1" :port 4000}
-    }
+     :return  {:host "127.0.0.1" :port 4000}}
     (f)))
 
 (use-fixtures
-  :each
+  :once
   mock-send mock-get)
 
 (def test-app-state (atom {}))
@@ -37,38 +36,45 @@
         fsm            (partial a/advance (a/compile ipmi-fsm ipmi-handler))
         fsm-state      (if (empty? @test-app-state) nil @test-app-state)
         auth           (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-        compiled-codec (compile-codec auth)
+        compiled-codec (compile-codec 0)
         decoder        (partial decode compiled-codec)
         decoded        (safe (decoder (:message message)))
         m              (merge host-map decoded)]
     (log/debug (c/get-message-type decoded))
-
-    (let [new-fsm-state  (let [ret  (fsm fsm-state m)]
-                           (condp = (:value ret)
-                             nil (let [ret (fsm ret {:rmcp-payload :error})]
-                                     (log/error ret) ret)
-                             ret))
-          complete?     (-> new-fsm-state :accepted? true?)]
-        (reset! test-app-state new-fsm-state)
-      (if complete?
-        true
-        false))))
+    (let [new-fsm-state (try (fsm fsm-state m)
+                             (catch IllegalArgumentException e
+                               (log/error (ex-info "State Machine Error"
+                                                   {:error     (.getMessage e)
+                                                    :message   decoded
+                                                    :fsm-state fsm-state}))
+                               fsm-state))]
+      (log/debug "FSM-State "  new-fsm-state)
+      (reset! test-app-state new-fsm-state)))
+    )
 
 (deftest test-message-handler-noauth
   (testing "message-handler-accepted"
-    (let [payload [{:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}
-                   {:message (byte-array (:open-session-request rmcp-payloads))}
-                   {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}
-                   {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
-                   {:message (byte-array (:device-id-req rmcp-payloads))}
-                   {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
-                   {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]
-          result   (mapv #(message-handler-mock %) payload)]
-      (is (true? (last result))))))
+    (with-mock m
+      {:target :bifrost.ipmi.codec/get-authentication-codec
+       :return :rmcp-rakp}
+      (let [payload [{:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}
+                     {:message (byte-array (:open-session-request rmcp-payloads))}
+                     {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}
+                     {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
+                     {:message (byte-array (:device-id-req rmcp-payloads))}
+                     {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
+                     {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]
+            result    (mapv #(message-handler-mock %) payload)]
+      (is (true? (:accepted? (last result))))))))
 
 (deftest test-message-handler-sha1-hmac
   (testing "message-handler-accepted"
-    (let [payload [{:message (byte-array (:get-channel-auth-cap-req  rmcp-payloads))}
+    (with-mocks
+      [a {:target :bifrost.ipmi.codec/get-authentication-codec
+          :return :rmcp-rakp-hmac-sha1}
+       b {:target :bifrost.ipmi.registrar/lookup-userid
+          :return "admin"}]
+      (let [payload [{:message (byte-array (:get-channel-auth-cap-req  rmcp-payloads))}
                    {:message (byte-array (:open-session-request rmcp-payloads-cipher-1))}
                    {:message (byte-array (:rmcp-rakp-1  rmcp-payloads-cipher-1))}
                    {:message (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1))}
@@ -76,5 +82,5 @@
                    {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
                    {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}]
           result   (mapv #(message-handler-mock %) payload)]
-      (is (true? (last result))))))
+      (is (true? (:accepted? (last result))))))))
 
