@@ -1,9 +1,26 @@
 (ns bifrost.ipmi.codec
-  (:require [gloss.core :refer [defcodec compile-frame bit-map
+  (:require [bifrost.ipmi.utils :refer [transform-padding]]
+            [bifrost.ipmi.application-state :refer :all]
+            [gloss.core :refer [defcodec compile-frame bit-map
                                 ordered-map header finite-frame
-                                string enum]]
+                                string enum repeated]]
+            [gloss.io :refer [decode]]
+            [byte-streams :as bs]
+            [bifrost.ipmi.crypto :refer [decrypt encrypt]]
+            [gloss.core.structure :refer [convert-map convert-sequence]]
+            [gloss.core.protocols :refer [reader? compose-callback Reader Writer read-bytes write-bytes sizeof]]
+            [gloss.data.primitives :refer [primitive-codecs]]
+            [clojure.walk :refer [postwalk-replace]]
             [clojure.string :as str]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [buddy.core.nonce :as nonce]))
+
+
+(defn get-sik [h]
+  (get-in @app-state [:chan-map h :sik]))
+
+(defn get-login-state [h]
+  (get-in @app-state [:chan-map h :login-state] {}))
 
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
@@ -17,8 +34,36 @@
      (fn [data]
        (merge h data)))))
 
-(defcodec int->bytes :uint32)
-(defcodec int->byte :ubyte)
+
+(defn- compile-frame-enc- [f]
+  (cond
+    (map? f) (convert-map (zipmap (keys f) (map compile-frame-enc- (vals f))))
+    (sequential? f) (convert-sequence (map compile-frame-enc- f))
+    :else f))
+
+(defn compile-frame-enc
+  ([frame]
+   (if (reader? frame)
+     frame
+     (->> frame
+          (postwalk-replace primitive-codecs)
+          compile-frame-enc-)))
+  ([frame pre-encoder pre-decoder post-decoder]
+   (let [codec (compile-frame-enc frame)
+         read-codec (compose-callback
+                     codec
+                     (fn [x b]
+                       [true (post-decoder x) b]))]
+     (reify
+       Reader
+       (read-bytes [_ b]
+         (read-bytes read-codec (pre-decoder b)))
+       Writer
+       (sizeof [_]
+         (sizeof codec))
+       (write-bytes [_ buf v]
+         (write-bytes codec buf (pre-encoder v)))))))
+
 
 ;TODO
 (def command-completion-codes
@@ -81,6 +126,18 @@
       :pad 0
       :optional true
       :codec :rmcp-rakp-1-xrc4-40-confidentiality}})
+
+
+(defn get-confidentiality-codec [h]
+  (let [login-state (get-login-state h)
+        conf (-> login-state :conf)]
+    (get confidentiality-codec conf) :rmcp-rakp-1-none-confidentiality))
+
+(defn get-authentication-codec [h]
+  (let [login-state (get-login-state h)
+        conf (-> login-state :conf)]
+    (get authentication-codec conf) :rmcp-rakp))
+
 
 (defn get-message-type [m]
   (let [type
@@ -163,6 +220,48 @@
               selector)))]
     (log/debug "Get Message Type: " type)
     type))
+
+(def padding-codec
+  (compile-frame-enc :ubyte
+                     identity
+                     transform-padding
+                     identity))
+
+(defn decode-aes-payload [b]
+  (let [codec (compile-frame (ordered-map
+                              :iv (repeat 16 :ubyte)
+                              :data (repeat 16 :ubyte)))
+        decoded (decode codec (byte-array b))]
+    decoded))
+
+(def aes-payload
+  (compile-frame-enc
+   (repeated :ubyte
+             :prefix :uint16-le)
+   identity
+   identity
+   decode-aes-payload))
+
+(declare router-key)
+
+(defn aes-post-decoder [a]
+  (let [iv (get-in a [:payload :iv])
+        data (get-in a [:payload :data])
+        sik (get-sik router-key)
+        decrypted (-> (decrypt sik iv data) bs/to-byte-array vec)]
+    (assoc-in a [:payload :data] decrypted)))
+
+(def aes-codec
+  (compile-frame-enc
+   (ordered-map
+    :payload aes-payload
+    :pad padding-codec
+    :rcmp :ubyte
+    :auth-code (repeat 12 :ubyte))
+   identity
+   identity
+   aes-post-decoder))
+
 
 (defcodec channel-auth-cap-req
   (ordered-map
@@ -646,7 +745,8 @@
   {:type :rmcp-ack})
 
 (defn compile-codec
-  ([auth integ conf]
+  [router-key]
+  (log/debug "Compile with key" router-key)
    (let [ipmb-message (compile-frame
                        (header ipmb-header
                                (build-merge-header-with-data
@@ -654,10 +754,13 @@
                                (fn [b]
                                  b)))
          grpl                     (fn [{:keys [payload-type auth]}]
+                                    (log/debug "++++" auth)
                                     (let [t              (get-in payload-type [:payload-type :type])
                                           message-length (:message-length payload-type)]
                                       (condp = t
-                                        0x00 ipmb-message
+                                        0x00 (condp = (get-confidentiality-codec router-key)
+                                               :rmcp-rakp-1-aes-cbc-128-confidentiality aes-codec
+                                               ipmb-message)
                                         0x10 rmcp-open-session-request
                                         0x11 rmcp-open-session-response
                                         0x12 rmcp-plus-rakp-1
@@ -688,7 +791,7 @@
                                                   (header rmcp-plus-header
                                                           (build-merge-header-with-data
                                                            #(grpl {:payload-type %
-                                                                   :auth         auth}))
+                                                                   :auth  (log/spy (get-authentication-codec router-key)) }))
                                                           (fn [b]
                                                             b)))})
          asf-session         (compile-frame
@@ -719,8 +822,5 @@
                                         :sequence :ubyte
                                         :rmcp-class rmcp-class-header)]
      (compile-frame rmcp-header)))
-  ([] (compile-codec :rmcp-rakp  :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
-  ([auth] (compile-codec auth :rmcp-rakp-1-none-integrity :rmcp-rakp-1-none-confidentiality))
-  ([auth integ] (compile-codec auth integ :rmcp-rakp-1-none-confidentiality)))
 
 

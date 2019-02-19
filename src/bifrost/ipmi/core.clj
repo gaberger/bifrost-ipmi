@@ -4,11 +4,12 @@
             [gloss.io :refer [decode encode]]
             [buddy.core.codecs :as codecs]
             [byte-streams :as bs]
+            [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.utils :refer [safe]]
-            [bifrost.ipmi.codec :as c :refer [compile-codec]]
+            [bifrost.ipmi.codec :as c :refer [compile-codec get-login-state]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [app-state send-message server-socket bind-fsm ipmi-fsm
-                                                get-login-state ipmi-handler mock-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
+                                                ipmi-handler mock-handler get-session-state]]
             [clojure.string :as str]
             [clojure.core.async :refer [go dropping-buffer sliding-buffer chan close! pub sub >!! <! <!! >!
                                         go-loop unsub-all timeout alt! alts!! thread]]
@@ -53,10 +54,6 @@
   (log/merge-config! {:appenders {:println {:enabled? true}
                                   :async? true
                                   :min-level :debug}}))
-
-(defn reset-app-state []
-  (reset! app-state  {:peer-set #{}
-                      :chan-map {}}))
 
 (defn upsert-chan [host-hash chan-map]
   (letfn [(add-chan-map
@@ -170,19 +167,19 @@
     (sub publisher t reader)
     (try
       (go-loop []
-        (let [{:keys [router message]} (log/spy (<! reader))
+        (let [{:keys [router message]} (<! reader)
               _                        (log/debug  "Packet In Channel" (-> message
                                                                            :message
                                                                            bs/to-byte-array
                                                                            codecs/bytes->hex))
               fsm                      (bind-fsm)
-              fsm-state                (log/spy (get-chan-map-state router))
-              login-state (log/spy (get-login-state router))
-              auth        (log/spy (-> (get c/authentication-codec (:auth login-state)) :codec))
+              fsm-state                (get-chan-map-state router)
+              login-state              (get-login-state router)
+              auth                     (-> (get c/authentication-codec (:auth login-state)) :codec)
 
-              compiled-codec           (compile-codec auth)
-              decoder                  (partial decode compiled-codec)
-              host-map                 (get-session-state message)]
+              compiled-codec (compile-codec router)
+              decoder        (partial decode compiled-codec)
+              host-map       (get-session-state message)]
 
           (if-let [decoded (decode-message decoder message)]
             (let [m             (merge {:hash router} host-map decoded)
@@ -274,9 +271,8 @@
   (when (start-udp-server  (Integer. port))
     (let []
       (start-consumer  @server-socket)
-      #_(start-reaper 30000)
-      #_(future
-          (while true
-            (Thread/sleep
-             1000)))
-      (future))))
+      (start-reaper 30000)
+      (future
+        (while true
+          (Thread/sleep
+           1000))))))

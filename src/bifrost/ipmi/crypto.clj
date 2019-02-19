@@ -1,14 +1,17 @@
 (ns bifrost.ipmi.crypto
   (:require [buddy.core.mac :as mac]
             [byte-streams :as bs]
-            [gloss.io :refer [encode]]
-            [buddy.core.codecs :as codecs]
-            [buddy.core.crypto :as crypto]
+            [gloss.io :refer [encode to-buf-seq]]
+            [gloss.core :refer [defcodec]]
             [buddy.core.padding :as padding]
             [buddy.core.bytes :as bytes]
-            [bifrost.ipmi.codec :refer [int->bytes]]
+            [buddy.core.codecs :as codecs]
+            [buddy.core.crypto :as crypto]
             [buddy.core.nonce :as nonce]
             [taoensso.timbre :as log]))
+
+(defcodec int->bytes :uint32)
+(defcodec int->byte :ubyte)
 
 (defn calc-sha1-key [k input]
   (let [hmac (mac/hash input {:key k :alg :hmac :digest :sha1})]
@@ -95,10 +98,10 @@
     (crypto/init! engine {:key key :iv iv :op :encrypt})
     (crypto/process-block! engine (byte-array block))))
 
-(defn -decrypt-block [block iv key]
-  (let [engine (crypto/block-cipher :aes :cbc)]
-    (crypto/init! engine {:key key :iv iv :op :decrypt})
-    (crypto/process-block! engine (byte-array block))))
+(defn -decrypt-block
+  "Takes a vector of 16 byte elements, byte-arrays for initialization vector and key returns a decrypted vector"
+  [engine block]
+    (crypto/process-block! engine (byte-array block)))
 
 (defn encrypt
   "AES-128 uses a 128-bit Cipher Key. The Cipher Key is the first 128-bits of key “K2”, K2 is generated from the
@@ -110,25 +113,29 @@
   "
   [sik payload]
   (let [iv      (nonce/random-nonce 16)
-        key     (bytes/slice (K2 sik) 0 16)
-        padding (pad-count (count payload))
+        key     (bytes/slice (K2 (byte-array sik)) 0 16)
+        ;padding (-> payload bs/to-byte-array count pad-count)
         buffer (mapv #(-encrypt-block (vec %) iv key)
                      (partition 16 16 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] payload))]
-    {:iv iv :padding padding :data (reduce (fn [x y]
+    {:iv iv :data (reduce (fn [x y]
                                              (bytes/concat x y))
                                            []
                                            buffer)}))
 
 (defn decrypt
-  [sik iv payload padding]
+  [sik iv payload]
   (let [engine        (crypto/block-cipher :aes :cbc)
-        key           (bytes/slice (K2 sik) 0 16)
-        _             (crypto/init! engine {:key key :iv iv :op :decrypt})
-        output-buffer (mapv #(-decrypt-block (vec %) iv key)
+        iv'           (byte-array iv)
+        sik'          (byte-array sik)
+        key           (bytes/slice (K2 (byte-array sik')) 0 16)
+        _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
+        output-buffer (mapv #(-decrypt-block engine %)
                             (partition 16 payload))
         buffer        (reduce (fn [x y]
-                                (bytes/concat x y))
-                              []
-                              output-buffer)
-        trim-buffer        (bytes/slice buffer 0 (- (count buffer) padding))]
-    trim-buffer))
+                                         (bytes/concat x y))
+                                        []
+                                        output-buffer)]
+        ;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
+    #_(to-buf-seq trim-buffer)
+    buffer
+    ))

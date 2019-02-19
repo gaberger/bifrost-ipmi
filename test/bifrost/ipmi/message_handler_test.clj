@@ -2,12 +2,13 @@
   (:require [clojure.test :refer :all]
             [gloss.io :refer :all]
             [mockery.core :refer [with-mocks with-mock]]
+            [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.test-payloads :refer :all]
-            [bifrost.ipmi.state-machine :refer [app-state bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
+            [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :refer :all :as c]
-            [bifrost.ipmi.core :refer [message-handler reset-app-state]]
+            [bifrost.ipmi.core :refer [message-handler ]]
             [taoensso.timbre :as log]
             [automat.core :as a]))
 
@@ -36,7 +37,6 @@
         fsm            (partial a/advance (a/compile ipmi-fsm ipmi-handler))
         fsm-state      (if (empty? @test-app-state) nil @test-app-state)
         auth           (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
-        _ (log/debug "Selected auth " auth)
         compiled-codec (compile-codec auth)
         decoder        (partial decode compiled-codec)
         decoded        (safe (decoder (:message message)))
@@ -48,7 +48,6 @@
                              nil (let [ret (fsm ret {:rmcp-payload :error})]
                                      (log/error ret) ret)
                              ret))
-          _ (log/debug "+++NEWSTATE" new-fsm-state)
           complete?     (-> new-fsm-state :accepted? true?)]
         (reset! test-app-state new-fsm-state)
       (if complete?
