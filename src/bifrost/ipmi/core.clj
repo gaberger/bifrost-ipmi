@@ -144,6 +144,7 @@
                     (log/error (ex-info "Decoder exception"
                                         {:error (.getMessage e)}))
                     false))]
+                   ;; TODO need to respond with an error message here
     (log/debug "Decoded Message " decoded)
     decoded))
 
@@ -271,7 +272,7 @@
   (when (start-udp-server  (Integer. port))
     (let []
       (start-consumer  @server-socket)
-      (start-reaper 30000)
+      ;(start-reaper 120000)
       (future
         (while true
           (Thread/sleep

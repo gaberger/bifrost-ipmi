@@ -465,15 +465,14 @@
                                                        state)
 
                                           :rmcp-rakp-hmac-sha1 (if-not (nil? (lookup-userid unamem))
-                                                                 (let [rakp2-hmac (when (= :rmcp-rakp-hmac-sha1 auth)
-                                                                                    (vec (calc-rakp-1 {:rm     rm
-                                                                                                       :rc     rc
-                                                                                                       :guidc  guid
-                                                                                                       :sidc   sidc
-                                                                                                       :sidm   sidm
-                                                                                                       :unamem unamem
-                                                                                                       :rolem  rolem
-                                                                                                       :uid    uid})))
+                                                                 (let [rakp2-hmac (vec (calc-rakp-1 {:rm     rm
+                                                                                                     :rc     rc
+                                                                                                     :guidc  guid
+                                                                                                     :sidc   sidc
+                                                                                                     :sidm   sidm
+                                                                                                     :unamem unamem
+                                                                                                     :rolem  rolem
+                                                                                                     :uid    uid}))
                                                                        m          {:type       :rmcp-rakp-2
                                                                                    :input      input
                                                                                    :sidc       sidc

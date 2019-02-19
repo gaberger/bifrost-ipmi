@@ -134,9 +134,9 @@
     (get confidentiality-codec conf) :rmcp-rakp-1-none-confidentiality))
 
 (defn get-authentication-codec [h]
-  (let [login-state (get-login-state h)
-        conf (-> login-state :conf)]
-    (get authentication-codec conf) :rmcp-rakp))
+  (let [login-state (log/spy (get authentication-codec (-> (get-login-state h) :auth) :rmcp-rakp))]
+    (:codec login-state)))
+
 
 
 (defn get-message-type [m]
