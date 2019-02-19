@@ -3,10 +3,11 @@
             [mockery.core :refer [with-mocks]]
             [gloss.io :as i]
             [mockery.core :refer [with-mock]]
-            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1 error-payloads]]
+            [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1 rmcp-payloads-cipher-3 error-payloads]]
             [bifrost.ipmi.codec :refer [compile-codec get-message-type get-login-state get-authentication-codec get-confidentiality-codec]]
 
-            [byte-streams :as bs]))
+            [byte-streams :as bs]
+            [taoensso.timbre :as log]))
 
 ;; (deftest test-rmcp-ack
 ;;   (testing "ack"
@@ -14,12 +15,6 @@
 ;;           decode (partial i/decode codec)]
 ;;       (is (=  {:version 6, :reserved 0, :sequence 255, :rmcp-class  {:type :rmcp-ack}}
 ;;               (decode (byte-array (:rmcp-ack rmcp-payloads))))))))
-
-(deftest test-codec-select
-  (testing "authentication"
-    (is (= :rmcp-rakp
-           (get-authentication-codec 0)))))
-
 
 
 (defn mock-get-authentication-codec [f]
@@ -29,61 +24,61 @@
     (f)))
 
 #_(use-fixtures
-  :once
-  mock-get-authentication-codec)
+    :once
+    mock-get-authentication-codec)
 
 (deftest test-error-payloads
   (testing "RAKP-2"
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
        :return :rmcp-rakp-hmac-sha1}
-    (let [codec (compile-codec 012345)
-          decode (partial i/decode codec)
-          encode (partial i/encode codec)
-          payload (encode (decode (byte-array (:rmcp-rakp-2 error-payloads))))]
-      (is (= {:version 6,
-              :reserved 0,
-              :sequence 255,
-              :rmcp-class
-              {:ipmi-session-payload
-               {:ipmi-2-0-payload
-                {:session-id 0,
-                 :session-seq 0,
-                 :payload-type
-                 {:encrypted? false, :authenticated? false, :type 19},
-                 :managed-system-random-number
-                 [226 199 138 253 50 30 193 15 74 180 202 18 153 69 37 59],
-                 :status-code 18,
-                 :message-tag 0,
-                 :key-exchange-code
-                 [219
-                  28
-                  37
-                  137
-                  157
-                  123
-                  88
-                  139
-                  214
-                  17
-                  13
-                  117
-                  157
-                  146
-                  215
-                  107
-                  254
-                  115
-                  250
-                  233],
-                 :reserved [0 0],
-                 :message-length 60,
-                 :managed-system-guid
-                 [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
-                 :remote-session-console-id 2695013284},
-                :type :ipmi-2-0-session},
-               :type :ipmi-session}}
-             (decode payload)))))))
+      (let [codec (compile-codec 012345)
+            decode (partial i/decode codec)
+            encode (partial i/encode codec)
+            payload (encode (decode (byte-array (:rmcp-rakp-2 error-payloads))))]
+        (is (= {:version 6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-class
+                {:ipmi-session-payload
+                 {:ipmi-2-0-payload
+                  {:session-id 0,
+                   :session-seq 0,
+                   :payload-type
+                   {:encrypted? false, :authenticated? false, :type 19},
+                   :managed-system-random-number
+                   [226 199 138 253 50 30 193 15 74 180 202 18 153 69 37 59],
+                   :status-code 18,
+                   :message-tag 0,
+                   :key-exchange-code
+                   [219
+                    28
+                    37
+                    137
+                    157
+                    123
+                    88
+                    139
+                    214
+                    17
+                    13
+                    117
+                    157
+                    146
+                    215
+                    107
+                    254
+                    115
+                    250
+                    233],
+                   :reserved [0 0],
+                   :message-length 60,
+                   :managed-system-guid
+                   [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
+                   :remote-session-console-id 2695013284},
+                  :type :ipmi-2-0-session},
+                 :type :ipmi-session}}
+               (decode payload)))))))
 
 (deftest  test-rmcp-presence
   (testing "Test PING"
@@ -133,29 +128,31 @@
     (let [codec  (compile-codec 012345)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
-          rakp1  (encode  (decode (byte-array (rmcp-payloads :rmcp-rakp-1))))]
-      (is (=  {:version  6,
+          decoded (i/decode codec
+                            (byte-array (rmcp-payloads :rmcp-rakp-1)) false)
+          rakp1  (encode decoded)]
+      (is (=  {:version 6,
                :reserved 0,
                :sequence 255,
                :rmcp-class
                {:ipmi-session-payload
                 {:ipmi-2-0-payload
-                 {:session-id                0
-                  :session-seq               0
-                  :reserved2                 [0 0],
-                  :payload-type              {:encrypted? false, :authenticated? false, :type 18},
+                 {:session-id 0,
+                  :session-seq 0,
+                  :reserved2 [0 0],
+                  :payload-type {:encrypted? false, :authenticated? false, :type 18},
                   :remote-console-random-number
                   [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76],
-                  :user-name                 "admin",
+                  :user-name "admin",
                   :requested-max-priv-level
                   {:reserved 0, :user-lookup true, :requested-max-priv-level 4},
-                  :message-tag               0,
+                  :message-tag 0,
                   :managed-system-session-id 0,
-                  :reserved1                 [0 0 0],
-                  :message-length            33},
+                  :reserved1 [0 0 0],
+                  :message-length 33},
                  :type :ipmi-2-0-session},
                 :type :ipmi-session}}
-              (decode rakp1)))))
+              (i/decode codec rakp1 false)))))
   (testing "RAKP2 encoding"
     (let [codec  (compile-codec 012345)
           decode (partial i/decode codec)
@@ -214,23 +211,23 @@
             decode (partial i/decode codec)
             encode (partial i/encode codec)
             rakp3  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-3))))]
-      (is (= {:version  6,
-              :reserved 0,
-              :sequence 255,
-              :rmcp-class
-              {:ipmi-session-payload
-               {:ipmi-2-0-payload
-                {:payload-type              {:encrypted? false, :authenticated? false, :type 20},
-                 :session-seq               0,
-                 :session-id                0,
-                 :message-length            28,
-                 :message-tag               0,
-                 :status-code               0,
-                 :reserved                  [0 0]
-                 :key-exchange-code         [89 113 128 245 253 51 88 93 58 222 92 171 175 52 164 252 243 248 175 101],
-                 :managed-system-session-id 16362},
-                :type :ipmi-2-0-session},
-               :type :ipmi-session}}
+        (is (= {:version  6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-class
+                {:ipmi-session-payload
+                 {:ipmi-2-0-payload
+                  {:payload-type              {:encrypted? false, :authenticated? false, :type 20},
+                   :session-seq               0,
+                   :session-id                0,
+                   :message-length            28,
+                   :message-tag               0,
+                   :status-code               0,
+                   :reserved                  [0 0]
+                   :key-exchange-code         [89 113 128 245 253 51 88 93 58 222 92 171 175 52 164 252 243 248 175 101],
+                   :managed-system-session-id 16362},
+                  :type :ipmi-2-0-session},
+                 :type :ipmi-session}}
                (decode rakp3)))))))
 
 (deftest rakp-4
@@ -260,28 +257,28 @@
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
        :return :rmcp-rakp-hmac-sha1}
-    (let [codec  (compile-codec 012346)
-          decode (partial i/decode codec)
-          encode (partial i/encode codec)
-          rakp4  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-4))))]
-      (is (=     {:version 6,
-                  :reserved 0,
-                  :sequence 255,
-                  :rmcp-class
-                  {:ipmi-session-payload
-                   {:ipmi-2-0-payload
-                    {:session-id 0,
-                     :session-seq 0,
-                     :payload-type {:encrypted? false, :authenticated? false, :type 21},
-                     :managed-console-session-id 2695013284,
-                     :status-code 0,
-                     :message-tag 0,
-                     :integrity-check [139 192 24 45 154 158 82 139 18 244 192 119],
-                     :reserved [0 0],
-                     :message-length 20},
-                    :type :ipmi-2-0-session},
-                   :type :ipmi-session}}
-                 (decode rakp4)))))))
+      (let [codec  (compile-codec 012346)
+            decode (partial i/decode codec)
+            encode (partial i/encode codec)
+            rakp4  (encode (decode (byte-array (rmcp-payloads-cipher-1 :rmcp-rakp-4))))]
+        (is (=     {:version 6,
+                    :reserved 0,
+                    :sequence 255,
+                    :rmcp-class
+                    {:ipmi-session-payload
+                     {:ipmi-2-0-payload
+                      {:session-id 0,
+                       :session-seq 0,
+                       :payload-type {:encrypted? false, :authenticated? false, :type 21},
+                       :managed-console-session-id 2695013284,
+                       :status-code 0,
+                       :message-tag 0,
+                       :integrity-check [139 192 24 45 154 158 82 139 18 244 192 119],
+                       :reserved [0 0],
+                       :message-length 20},
+                      :type :ipmi-2-0-session},
+                     :type :ipmi-session}}
+                   (decode rakp4)))))))
 
 (deftest test-open-close-session
   (testing "open session request"
@@ -418,76 +415,76 @@
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           request (encode  (decode (byte-array (rmcp-payloads :get-channel-auth-cap-req))))]
+      (is (=     {:version 6,
+                  :reserved 0,
+                  :sequence 255,
+                  :rmcp-class
+                  {:ipmi-session-payload
+                   {:ipmi-1-5-payload
+                    {:session-seq 0,
+                     :session-id 0,
+                     :ipmb-payload
+                     {:version-compatibility
+                      {:version-compatibility true, :reserved 0, :channel 14},
+                      :command 56,
+                      :source-lun {:seq-no 0, :source-lun 0},
+                      :source-address 129,
+                      :checksum 181,
+                      :header-checksum 200,
+                      :target-address 32,
+                      :network-function {:function 6, :target-lun 0},
+                      :message-length 9,
+                      :privilege-level {:reserved 0, :privilege-level 4}}},
+                    :type :ipmi-1-5-session},
+                   :type :ipmi-session}}
+                 (decode request false)))))
+  (testing "Get Channel Auth Cap Response"
+    (let [codec (compile-codec 012345)
+          decode (partial i/decode codec)
+          encode (partial i/encode codec)
+          response (encode (decode (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
               :rmcp-class
               {:ipmi-session-payload
                {:ipmi-1-5-payload
-                {:session-seq 0
-                 :session-id 0
-                 :message-length 9,
+                {:session-seq 0,
+                 :session-id 0,
                  :ipmb-payload
-                 {:version-compatibility
-                  {:version-compatibility true, :reserved 0, :channel 14},
+                 {:oem-id [0 0 0],
+                  :oem-aux-data 0,
+                  :auth-compatibility
+                  {:reserved 0,
+                   :key-generation false,
+                   :per-message-auth false,
+                   :user-level-auth false,
+                   :non-null-user-names true,
+                   :null-user-names false,
+                   :anonymous-login-enabled false},
+                  :version-compatibility
+                  {:version-compatibility true,
+                   :reserved false,
+                   :oem-proprietary-auth false,
+                   :password-key true,
+                   :md5-support true,
+                   :md2-support true,
+                   :no-auth-support true},
                   :command 56,
+                  :channel {:reserved 0, :channel-num 1},
                   :source-lun {:seq-no 0, :source-lun 0},
-                  :source-address 129,
-                  :checksum 181,
-                  :header-checksum 200,
-                  :target-address 32,
-                  :network-function {:function 6, :target-lun 0},
-                  :privilege-level {:reserved 0, :privilege-level 4}}},
+                  :source-address 32,
+                  :supported-connections
+                  {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
+                  :checksum 9,
+                  :header-checksum 99,
+                  :target-address 129,
+                  :network-function {:function 7, :target-lun 0},
+                  :message-length 16,
+                  :command-completion-code 0}},
                 :type :ipmi-1-5-session},
                :type :ipmi-session}}
-             (decode request false)))))
-  (testing "Get Channel Auth Cap Response"
-    (let [codec (compile-codec 012345)
-          decode (partial i/decode codec)
-          encode (partial i/encode codec)
-          response (encode (decode (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
-      (is (=   {:version 6,
-                :reserved 0,
-                :sequence 255,
-                :rmcp-class
-                {:ipmi-session-payload
-                 {:ipmi-1-5-payload
-                  {:session-seq 0
-                   :session-id 0
-                   :message-length 16,
-                   :ipmb-payload
-                   {:oem-id [0 0 0],
-                    :oem-aux-data 0,
-                    :auth-compatibility
-                    {:reserved 0,
-                     :key-generation false,
-                     :per-message-auth false,
-                     :user-level-auth false,
-                     :non-null-user-names true,
-                     :null-user-names false,
-                     :anonymous-login-enabled false},
-                    :version-compatibility
-                    {:version-compatibility true,
-                     :reserved false,
-                     :oem-proprietary-auth false,
-                     :password-key true,
-                     :md5-support true,
-                     :md2-support true,
-                     :no-auth-support true},
-                    :command 56,
-                    :channel {:reserved 0, :channel-num 1},
-                    :source-lun {:seq-no 0, :source-lun 0},
-                    :source-address 32,
-                    :supported-connections
-                    {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
-                    :checksum 9,
-                    :header-checksum 99,
-                    :target-address 129,
-                    :network-function {:function 7, :target-lun 0},
-                    :command-completion-code 0}},
-                  :type :ipmi-1-5-session},
-                 :type :ipmi-session}}
-               (decode response false))))))
+             (decode response false))))))
 
 (deftest  test-privilege-level_request
   (testing "Set Session Priv Level Request"
@@ -860,7 +857,124 @@
                  :type :ipmi-session}}
                (decode payload))))))
 
-(def ipmi-decode (partial i/decode (compile-codec 012345)))
+(deftest mock-get-authentication-codec
+  (testing "cipher 1"
+    (with-mocks
+      [m {:target :bifrost.ipmi.codec/get-authentication-codec
+          :return :rmcp-rakp-hmac-sha1}
+       n {:target :bifrost.ipmi.codec/get-confidentiality-codec
+          :return :rmcp-rakp-1-aes-cbc-128-confidentiality}]
+      (is (=   :rmcp-rakp-hmac-sha1
+               (get-authentication-codec 1))))))
+
+(deftest test-enc-payload
+  (testing "testing open-session-request"
+    (with-mocks
+      [m {:target :bifrost.ipmi.codec/get-authentication-codec
+          :return :rmcp-rakp-hmac-sha1}
+       n {:target :bifrost.ipmi.codec/get-confidentiality-codec
+          :return :rmcp-rakp-1-aes-cbc-128-confidentiality}]
+      (let [codec    (compile-codec 3)
+            decode   (partial i/decode codec)
+            encode   (partial i/encode codec)
+            response (encode (decode (byte-array (rmcp-payloads-cipher-3 :open-session-request))))]
+        (is (= {:version  6,
+                :reserved 0,
+                :sequence 255,
+                :rmcp-class
+                {:ipmi-session-payload
+                 {:ipmi-2-0-payload
+                  {:session-id        0,
+                   :session-seq       0,
+                   :payload-type      {:encrypted? false, :authenticated? false, :type 16},
+                   :authentication-payload
+                   {:type     0,
+                    :reserved [0 0 0],
+                    :length   8,
+                    :algo     {:reserved 0, :algorithm 1}},
+                   :integrity-payload
+                   {:type     1,
+                    :reserved [0 0 0],
+                    :length   8,
+                    :algo     {:reserved 0, :algorithm 1}},
+                   :remote-session-id 2695013284,
+                   :message-tag       0,
+                   :reserved          0,
+                   :message-length    32,
+                   :confidentiality-payload
+                   {:type     2,
+                    :reserved [0 0 0],
+                    :length   8,
+                    :algo     {:reserved 0, :algorithm 1}},
+                   :privilege-level   {:reserved 0, :max-priv-level 0}},
+                  :type :ipmi-2-0-session},
+                 :type :ipmi-session}}
+               (decode response))))))
+  (testing "testing RAKP-3"
+    (with-mocks
+      [m {:target :bifrost.ipmi.codec/get-authentication-codec
+          :return :rmcp-rakp-hmac-sha1}
+       n {:target :bifrost.ipmi.codec/get-confidentiality-codec
+          :return :rmcp-rakp-1-aes-cbc-128-confidentiality}]
+      (let [codec    (compile-codec 3)
+            decode   (partial i/decode codec)
+            encode   (partial i/encode codec)
+            response (encode (decode (byte-array (rmcp-payloads-cipher-3 :rmcp-rakp-3))))]
+        (is (=  {:version  6,
+                 :reserved 0,
+                 :sequence 255,
+                 :rmcp-class
+                 {:ipmi-session-payload
+                  {:ipmi-2-0-payload
+                   {:session-id                0,
+                    :session-seq               0,
+                    :payload-type              {:encrypted? false, :authenticated? false, :type 20},
+                    :status-code               0,
+                    :message-tag               0,
+                    :managed-system-session-id 1922,
+                    :key-exchange-code
+                    [47
+                     46
+                     239
+                     240
+                     104
+                     85
+                     196
+                     149
+                     148
+                     16
+                     30
+                     89
+                     226
+                     81
+                     204
+                     188
+                     231
+                     39
+                     202
+                     220],
+                    :reserved                  [0 0],
+                    :message-length            28},
+                   :type :ipmi-2-0-session},
+                  :type :ipmi-session}}
+                (decode response))))))
+
+  (testing "testing RAKP-3"
+    (with-mocks
+      [m {:target :bifrost.ipmi.codec/get-authentication-codec
+          :return :rmcp-rakp-hmac-sha1}
+       n {:target :bifrost.ipmi.codec/get-confidentiality-codec
+          :return :rmcp-rakp-1-aes-cbc-128-confidentiality}]
+      (let [codec    (compile-codec 3)
+            decode   (partial i/decode codec)
+            encode   (partial i/encode codec)
+            decoded  (i/decode codec (byte-array (rmcp-payloads-cipher-3 :encrypted)))
+            _        (log/debug decoded)
+            response (encode decoded)]
+        (is (= {}
+               (decode codec response)))))))
+
+(def ipmi-decode (partial i/decode (compile-codec 11111)))
 
 (deftest test-message-select
   (testing "RMCP Message Type"

@@ -15,7 +15,6 @@
             [taoensso.timbre :as log]
             [buddy.core.nonce :as nonce]))
 
-
 (defn get-sik [h]
   (get-in @app-state [:chan-map h :sik]))
 
@@ -33,7 +32,6 @@
      identity
      (fn [data]
        (merge h data)))))
-
 
 (defn- compile-frame-enc- [f]
   (cond
@@ -66,6 +64,8 @@
 
 
 ;TODO
+
+
 (def command-completion-codes
   (comment "Page 44"))
 
@@ -127,16 +127,16 @@
       :optional true
       :codec :rmcp-rakp-1-xrc4-40-confidentiality}})
 
-
 (defn get-confidentiality-codec [h]
-  (let [login-state (get-login-state h)
-        conf (-> login-state :conf)]
-    (get confidentiality-codec conf) :rmcp-rakp-1-none-confidentiality))
+  (let [conf (get confidentiality-codec
+                  (-> (get-login-state h) :conf)
+                  {:codec :rmcp-rakp-1-none-confidentiality})]
+    (:codec conf)))
 
 (defn get-authentication-codec [h]
-  (let [login-state (log/spy (get authentication-codec (-> (get-login-state h) :auth) :rmcp-rakp))]
-    (:codec login-state)))
-
+  (let [auth (get authentication-codec
+                  (-> (get-login-state h) :auth) {:codec :rmcp-rakp})]
+    (:codec auth)))
 
 
 (defn get-message-type [m]
@@ -208,9 +208,12 @@
                                                              60 {:type :rmcp-close-session :command 60 :function 7})
                                                         44 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type :picmg-properties-req :command 0 :function 44 :response 45 :signature 0}
-                                                                  3 {:type :vso-capabilities-req :command 0 :function 44 :response 45 :signature 3})
-                                                             62 {:type :hpm-capabilities-req :command 62 :function 44 :response 45})
+                                                                  0 {:type :picmg-properties-req :command 0
+                                                                     :function 44 :response 45 :signature 0}
+                                                                  3 {:type :vso-capabilities-req :command 0
+                                                                     :function 44 :response 45 :signature 3})
+                                                             62 {:type :hpm-capabilities-req :command 62
+                                                                 :function 44 :response 45})
                                                         45 (condp = command
                                                              0  (condp = signature
                                                                   0 {:type :picmg-properties-rsp :command 0 :function 45 :signature 0}
@@ -237,7 +240,7 @@
 (def aes-payload
   (compile-frame-enc
    (repeated :ubyte
-             :prefix :uint16-le)
+               :prefix :uint16-le)
    identity
    identity
    decode-aes-payload))
@@ -245,11 +248,13 @@
 (declare router-key)
 
 (defn aes-post-decoder [a]
+  (log/debug "aes-decoder " a)
   (let [iv (get-in a [:payload :iv])
         data (get-in a [:payload :data])
         sik (get-sik router-key)
         decrypted (-> (decrypt sik iv data) bs/to-byte-array vec)]
     (assoc-in a [:payload :data] decrypted)))
+
 
 (def aes-codec
   (compile-frame-enc
@@ -261,7 +266,6 @@
    identity
    identity
    aes-post-decoder))
-
 
 (defcodec channel-auth-cap-req
   (ordered-map
@@ -337,11 +341,13 @@
                  :length :ubyte
                  :algo (bit-map :reserved 2
                                 :algorithm 6)
-                 :reserved (repeat 3 :ubyte)))
+                 :reserved (repeat 3 :ubyte)
+                 ))
 
 ;; Should be 32 bytes
 (defcodec rmcp-open-session-request
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :privilege-level (bit-map :reserved 4
                              :max-priv-level 4)
@@ -353,6 +359,7 @@
 
 (defcodec rmcp-open-session-response
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :privilege-level (bit-map :reserved 4
@@ -395,6 +402,7 @@
 
 (defcodec chassis-control-req
   (ordered-map
+   :message-length :uint16-le
    :control (bit-map :reserved 4
                      :chassis-control 4)
    :checksum :ubyte))
@@ -406,6 +414,7 @@
 
 (defcodec chassis-control-rsp
   (ordered-map
+   :message-length :uint16-le
    :command-completion-code :ubyte
    :checksum :ubyte))
 
@@ -472,6 +481,7 @@
 
 (defcodec ipmb-header
   (ordered-map
+   :message-length :ubyte
    :target-address :ubyte
    :network-function (bit-map :function 6
                               :target-lun 2)
@@ -632,6 +642,7 @@
 
 (defcodec rmcp-plus-rakp-1
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :reserved1 (repeat 3 :ubyte)
    :managed-system-session-id :uint32-le
@@ -644,6 +655,7 @@
 
 (defcodec rmcp-plus-rakp-2
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -653,6 +665,7 @@
 
 (defcodec rmcp-plus-rakp-3
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -660,6 +673,7 @@
 
 (defcodec rmcp-plus-rakp-4
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -669,6 +683,7 @@
 
 (defcodec rmcp-plus-rakp-2-hmac-sha1
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -679,6 +694,7 @@
 
 (defcodec rmcp-plus-rakp-3-hmac-sha1
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -687,6 +703,7 @@
 
 (defcodec rmcp-plus-rakp-4-hmac-sha1
   (ordered-map
+   :message-length :uint16-le
    :message-tag :ubyte
    :status-code :ubyte
    :reserved (repeat 2 :ubyte)
@@ -698,12 +715,13 @@
            :authenticated? 1
            :type 6))
 
+(comment "Changing to support encryption")
 (defcodec rmcp-plus-header
   (ordered-map
    :payload-type rmcp-message-type
    :session-id :uint32-le
-   :session-seq :uint32-le
-   :message-length :uint16-le))
+   :session-seq :uint32-le))
+   ;:message-length :uint16-le
 
 (defcodec asf-presence-ping
   (ordered-map :message-tag :ubyte
@@ -747,79 +765,82 @@
 (defn compile-codec
   [router-key]
   (log/debug "Compile with key" router-key)
-   (let [ipmb-message (compile-frame
-                       (header ipmb-header
-                               (build-merge-header-with-data
-                                #(get-network-function-codec %))
-                               (fn [b]
-                                 b)))
-         grpl                     (fn [{:keys [payload-type auth]}]
-                                    (let [t              (get-in payload-type [:payload-type :type])
-                                          message-length (:message-length payload-type)]
-                                      (condp = t
-                                        0x00 (condp = (get-confidentiality-codec router-key)
-                                               :rmcp-rakp-1-aes-cbc-128-confidentiality aes-codec
-                                               ipmb-message)
-                                        0x10 rmcp-open-session-request
-                                        0x11 rmcp-open-session-response
-                                        0x12 rmcp-plus-rakp-1
-                                        0x13 (condp = auth
-                                               :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
-                                               rmcp-plus-rakp-2)
-                                        0x14 (condp = auth
-                                               :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-3-hmac-sha1
-                                               rmcp-plus-rakp-3)
-                                        0x15 (condp = auth
-                                               :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-4-hmac-sha1
-                                               rmcp-plus-rakp-4))))
+  (let [ipmb-message (compile-frame
+                      (header ipmb-header
+                              (build-merge-header-with-data
+                               #(get-network-function-codec %))
+                              (fn [b]
+                                b)))
+        grpl         (fn [{:keys [payload-type auth conf]}]
+                       (log/debug "Get RMCP Payload")
+                       (let [t              (get-in payload-type [:payload-type :type])
+                             message-length (:message-length payload-type)]
 
-         authentication-type (compile-frame (enum :ubyte
-                                                  {:ipmi-1-5-session 0x00
-                                                   :ipmi-2-0-session 0x06}))
-         ipmi-1-5-session    (compile-frame
-                              {:type             :ipmi-1-5-session
-                               :ipmi-1-5-payload (compile-frame
-                                                  (ordered-map
-                                                   :session-seq :int32-le
-                                                   :session-id  :int32-le
-                                                   :message-length :ubyte
-                                                   :ipmb-payload ipmb-message))})
-         ipmi-2-0-session    (compile-frame
-                              {:type             :ipmi-2-0-session
-                               :ipmi-2-0-payload (compile-frame
-                                                  (header rmcp-plus-header
-                                                          (build-merge-header-with-data
-                                                           #(grpl {:payload-type %
-                                                                   :auth  (log/spy (get-authentication-codec router-key)) }))
-                                                          (fn [b]
-                                                            b)))})
-         asf-session         (compile-frame
-                              {:type        :asf-session
-                               :asf-payload (ordered-map
-                                             :iana-enterprise-number :uint32
-                                             :asf-message-header asf-message-header)})
+                         (condp = t
+                           0x00 (condp = conf
+                                  :rmcp-rakp-1-aes-cbc-128-confidentiality aes-codec
+                                  ipmb-message)
+                           0x10 rmcp-open-session-request
+                           0x11 rmcp-open-session-response
+                           0x12 rmcp-plus-rakp-1
+                           0x13 (condp = auth
+                                  :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-2-hmac-sha1
+                                  rmcp-plus-rakp-2)
+                           0x14 (condp = auth
+                                  :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-3-hmac-sha1
+                                  rmcp-plus-rakp-3)
+                           0x15 (condp = auth
+                                  :rmcp-rakp-hmac-sha1 rmcp-plus-rakp-4-hmac-sha1
+                                  rmcp-plus-rakp-4))))
 
-         ipmi-session      (compile-frame
-                            {:type                 :ipmi-session
-                             :ipmi-session-payload (compile-frame
-                                                    (header
-                                                     authentication-type
-                                                     {:ipmi-1-5-session ipmi-1-5-session
-                                                      :ipmi-2-0-session ipmi-2-0-session}
-                                                     :type))})
-         class-of-message  (enum :ubyte {:asf-session  0x06
-                                         :ipmi-session 0x07
-                                         :rmcp-ack     0x86})
-         rmcp-class-header (header
-                            class-of-message
-                            {:asf-session  asf-session
-                             :ipmi-session ipmi-session
-                             :rmcp-ack     rmcp-ack}
-                            :type)
-         rmcp-header       (ordered-map :version :ubyte ; 0x06
-                                        :reserved :ubyte ; 0x00
-                                        :sequence :ubyte
-                                        :rmcp-class rmcp-class-header)]
-     (compile-frame rmcp-header)))
+        authentication-type (compile-frame (enum :ubyte
+                                                 {:ipmi-1-5-session 0x00
+                                                  :ipmi-2-0-session 0x06}))
+        ipmi-1-5-session    (compile-frame
+                             {:type             :ipmi-1-5-session
+                              :ipmi-1-5-payload (compile-frame
+                                                 (ordered-map
+                                                  :session-seq :int32-le
+                                                  :session-id  :int32-le
+                                                  :ipmb-payload ipmb-message))})
+        ipmi-2-0-session    (compile-frame
+                             {:type             :ipmi-2-0-session
+                              :ipmi-2-0-payload (compile-frame
+                                                 (header rmcp-plus-header
+                                                         (build-merge-header-with-data
+                                                          #(grpl {:payload-type (log/spy %)
+                                                                  :auth         (log/spy (get-authentication-codec router-key))
+                                                                  :conf         (log/spy (get-confidentiality-codec router-key))}))
+                                                         (fn [b]
+                                                           b)))})
+        asf-session         (compile-frame
+                             {:type        :asf-session
+                              :asf-payload (ordered-map
+                                            :iana-enterprise-number :uint32
+                                            :asf-message-header asf-message-header)})
 
+        ipmi-session      (compile-frame
+                           {:type                 :ipmi-session
+                            :ipmi-session-payload (compile-frame
+                                                   (header
+                                                    authentication-type
+                                                    {:ipmi-1-5-session ipmi-1-5-session
+                                                     :ipmi-2-0-session ipmi-2-0-session}
+                                                    :type))})
+        class-of-message         (enum :ubyte {:asf-session  0x06
+                                               :ipmi-session 0x07
+                                               :rmcp-ack     0x86})
+        rmcp-class-header (header
+                           class-of-message
+                           {:asf-session  asf-session
+                            :ipmi-session ipmi-session
+                            :rmcp-ack     rmcp-ack}
+                           :type)
+        rmcp-header       (ordered-map :version :ubyte ; 0x06
+                                       :reserved :ubyte ; 0x00
+                                       :sequence :ubyte
+                                       :rmcp-class rmcp-class-header)]
+    (compile-frame
+
+     rmcp-header)))
 

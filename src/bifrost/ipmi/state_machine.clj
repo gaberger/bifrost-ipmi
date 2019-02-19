@@ -568,8 +568,15 @@
                                         (let [h       (:hash input)
                                               message (conj {} (c/get-message-type input))
                                               sid     (get state :sidm)
-                                              seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
-                                              seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun :seq-no])
+                                              seq     (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :session-seq] 0)
+                                              seq-no  (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :source-lun
+                                                                     :seq-no])
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]
