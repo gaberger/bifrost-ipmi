@@ -322,7 +322,8 @@
     (let [codec (compile-codec 012345)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
-          response (encode (decode (byte-array (rmcp-payloads :open-session-response))))]
+          decoded (i/decode codec (byte-array (rmcp-payloads :open-session-response)) false)
+          response (encode decoded)]
       (is (= {:version 6,
               :reserved 0,
               :sequence 255,
@@ -415,76 +416,76 @@
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           request (encode  (decode (byte-array (rmcp-payloads :get-channel-auth-cap-req))))]
-      (is (=     {:version 6,
-                  :reserved 0,
-                  :sequence 255,
-                  :rmcp-class
-                  {:ipmi-session-payload
-                   {:ipmi-1-5-payload
-                    {:session-seq 0,
-                     :session-id 0,
-                     :ipmb-payload
-                     {:version-compatibility
-                      {:version-compatibility true, :reserved 0, :channel 14},
-                      :command 56,
-                      :source-lun {:seq-no 0, :source-lun 0},
-                      :source-address 129,
-                      :checksum 181,
-                      :header-checksum 200,
-                      :target-address 32,
-                      :network-function {:function 6, :target-lun 0},
-                      :message-length 9,
-                      :privilege-level {:reserved 0, :privilege-level 4}}},
-                    :type :ipmi-1-5-session},
-                   :type :ipmi-session}}
-                 (decode request false)))))
+      (is (=    {:version 6,
+                 :reserved 0,
+                 :sequence 255,
+                 :rmcp-class
+                 {:ipmi-session-payload
+                  {:ipmi-1-5-payload
+                   {:session-seq 0,
+                    :session-id 0,
+                    :message-length 9,
+                    :ipmb-payload
+                    {:version-compatibility
+                     {:version-compatibility true, :reserved 0, :channel 14},
+                     :command 56,
+                     :source-lun {:seq-no 0, :source-lun 0},
+                     :source-address 129,
+                     :checksum 181,
+                     :header-checksum 200,
+                     :target-address 32,
+                     :network-function {:function 6, :target-lun 0},
+                     :privilege-level {:reserved 0, :privilege-level 4}}},
+                   :type :ipmi-1-5-session},
+                  :type :ipmi-session}}
+                (decode request false)))))
   (testing "Get Channel Auth Cap Response"
     (let [codec (compile-codec 012345)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           response (encode (decode (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
-      (is (= {:version 6,
-              :reserved 0,
-              :sequence 255,
-              :rmcp-class
-              {:ipmi-session-payload
-               {:ipmi-1-5-payload
-                {:session-seq 0,
-                 :session-id 0,
-                 :ipmb-payload
-                 {:oem-id [0 0 0],
-                  :oem-aux-data 0,
-                  :auth-compatibility
-                  {:reserved 0,
-                   :key-generation false,
-                   :per-message-auth false,
-                   :user-level-auth false,
-                   :non-null-user-names true,
-                   :null-user-names false,
-                   :anonymous-login-enabled false},
-                  :version-compatibility
-                  {:version-compatibility true,
-                   :reserved false,
-                   :oem-proprietary-auth false,
-                   :password-key true,
-                   :md5-support true,
-                   :md2-support true,
-                   :no-auth-support true},
-                  :command 56,
-                  :channel {:reserved 0, :channel-num 1},
-                  :source-lun {:seq-no 0, :source-lun 0},
-                  :source-address 32,
-                  :supported-connections
-                  {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
-                  :checksum 9,
-                  :header-checksum 99,
-                  :target-address 129,
-                  :network-function {:function 7, :target-lun 0},
-                  :message-length 16,
-                  :command-completion-code 0}},
-                :type :ipmi-1-5-session},
-               :type :ipmi-session}}
-             (decode response false))))))
+      (is (=    {:version 6,
+                 :reserved 0,
+                 :sequence 255,
+                 :rmcp-class
+                 {:ipmi-session-payload
+                  {:ipmi-1-5-payload
+                   {:session-seq 0,
+                    :session-id 0,
+                    :message-length 16,
+                    :ipmb-payload
+                    {:oem-id [0 0 0],
+                     :oem-aux-data 0,
+                     :auth-compatibility
+                     {:reserved 0,
+                      :key-generation false,
+                      :per-message-auth false,
+                      :user-level-auth false,
+                      :non-null-user-names true,
+                      :null-user-names false,
+                      :anonymous-login-enabled false},
+                     :version-compatibility
+                     {:version-compatibility true,
+                      :reserved false,
+                      :oem-proprietary-auth false,
+                      :password-key true,
+                      :md5-support true,
+                      :md2-support true,
+                      :no-auth-support true},
+                     :command 56,
+                     :channel {:reserved 0, :channel-num 1},
+                     :source-lun {:seq-no 0, :source-lun 0},
+                     :source-address 32,
+                     :supported-connections
+                     {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
+                     :checksum 9,
+                     :header-checksum 99,
+                     :target-address 129,
+                     :network-function {:function 7, :target-lun 0},
+                     :command-completion-code 0}},
+                   :type :ipmi-1-5-session},
+                  :type :ipmi-session}}
+                (decode response false))))))
 
 (deftest  test-privilege-level_request
   (testing "Set Session Priv Level Request"
@@ -910,6 +911,7 @@
                   :type :ipmi-2-0-session},
                  :type :ipmi-session}}
                (decode response))))))
+
   (testing "testing RAKP-3"
     (with-mocks
       [m {:target :bifrost.ipmi.codec/get-authentication-codec
@@ -968,11 +970,17 @@
       (let [codec    (compile-codec 3)
             decode   (partial i/decode codec)
             encode   (partial i/encode codec)
-            decoded  (i/decode codec (byte-array (rmcp-payloads-cipher-3 :encrypted)))
-            _        (log/debug decoded)
-            response (encode decoded)]
-        (is (= {}
-               (decode codec response)))))))
+            decoded  (i/decode codec (byte-array (rmcp-payloads-cipher-3 :encrypted)))]
+        (is (=  {:version 6, :reserved 0, :sequence 255,
+                 :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload
+                                                     {:payload-type {:encrypted? true,
+                                                                     :authenticated? true, :type 0},
+                                                      :session-id 1922, :session-seq 3,
+                                                      :payload {:iv [218 163 55 65 149 75 8 13 246 228 28 53 151 242 136 239],
+                                                                :data [25 -13 119 58 -15 60 -111 -23 31 47 -58 -98 -93 -59 -2 -44]},
+                                                      :pad 2, :rcmp 7, :auth-code [179 93 161 100 35 177 6 56 38 54 70 20]},
+                                                     :type :ipmi-2-0-session}, :type :ipmi-session}}
+               decoded))))))
 
 (def ipmi-decode (partial i/decode (compile-codec 11111)))
 
@@ -1040,7 +1048,29 @@
   (testing "PICMG Properties"
     (is (=  {:type :picmg-properties-req, :command 0, :function 44, :signature 0 :response 45}
             (get-message-type (ipmi-decode (byte-array (:picmg-properties-req
-                                                        rmcp-payloads)) false))))))
+                                                        rmcp-payloads)) false)))))
+  (testing "Enc Decode"
+    (is (= {}
+           (get-message-type
+            {:hash -340318524,
+            :rmcp-class
+            {:ipmi-session-payload
+             {:ipmi-2-0-payload
+              {:target-address 32,
+               :network-function {:function 6, :target-lun 0},
+               :header-checksum 200,
+               :source-address 129,
+               :source-lun {:seq-no 1, :source-lun 0},
+               :command 59,
+               :requested-priv-level {:reserved 0, :requested-priv-level 4},
+               :checksum 60},
+              :type :ipmi-2-0-session},
+             :type :ipmi-session},
+            :port 59860,
+            :host "127.0.0.1",
+            :sequence 255,
+            :reserved 0,
+            :version 6})))))
 
                                         ; (deftest test-set-priv-level
 ; (deftest test-set-priv-level

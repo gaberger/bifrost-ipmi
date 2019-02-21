@@ -30,11 +30,8 @@
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 ;; Design issues
-;; Should session-less messages be in their own FSM?
 ;; Each IPMI "session" should run till completion given we are not supporting any interactive capability
 ;; Only rmcpping doesn't follow state-machine.. Lets carve it out seperately.
-;; for each peer [ip:port] process it's own fsm.
-;;
 
 (defn start-stop-meter []
   (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
@@ -143,10 +140,53 @@
                   (catch Exception e
                     (log/error (ex-info "Decoder exception"
                                         {:error (.getMessage e)}))
-                    false))]
+                    false))
+        aes-payload? (contains?
+                      (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
+                      :aes-decoded-payload)
+        message (if aes-payload?
+                  (let [aes-payload (get-in decoded [:rmcp-class
+                                                 :ipmi-session-payload
+                                                 :ipmi-2-0-payload
+                                                 :aes-decoded-payload])]
+                        (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
+                            (update-in  [:rmcp-class
+                                         :ipmi-session-payload
+                                         :ipmi-2-0-payload]
+                                        dissoc :aes-decoded-payload)))
+                  decoded)]
                    ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " decoded)
-    decoded))
+    (log/debug "Decoded Message " message)
+    message))
+
+
+(defn encode-message [encoder message]
+  (log/debug "Encode Message ")
+  #_(let [
+        ;; encoded (try
+        ;;           (encoder (:message message))
+        ;;           (catch Exception e
+        ;;             (log/error (ex-info "Encoder exception"
+        ;;                                 {:error (.getMessage e)}))
+        ;;             false))  
+        ;;aes-payload? (contains?
+        ;;              (get-in encoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
+        ;;              :aes-decoded-payload)
+        message (if aes-payload?
+                  (let [aes-payload (get-in decoded [:rmcp-class
+                                                 :ipmi-session-payload
+                                                 :ipmi-2-0-payload
+                                                 :aes-decoded-payload])]
+                        (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
+                            (update-in  [:rmcp-class
+                                         :ipmi-session-payload
+                                         :ipmi-2-0-payload]
+                                        dissoc :aes-decoded-payload)))
+                  decoded)]
+                   ;; TODO need to respond with an error message here
+    (log/debug "Encoded Message " message)
+    message))
+
 
 (defn process-message [fsm fsm-state message]
   (log/debug "State Machine Process Message")

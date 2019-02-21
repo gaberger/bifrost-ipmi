@@ -81,11 +81,13 @@
     sidm-hmac))
 
 (defn K1 [sik]
-  (let [const1 (byte-array [01 01 01 01 01 01 01 01 01 01])]
+  (let [const1 (byte-array [01 01 01 01 01 01 01 01 01 01
+                            01 01 01 01 01 01 01 01 01 01])]
     (calc-sha1-key sik const1)))
 
 (defn K2 [sik]
-  (let [const2 (byte-array [02 02 02 02 02 02 02 02 02 02])]
+  (let [const2 (byte-array [02 02 02 02 02 02 02 02 02 02
+                            02 02 02 02 02 02 02 02 02 02])]
     (calc-sha1-key sik const2)))
 
 (defn pad-count [size]
@@ -112,29 +114,41 @@
   K2 = HMACsik
   "
   [sik payload]
-  (let [iv      (nonce/random-nonce 16)
-        key     (bytes/slice (K2 (byte-array sik)) 0 16)
-        ;padding (-> payload bs/to-byte-array count pad-count)
-        buffer (mapv #(-encrypt-block (vec %) iv key)
-                     (partition 16 16 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] payload))]
-    {:iv iv :data (reduce (fn [x y]
-                                             (bytes/concat x y))
-                                           []
-                                           buffer)}))
+  (let [engine        (crypto/block-cipher :aes :cbc)
+        iv'           (nonce/random-nonce 16)
+        sik'          (byte-array sik)
+        key'          (K2 (byte-array sik'))
+        key           (bytes/slice (K2 (byte-array sik')) 0 16)
+        _             (log/debug "Encrypting with IV " (codecs/bytes->hex iv'))
+        _             (log/debug "Encrypting with key " (codecs/bytes->hex key))
+        _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
+        output-buffer (mapv #(-encrypt-block engine %)
+                            (partition 16 16 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] payload))
+        buffer        (reduce (fn [x y]
+                                (bytes/concat x y))
+                              []
+                              output-buffer)]
+    ;;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
+    ;;(to-buf-seq trim-buffer)
+    buffer
+    ))
 
 (defn decrypt
   [sik iv payload]
   (let [engine        (crypto/block-cipher :aes :cbc)
         iv'           (byte-array iv)
         sik'          (byte-array sik)
+        key'          (K2 (byte-array sik'))
         key           (bytes/slice (K2 (byte-array sik')) 0 16)
+        _             (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
+        _             (log/debug "Decrypting with key " (codecs/bytes->hex key))
         _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
         output-buffer (mapv #(-decrypt-block engine %)
                             (partition 16 payload))
         buffer        (reduce (fn [x y]
-                                         (bytes/concat x y))
-                                        []
-                                        output-buffer)]
+                                (bytes/concat x y))
+                              []
+                              output-buffer)]
         ;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
     #_(to-buf-seq trim-buffer)
     buffer
