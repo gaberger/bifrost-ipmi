@@ -1,4 +1,5 @@
 .cpcache
+.settings
 .nrepl-port
 .rebel_readline_history
 ipmi-aleph.codec.log
