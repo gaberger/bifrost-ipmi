@@ -11,7 +11,7 @@
 
 (defn chassis-status-response-msg [m]
   (let [{:keys [sid seq-no]} m]
-    {:version 6,
+    {:version 6
      :reserved 0,
      :sequence 255,
      :rmcp-class

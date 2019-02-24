@@ -95,12 +95,8 @@
     (- 16 (mod size 16))
     0))
 
-(defn -encrypt-block [block iv key]
-  (let [engine (crypto/block-cipher :aes :cbc)]
-    (crypto/init! engine {:key key :iv iv :op :encrypt})
-    (crypto/process-block! engine (byte-array block))))
 
-(defn -decrypt-block
+(defn -process-block
   "Takes a vector of 16 byte elements, byte-arrays for initialization vector and key returns a decrypted vector"
   [engine block]
     (crypto/process-block! engine (byte-array block)))
@@ -113,23 +109,24 @@
   encrypted one block at a time from the lowest data offset to the highest using Cipher_Key as specified in [AES].
   K2 = HMACsik
   "
-  [sik payload]
+  [sik iv payload]
   (let [engine        (crypto/block-cipher :aes :cbc)
-        iv'           (nonce/random-nonce 16)
         sik'          (byte-array sik)
         key'          (K2 (byte-array sik'))
         key           (bytes/slice (K2 (byte-array sik')) 0 16)
-        _             (log/debug "Encrypting with IV " (codecs/bytes->hex iv'))
+        _             (log/debug "Encrypting with IV " (codecs/bytes->hex iv))
         _             (log/debug "Encrypting with key " (codecs/bytes->hex key))
-        _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
-        output-buffer (mapv #(-encrypt-block engine %)
+        _             (crypto/init! engine {:key key :iv iv :op :decrypt})
+        _ (log/debug "Input Data" (-> payload byte-array codecs/bytes->hex))
+        output-buffer (mapv #(-process-block engine %)
                             (partition 16 16 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] payload))
         buffer        (reduce (fn [x y]
-                                (bytes/concat x y))
+                                (bytes/concat x y)) ;
                               []
                               output-buffer)]
     ;;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
     ;;(to-buf-seq trim-buffer)
+    (log/debug "Encrypted Payload" (codecs/bytes->hex buffer))
     buffer
     ))
 
@@ -143,7 +140,7 @@
         _             (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
         _             (log/debug "Decrypting with key " (codecs/bytes->hex key))
         _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
-        output-buffer (mapv #(-decrypt-block engine %)
+        output-buffer (mapv #(-process-block engine %)
                             (partition 16 payload))
         buffer        (reduce (fn [x y]
                                 (bytes/concat x y))

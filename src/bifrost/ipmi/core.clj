@@ -6,7 +6,7 @@
             [byte-streams :as bs]
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.utils :refer [safe]]
-            [bifrost.ipmi.codec :as c :refer [compile-codec get-login-state get-authentication-codec]]
+            [bifrost.ipmi.codec :as c :refer [decode-message compile-codec get-login-state get-authentication-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
             [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
                                                 ipmi-handler mock-handler get-session-state]]
@@ -132,60 +132,6 @@
 
 (def input-chan (chan))
 (def publisher (pub input-chan :router))
-
-(defn decode-message [decoder message]
-  (log/debug "Decode Message ")
-  (let [decoded (try
-                  (decoder (:message message))
-                  (catch Exception e
-                    (log/error (ex-info "Decoder exception"
-                                        {:error (.getMessage e)}))
-                    false))
-        aes-payload? (contains?
-                      (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-                      :aes-decoded-payload)
-        message (if aes-payload?
-                  (let [aes-payload (get-in decoded [:rmcp-class
-                                                 :ipmi-session-payload
-                                                 :ipmi-2-0-payload
-                                                 :aes-decoded-payload])]
-                        (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
-                            (update-in  [:rmcp-class
-                                         :ipmi-session-payload
-                                         :ipmi-2-0-payload]
-                                        dissoc :aes-decoded-payload)))
-                  decoded)]
-                   ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " message)
-    message))
-
-
-(defn encode-message [encoder message]
-  (log/debug "Encode Message ")
-  #_(let [
-        ;; encoded (try
-        ;;           (encoder (:message message))
-        ;;           (catch Exception e
-        ;;             (log/error (ex-info "Encoder exception"
-        ;;                                 {:error (.getMessage e)}))
-        ;;             false))  
-        ;;aes-payload? (contains?
-        ;;              (get-in encoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-        ;;              :aes-decoded-payload)
-        message (if aes-payload?
-                  (let [aes-payload (get-in decoded [:rmcp-class
-                                                 :ipmi-session-payload
-                                                 :ipmi-2-0-payload
-                                                 :aes-decoded-payload])]
-                        (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
-                            (update-in  [:rmcp-class
-                                         :ipmi-session-payload
-                                         :ipmi-2-0-payload]
-                                        dissoc :aes-decoded-payload)))
-                  decoded)]
-                   ;; TODO need to respond with an error message here
-    (log/debug "Encoded Message " message)
-    message))
 
 
 (defn process-message [fsm fsm-state message]
