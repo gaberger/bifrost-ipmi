@@ -445,8 +445,9 @@
                                                                        :requested-max-priv-level])
                                             sidc        (get state :sidc)
                                             sidm        (get state :sidm)
-                                            login-state (log/spy (c/get-login-state (:hash input)))
+                                            login-state (c/get-login-state h)
                                             auth        (c/get-authentication-codec h)
+                                            ;; TODO Replace with nonce
                                             rc          (vec (take 16 (repeatedly #(rand-int 16))))
                                             uid         (lookup-password-key unamem)
                                             guid        (get-device-id-bytes unamem)]
@@ -460,7 +461,6 @@
                                                               :status     0
                                                               :guidc      guid
                                                               :rakp2-hmac [0]}]
-                                                       (log/debug "+++" m)
                                                        (send-message m)
                                                        state)
 
@@ -509,7 +509,7 @@
                              (log/info "RAKP-3 Request " state)
                              (let [h           (:hash input)
                                    message     (conj {} (c/get-message-type input))
-                                   login-state (log/spy (c/get-login-state (:hash input)))
+                                   login-state (c/get-login-state h)
                                    auth        (c/get-authentication-codec h)
                                    unamem      (get state :unamem)
                                    uid         (lookup-password-key unamem)
@@ -529,8 +529,7 @@
                                                             (update-in [:last-message] conj message))]
                                               (send-message m)
                                               state)
-                                 :rmcp-rakp-hmac-sha1 (let [_ (log/error "+++" unamem)
-                                                            kec          (get-in input [:rmcp-class
+                                 :rmcp-rakp-hmac-sha1 (let [kec          (get-in input [:rmcp-class
                                                                                         :ipmi-session-payload
                                                                                         :ipmi-2-0-payload
                                                                                         :key-exchange-code])
@@ -544,7 +543,6 @@
                                                                                            :rolem  rolem
                                                                                            :unamem unamem
                                                                                            :uid    uid})
-                                                            _            (comment "Need to truncate sidm-hmac to 96bits")
                                                             sidm-hmac    (calc-rakp-4-sidm {:rm    rm
                                                                                             :sidc  sidc
                                                                                             :guidc guid
@@ -567,13 +565,25 @@
                                         (log/info "Set Session Priv Level")
                                         (let [h       (:hash input)
                                               message (conj {} (c/get-message-type input))
+                                              _ (log/debug "get-message" message)
                                               sid     (get state :sidm)
-                                              seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
-                                              seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun :seq-no])
+                                              seq     (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :session-seq] 0)
+                                              seq-no  (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :source-lun
+                                                                     :seq-no])
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]
-                                          (send-message  {:type :session-priv-level :input input :sid sid :seq-no seq-no})
+                                          (send-message  {:type :session-priv-level :input input
+                                                          :sid sid :seq-no seq-no
+                                                          :session-seq-no seq
+                                                          :a (:a? message)
+                                                          :e (:e? message)})
                                           state))
               :asf-ping               (fn [state input]
                                         (log/info "ASF PING")

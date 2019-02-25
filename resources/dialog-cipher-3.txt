@@ -686,3 +686,34 @@ Decrypted this data (16 bytes)
 IPMI Request Match found
 removed list entry seq=0x07 cmd=0x3c
 Closed Session 00000702
+
+
+
+>> Initialization vector (16 bytes)
+ 4c ea ec 47 49 bd 5f a6 0d 2e d8 e8 19 19 af 89
+encrypting with this IV (16 bytes)
+ 4c ea ec 47 49 bd 5f a6 0d 2e d8 e8 19 19 af 89
+encrypting with this key (16 bytes)
+ 28 40 28 ad f1 1e 6e 9a 0d dc 59 29 4f d8 5b 61
+encrypting this data (16 bytes)
+ 20 18 c8 81 04 3b 04 3c 01 02 03 04 05 06 07 07
+authcode input (48 bytes)
+ :ipmi-session     06 c0 02 07 00 00 03 00 00 00 20 00
+ :iv               4c ea ec 47 49 bd 5f a6 0d 2e d8 e8 19 19 af 89
+ ;data             44 e5 fa bb dd 15 40 fe fc df 83 b2 0b 53 45 b5
+ :padding          ff ff
+ :Padding-length   02
+ :RMCP             07
+
+authcode output (12 bytes)
+ 30 f8 89 7d cd 6b 00 a2 3a 86 09 19
+>> sending packet (64 bytes)
+:ipmi-header       06 00 ff 07
+:ipmi-session      06 c0 02 07 00 00 03 00 00 00 20 00
+ :iv               4c ea ec 47 49 bd 5f a6 0d 2e d8 e8 19 19 af 89
+ :data             44 e5 fa bb dd 15 40 fe fc df 83 b2 0b 53 45 b5
+ :pad              ff ff
+ :pad-length       02
+ :rmcp             07
+ :auth-code        30 f8 89 7d cd 6b 00 a2 3a 86 09 19
+

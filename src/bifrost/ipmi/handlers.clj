@@ -11,7 +11,7 @@
 
 (defn chassis-status-response-msg [m]
   (let [{:keys [sid seq-no]} m]
-    {:version 6,
+    {:version 6
      :reserved 0,
      :sequence 255,
      :rmcp-class
@@ -121,7 +121,7 @@
       :type :ipmi-session}}))
 
 (defn set-session-priv-level-rsp-msg [m]
-  (let [{:keys [sid seq-no]} m]
+  (let [{:keys [sid session-seq-no seq-no e a]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -129,8 +129,8 @@
      {:ipmi-session-payload
       {:ipmi-2-0-payload
        {:session-id sid,
-        :session-seq 0
-        :payload-type {:encrypted? false, :authenticated? false, :type 0},
+        :session-seq session-seq-no
+        :payload-type {:encrypted? e, :authenticated? a, :type 0},
         :command 59,
         :source-lun {:seq-no seq-no :source-lun 0}
         :source-address 32,

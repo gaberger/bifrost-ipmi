@@ -6,7 +6,7 @@
             [byte-streams :as bs]
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.utils :refer [safe]]
-            [bifrost.ipmi.codec :as c :refer [compile-codec get-login-state get-authentication-codec]]
+            [bifrost.ipmi.codec :as c :refer [decode-message compile-codec get-login-state get-authentication-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
             [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
                                                 ipmi-handler mock-handler get-session-state]]
@@ -30,11 +30,8 @@
 ;    {:spit (appenders/spit-appender {:fname (str/join [*ns* ".log"])})}})
 
 ;; Design issues
-;; Should session-less messages be in their own FSM?
 ;; Each IPMI "session" should run till completion given we are not supporting any interactive capability
 ;; Only rmcpping doesn't follow state-machine.. Lets carve it out seperately.
-;; for each peer [ip:port] process it's own fsm.
-;;
 
 (defn start-stop-meter []
   (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
@@ -136,17 +133,6 @@
 (def input-chan (chan))
 (def publisher (pub input-chan :router))
 
-(defn decode-message [decoder message]
-  (log/debug "Decode Message ")
-  (let [decoded (try
-                  (decoder (:message message))
-                  (catch Exception e
-                    (log/error (ex-info "Decoder exception"
-                                        {:error (.getMessage e)}))
-                    false))]
-                   ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " decoded)
-    decoded))
 
 (defn process-message [fsm fsm-state message]
   (log/debug "State Machine Process Message")
