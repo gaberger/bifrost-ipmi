@@ -565,6 +565,7 @@
                                         (log/info "Set Session Priv Level")
                                         (let [h       (:hash input)
                                               message (conj {} (c/get-message-type input))
+                                              _ (log/debug "get-message" message)
                                               sid     (get state :sidm)
                                               seq     (get-in input [:rmcp-class
                                                                      :ipmi-session-payload
@@ -578,7 +579,11 @@
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]
-                                          (send-message  {:type :session-priv-level :input input :sid sid :seq-no seq-no})
+                                          (send-message  {:type :session-priv-level :input input
+                                                          :sid sid :seq-no seq-no
+                                                          :session-seq-no seq
+                                                          :a (:a? message)
+                                                          :e (:e? message)})
                                           state))
               :asf-ping               (fn [state input]
                                         (log/info "ASF PING")

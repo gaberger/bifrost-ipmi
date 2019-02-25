@@ -3,7 +3,7 @@
 (def user (read-string (slurp ".settings/user.edn")))
 (def command-line  (into []  (nnext (joker.os/args))))
 
-(def debug false)
+(def debug true)
 
 (defn- exit-err
   [& args]

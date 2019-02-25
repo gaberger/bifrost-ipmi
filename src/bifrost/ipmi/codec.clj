@@ -6,7 +6,7 @@
                                 string enum repeated]]
             [gloss.io :refer [decode to-buf-seq]]
             [byte-streams :as bs]
-            [bifrost.ipmi.crypto :refer [decrypt encrypt]]
+            [bifrost.ipmi.crypto :refer [decrypt encrypt  calc-integrity-96]]
             [gloss.core.structure :refer [convert-map convert-sequence]]
             [gloss.core.protocols :refer [reader? compose-callback Reader Writer read-bytes write-bytes sizeof]]
             [gloss.data.primitives :refer [primitive-codecs]]
@@ -61,10 +61,12 @@
        Writer
        (sizeof [_]
          (sizeof codec))
-       (write-bytes [a buf v]
-         (let [bb (write-bytes codec buf (pre-encoder v))]
-               ;;cbb (i/contiguous bb)
-               ;;_ (log/debug (-> cbb bs/to-byte-array codecs/bytes->hex))]
+       (write-bytes [_ buf v]
+         (log/debug "v" v)
+         (log/debug "buf" buf)
+         (let [bb (write-bytes codec buf (log/spy (pre-encoder v)))
+               cbb (i/contiguous bb)
+               _ (log/debug "compile-codec" (-> cbb bs/to-byte-array codecs/bytes->hex))]
            bb))))))
           ;(write-bytes codec buf (pre-encoder v)))))))
 
@@ -173,50 +175,103 @@
                                                           6 {:type :get-channel-auth-cap-req :command 56 :function 6}
                                                           7 {:type :get-channel-auth-cap-req :command 56 :function 7}
                                                           {:type :error :command command :function function})))
-                             :ipmi-2-0-payload (let [session      (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-                                                     function     (get-in session [:network-function
-                                                                                   :function] nil)
-                                                     payload-type (get-in session [:payload-type
-                                                                                   :type] nil)
-                                                     command      (get-in session [:command] nil)
-                                                     signature    (get-in session [:signature] nil)]
+                             :ipmi-2-0-payload (let [session        (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
+                                                     function       (get-in session [:network-function
+                                                                                     :function] nil)
+                                                     payload-type   (get-in session [:payload-type :type] nil)
+                                                     command        (get-in session [:command] nil)
+                                                     signature      (get-in session [:signature] nil)
+                                                     authenticated? (get-in session [:payload-type :authenticated?] false)
+                                                     encrypted? (get-in session [:payload-type :encrypted?] false)]
 
                                                  (condp = payload-type
-                                                   16 {:type :open-session-request :payload-type 16}
-                                                   17 {:type :open-session-response :payload-type 17}
-                                                   18 {:type :rmcp-rakp-1 :payload-type 18}
-                                                   19 {:type :rmcp-rakp-2 :payload-type 19}
-                                                   20 {:type :rmcp-rakp-3 :payload-type 20}
-                                                   21 {:type :rmcp-rakp-4 :payload-type 21}
+                                                   16 {:type         :open-session-request
+                                                       :payload-type 16
+                                                       :a?           authenticated?
+                                                       :e?           encrypted?}
+                                                   17 {:type         :open-session-response
+                                                       :payload-type 17
+                                                       :a?           authenticated?
+                                                       :e?           encrypted?}
+                                                   18 {:type :rmcp-rakp-1 :payload-type 18
+                                                       :a?   authenticated?
+                                                       :e?   encrypted?}
+                                                   19 {:type :rmcp-rakp-2 :payload-type 19
+                                                       :a?   authenticated?
+                                                       :e?   encrypted?}
+                                                   20 {:type :rmcp-rakp-3 :payload-type 20
+                                                       :a?   authenticated?
+                                                       :e?   encrypted?}
+                                                   21 {:type :rmcp-rakp-4 :payload-type 21
+                                                       :a?   authenticated?
+                                                       :e?   encrypted?}
                                                    0  (condp = function
                                                         0  (condp = command
-                                                             1 {:type :chassis-status-req :command 1 :function 0}
-                                                             2 {:type :chassis-reset-req :command 2 :function 0})
+                                                             1 {:type :chassis-status-req :command 1 :function 0
+                                                                :a?   authenticated?
+                                                                :e?   encrypted?}
+                                                             2 {:type :chassis-reset-req :command 2 :function 0
+                                                                :a?   authenticated?
+                                                                :e?   encrypted?})
                                                         1  (condp = command
-                                                             1 {:type :chassis-status-rsp :command 1 :function 1}
-                                                             2 {:type :chassis-reset-rsp :command 2 :function 2})
+                                                             1 {:type :chassis-status-rsp :command 1 :function 1
+                                                                :a?   authenticated?
+                                                                :e?   encrypted?}
+                                                             2 {:type :chassis-reset-rsp :command 2 :function 2
+                                                                :a?   authenticated?
+                                                                :e?   encrypted?})
                                                         6  (condp = command
-                                                             1  {:type :device-id-req :command 1 :function 6}
-                                                             59 {:type :set-session-prv-level-req :command 59 :function 6}
-                                                             60 {:type :rmcp-close-session-req :command 60 :function 6})
+                                                             1  {:type :device-id-req :command 1 :function 6
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?}
+                                                             59 {:type :set-session-prv-level-req :command 59 :function 6
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?}
+                                                             60 {:type :rmcp-close-session-req :command 60 :function 6
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?})
                                                         7  (condp = command
-                                                             1  {:type :device-id-rsp :command 1 :function 7}
-                                                             59 {:type :set-session-prv-level-rsp :command 59 :function 7}
-                                                             60 {:type :rmcp-close-session :command 60 :function 7})
+                                                             1  {:type :device-id-rsp :command 1 :function 7
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?}
+                                                             59 {:type :set-session-prv-level-rsp :command 59 :function 7
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?}
+                                                             60 {:type :rmcp-close-session :command 60 :function 7
+                                                                 :a?   authenticated?
+                                                                 :e?   encrypted?})
                                                         44 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type     :picmg-properties-req :command  0
-                                                                     :function 44                    :response 45 :signature 0}
-                                                                  3 {:type     :vso-capabilities-req :command  0
-                                                                     :function 44                    :response 45 :signature 3})
-                                                             62 {:type     :hpm-capabilities-req :command  62
-                                                                 :function 44                    :response 45})
+                                                                  0 {:type     :picmg-properties-req :command   0
+                                                                     :function 44
+                                                                     :response 45                    :signature 0
+                                                                     :a?       authenticated?
+                                                                     :e?       encrypted?}
+                                                                  3 {:type     :vso-capabilities-req :command   0
+                                                                     :function 44
+                                                                     :response 45                    :signature 3
+                                                                     :a?       authenticated?
+                                                                     :e?       encrypted?})
+                                                             62 {:type     :hpm-capabilities-req :command 62
+                                                                 :function 44
+                                                                 :response 45
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?})
                                                         45 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type :picmg-properties-rsp :command 0 :function 45 :signature 0}
-                                                                  3 {:type :vso-capabilities-rsp :command 0 :function 45 :signature 3})
-                                                             62 {:type :hpm-capabilities-req :command 62 :function 45}))
-                                                   {:type :error  :payload payload-type :command command :function function}))
+                                                                  0 {:type     :picmg-properties-rsp :command   0
+                                                                     :function 45                    :signature 0
+                                                                     :a?       authenticated?
+                                                                     :e?       encrypted?}
+                                                                  3 {:type     :vso-capabilities-rsp :command   0
+                                                                     :function 45                    :signature 3
+                                                                     :a?       authenticated?
+                                                                     :e?       encrypted?})
+                                                             62 {:type     :hpm-capabilities-req :command 62
+                                                                 :function 45
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?}))
+                                                   {:type :error :payload payload-type :command command :function function}))
                              {:type :error :selector key})]
 
               selector)))]
@@ -738,8 +793,8 @@
 (defcodec asf-session
   {:type :asf-session
    :asf-payload (compile-frame-enc (ordered-map
-                                :iana-enterprise-number :uint32
-                                :asf-message-header asf-message-header))})
+                                    :iana-enterprise-number :uint32
+                                    :asf-message-header asf-message-header))})
 (defcodec rmcp-ack
   {:type :rmcp-ack})
 
@@ -753,6 +808,7 @@
                               (fn [b]
                                 b))
                       (fn [b]
+                        (log/debug "IPMB Message " b)
                         b)
                       (fn [b]
                         b)
@@ -783,29 +839,60 @@
                                                        identity) decrypted' false)]
                              (assoc-in a [:aes-decoded-payload] decoded)))
         aes-pre-encoder  (fn [b]
-                           (let [payload        (apply dissoc b [:session-id :session-seq :payload-type])
-                                 payload-buffer (-> (i/contiguous (i/encode ipmb-message payload))
-                                                    bs/to-byte-array)
-                                 _              (log/debug "pre-enode payload" (-> payload-buffer codecs/bytes->hex))
-                                 payload        (nnext payload-buffer)
+                           (log/debug "aes-pre-encoder-raw" b)
+                           (let [session-id     (get b :session-id)
+                                 session-seq    (get b :session-seq)
+                                 auth-type      0x06
+                                 payload        (apply dissoc b [:session-id :session-seq :payload-type])
+                                 payload-buffer (-> (i/contiguous (i/encode ipmb-message payload)) bs/to-byte-array)
+                                 _              (log/debug "pre-encode payload" (-> payload-buffer codecs/bytes->hex))
+                                 payload'       (nnext payload-buffer)
+                                 iv             (-> (nonce/random-nonce 16) vec)
+                                 sik            (get-sik router-key)
+                                 encrypted      (-> (encrypt sik iv payload') vec)
+                                 _              (log/debug "decrypt check" (-> (decrypt sik iv encrypted) codecs/bytes->hex))
+                                 iv+data        (-> (conj iv encrypted) flatten vec)
+                                 _              (log/debug "iv+data"
+                                                           (-> iv+data byte-array codecs/bytes->hex)
+                                                           "count" (count iv+data))
+                                 message-length (-> (i/encode (compile-frame :uint16) (count iv+data)) bs/to-byte-array vec)
+                                 _              (log/debug "+++message-length" (-> message-length byte-array codecs/bytes->hex))
 
-                                 iv        (nonce/random-nonce 16)
-                                 sik       (get-sik router-key)
-                                 encrypted (-> (encrypt sik iv payload) vec)
-                                 auth-code (nonce/random-bytes 12)
-                                 m         (conj {} (select-keys b [:session-id :session-seq :payload-type]))
-                                 payload   (conj {} {:payload   encrypted
-                                                     :pad       1 
-                                                     :rmcp      7
-                                                     :auth-code (vec auth-code)})
-                                 _         (log/debug "PAYLOAD ++" payload)]
-                                        ;encrypted-with-length (-> (conj length encrypted) flatten vec)
-                             payload
-                             ))
+                                 ipmi-session      (ordered-map
+                                                    :rmcp :ubyte
+                                                    :message-type :ubyte
+                                                    :session-id :uint32-le
+                                                    :session-seq :uint32-le)
+                                 aes-session-codec (ordered-map
+                                                    :ipmi-session ipmi-session
+                                                    :iv+data  (repeated :ubyte
+                                                                          :prefix :uint16-le)
+                                                    :padding (repeat 2 :ubyte)
+                                                    :padding-length :ubyte
+                                                    :rmcp :ubyte)
+                                 auth-code         {:ipmi-session   {:rmcp        06
+                                                                     :message-type 0xC0
+                                                                     :session-id  session-id
+                                                                     :session-seq session-seq}
+                                                    :iv+data         iv+data
+                                                    :padding        [0xff 0xff]
+                                                    :padding-length 2
+                                                    :rmcp           7}
+                                 auth-code-data    (-> (i/encode (compile-frame aes-session-codec) auth-code) bs/to-byte-array)
+                                 integrity         (calc-integrity-96 sik auth-code-data)
+                                 _                 (log/debug "iv+data?" (-> iv+data byte-array codecs/bytes->hex))
+                                 aes-payload       {:iv+data        iv+data
+                                                    :padding        [0xff 0xff]
+                                                    :padding-length 2
+                                                    :rmcp           7
+                                                    :auth-code      integrity}]
+                             aes-payload))
         aes-encode-codec (compile-frame-enc
                           (ordered-map
-                           :payload (repeat 16 :ubyte)
-                           :pad padding-codec
+                           :iv+data  (repeated :ubyte
+                                               :prefix :uint16-le)
+                           :padding (repeat 2 :ubyte)
+                           :padding-length :ubyte
                            :rmcp :ubyte
                            :auth-code (repeat 12 :ubyte))
                           aes-pre-encoder
@@ -824,8 +911,7 @@
                            (log/debug "Get RMCP Payload" b)
                            (let [t              (get-in payload-type [:payload-type :type])
                                  f              (log/spy (get-in payload-type [:network-function :function]))
-                                 message-length (:message-length payload-type)
-                                 ]
+                                 message-length (:message-length payload-type)]
                                         ;apply dissoc b [: :bar])b)
 
                              (condp = t
@@ -865,9 +951,9 @@
                                                  :session-id  :int32-le
                                                  :message-length :ubyte
                                                  :ipmb-payload ipmb-message))}))
-        ipmi-2-0-session (compile-frame
+        ipmi-2-0-session (compile-frame-enc
                           {:type             :ipmi-2-0-session
-                           :ipmi-2-0-payload (compile-frame
+                           :ipmi-2-0-payload (compile-frame-enc
                                               (header rmcp-plus-header
                                                       (build-merge-header-with-data
                                                        #(grpl {:payload-type %
@@ -903,8 +989,7 @@
                                        :reserved :ubyte ; 0x00
                                        :sequence :ubyte
                                        :rmcp-class rmcp-class-header)]
-    (compile-frame
-
+    (compile-frame-enc
      rmcp-header)))
 
 (defn decode-message [decoder message]
