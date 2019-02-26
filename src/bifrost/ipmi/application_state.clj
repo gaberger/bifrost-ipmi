@@ -7,6 +7,7 @@
   (swap! app-state assoc-in [:chan-map h :login-state] m))
 
 (defn upsert-sik [v h]
+  {:pre [(vector? v)]}
   (swap! app-state assoc-in [:chan-map h :sik] v))
 
 (defn reset-app-state []

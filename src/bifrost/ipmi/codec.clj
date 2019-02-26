@@ -62,13 +62,7 @@
        (sizeof [_]
          (sizeof codec))
        (write-bytes [_ buf v]
-         (log/debug "v" v)
-         (log/debug "buf" buf)
-         (let [bb (write-bytes codec buf (log/spy (pre-encoder v)))
-               cbb (i/contiguous bb)
-               _ (log/debug "compile-codec" (-> cbb bs/to-byte-array codecs/bytes->hex))]
-           bb))))))
-          ;(write-bytes codec buf (pre-encoder v)))))))
+          (write-bytes codec buf (pre-encoder v)))))))
 
 
 ;TODO
@@ -807,11 +801,8 @@
                                #(get-network-function-codec  %))
                               (fn [b]
                                 b))
-                      (fn [b]
-                        (log/debug "IPMB Message " b)
-                        b)
-                      (fn [b]
-                        b)
+                      identity
+                      identity
                       identity)
         aes-payload  (compile-frame-enc
                       (repeated :ubyte
@@ -908,16 +899,18 @@
                           identity
                           aes-post-decoder)
         grpl             (fn [{:keys [payload-type auth conf] :as b}]
-                           (log/debug "Get RMCP Payload" b)
+                           (log/debug "GRPL" b)
                            (let [t              (get-in payload-type [:payload-type :type])
-                                 f              (log/spy (get-in payload-type [:network-function :function]))
-                                 message-length (:message-length payload-type)]
-                                        ;apply dissoc b [: :bar])b)
-
+                                 f              (get-in payload-type [:network-function :function])]
                              (condp = t
                                0x00 (condp = conf
                                       :rmcp-rakp-1-aes-cbc-128-confidentiality (condp = f
+                                                                                 1 aes-encode-codec
+                                                                                 0 aes-encode-codec
+                                                                                 6 aes-encode-codec
                                                                                  7 aes-encode-codec
+                                                                                 44 aes-encode-codec
+                                                                                 45 aes-encode-codec
                                                                                  aes-decode-codec)
                                       ipmb-message)
                                0x10 rmcp-open-session-request
@@ -960,7 +953,6 @@
                                                                :auth         (get-authentication-codec router-key)
                                                                :conf         (get-confidentiality-codec router-key)}))
                                                       (fn [b]
-                                                        (log/debug "IPMI-2-0" b)
                                                         b)))})
         asf-session      (compile-frame
                           {:type        :asf-session
@@ -992,14 +984,14 @@
     (compile-frame-enc
      rmcp-header)))
 
-(defn decode-message [decoder message]
+(defn decode-message [codec message]
   (log/debug "Decode Message ")
   (let [decoded (try
-                  (decoder (:message message))
+                  (i/decode codec (:message message) false)
                   (catch Exception e
-                    (log/error (ex-info "Decoder exception"
+                    (throw (ex-info "Decoder exception"
                                         {:error (.getMessage e)}))
-                    false))
+                    nil))
         _ (log/debug "Intermediate Decode Payload" decoded)
         aes-payload? (contains?
                       (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])

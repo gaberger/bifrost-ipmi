@@ -63,12 +63,13 @@
 
 (defmulti send-message :type)
 (defmethod send-message :error-response [m]
-  (log/info "Sending Response: ")
+  (log/info "Sending Response: " m)
   (let [{:keys [input]} m
-        message             (log/spy (h/error-response-msg m))
+        message             (h/error-response-msg m)
         codec               (c/compile-codec (:hash input))
         ipmi-encode         (partial encode codec)
-        encoded-message     (safe (ipmi-encode message))]
+
+        encoded-message     (ipmi-encode message)]
     (safe (send-udp input encoded-message))))
 
 (defmulti send-message :type)
@@ -78,7 +79,7 @@
         message             (h/chassis-status-response-msg m)
         codec               (c/compile-codec (:hash input))
         ipmi-encode         (partial encode codec)
-        encoded-message     (safe (ipmi-encode message))]
+        encoded-message     (ipmi-encode message)]
     (safe (send-udp input encoded-message))))
 
 (defmethod send-message :device-id-req [m]
@@ -301,7 +302,9 @@
                                                         :sl       0x08
                                                         :command  c
                                                         :status   0xC1
-                                                        :csum     0x17}))
+                                                        :csum     0x17
+                                                        :a        (:a? message)
+                                                        :e        (:e? message)}))
                                       state)
               :picmg-properties-req (fn [state input]
                                       (log/info "PICMG Properties")
@@ -329,7 +332,9 @@
                                                        :sl       0x10
                                                        :command  c
                                                        :status   0xC1
-                                                       :csum     0x17}))
+                                                       :csum     0x17
+                                                       :a        (:a? message)
+                                                       :e        (:e? message)}))
                                       state)
               :vso-capabilities-req (fn [state input]
                                       (log/info "VSO Capabilities")
@@ -345,8 +350,15 @@
                                                         :input    input
                                                         :sid      (get state :sidm)
                                                         :sa       sa
-                                                        :ta       ta :seq    seq :command c :seq-no seq-no
-                                                        :function f  :status 0   :csum    204}))
+                                                        :ta       ta
+                                                        :seq      seq
+                                                        :command  c
+                                                        :seq-no   seq-no
+                                                        :function f
+                                                        :status   0
+                                                        :csum     204
+                                                        :a        (:a? message)
+                                                        :e        (:e? message)}))
                                       state)
 
               :chassis-status-req       (fn [state input]
@@ -357,7 +369,12 @@
                                                 sid     (get state :sidm)
                                                 seq-no  (get-in input [:rmcp-class :ipmi-session-payload
                                                                        :ipmi-2-0-payload :source-lun :seq-no])]
-                                            (send-message  {:type :chassis-status :input input :sid sid :seq-no seq-no})
+                                            (send-message  {:type   :chassis-status
+                                                            :input  input
+                                                            :sid    sid
+                                                            :seq-no seq-no
+                                                            :a      (:a? message)
+                                                            :e      (:e? message)})
                                             state))
               :device-id-req            (fn [state input]
                                           (log/info "Device ID Request")
@@ -366,7 +383,12 @@
                                                 state   (update-in state [:last-message] conj message)
                                                 sid     (get state :sidm)
                                                 seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun :seq-no])]
-                                            (send-message  {:type :device-id-req :input input :sid sid :seq-no seq-no})
+                                            (send-message  {:type   :device-id-req
+                                                            :input  input
+                                                            :sid    sid
+                                                            :seq-no seq-no
+                                                            :a      (:a? message)
+                                                            :e      (:e? message)})
                                             state))
               :chassis-reset-req        (fn [state input]
                                           (log/info "Chassis Reset Request")
@@ -380,8 +402,22 @@
                                             (if-not (nil? (log/spy (get-driver-device-id (keyword unamem))))
                                               (do
                                                 (safe (reboot-server {:driver :packet :user-key (keyword unamem)}))
-                                                (send-message  {:type :chassis-reset :input input :sid sid :seq seq :seq-no seq-no :status 0}))
-                                              (send-message  {:type :chassis-reset :input input :sid sid :seq seq :seq-no seq-no :status 0x12}))
+                                                (send-message  {:type   :chassis-reset
+                                                                :input  input
+                                                                :sid    sid
+                                                                :seq    seq
+                                                                :seq-no seq-no
+                                                                :status 0
+                                                                :a      (:a? message)
+                                                                :e      (:e? message)}))
+                                              (send-message  {:type   :chassis-reset
+                                                              :input  input
+                                                              :sid    sid
+                                                              :seq    seq
+                                                              :seq-no seq-no
+                                                              :status 0x12
+                                                              :a      (:a? message)
+                                                              :e      (:e? message)}))
                                             state))
               :get-channel-auth-cap-req (fn [state input]
                                           (log/info "Auth Capabilities Request")
@@ -521,14 +557,14 @@
                                    rc          (get state :rc)]
 
                                (condp = auth
-                                 :rmcp-rakp (let [m    {:type  :rmcp-rakp-4
-                                                        :auth  auth
-                                                        :input input
-                                                        :sidm  sidm}
-                                                  state (-> state
-                                                            (update-in [:last-message] conj message))]
-                                              (send-message m)
-                                              state)
+                                 :rmcp-rakp           (let [m     {:type  :rmcp-rakp-4
+                                                                   :auth  auth
+                                                                   :input input
+                                                                   :sidm  sidm}
+                                                            state (-> state
+                                                                      (update-in [:last-message] conj message))]
+                                                        (send-message m)
+                                                        state)
                                  :rmcp-rakp-hmac-sha1 (let [kec          (get-in input [:rmcp-class
                                                                                         :ipmi-session-payload
                                                                                         :ipmi-2-0-payload
@@ -557,7 +593,7 @@
                                                             state        (-> state
                                                                              (update-in [:last-message] conj message)
                                                                              (merge {:sidm-hmac sidm-hmac-96}))]
-                                                        (upsert-sik sik h)
+                                                        (upsert-sik (vec sik) h)
                                                         (send-message m)
                                                         state))))
 
@@ -565,7 +601,6 @@
                                         (log/info "Set Session Priv Level")
                                         (let [h       (:hash input)
                                               message (conj {} (c/get-message-type input))
-                                              _ (log/debug "get-message" message)
                                               sid     (get state :sidm)
                                               seq     (get-in input [:rmcp-class
                                                                      :ipmi-session-payload
@@ -579,11 +614,13 @@
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]
-                                          (send-message  {:type :session-priv-level :input input
-                                                          :sid sid :seq-no seq-no
+                                          (send-message  {:type           :session-priv-level
+                                                          :input          input
+                                                          :sid            sid
+                                                          :seq-no         seq-no
                                                           :session-seq-no seq
-                                                          :a (:a? message)
-                                                          :e (:e? message)})
+                                                          :a              (:a? message)
+                                                          :e              (:e? message)})
                                           state))
               :asf-ping               (fn [state input]
                                         (log/info "ASF PING")

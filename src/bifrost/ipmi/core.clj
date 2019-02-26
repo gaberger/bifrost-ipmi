@@ -22,7 +22,7 @@
 
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true
-                                          :async? true
+                                          :async? false
                                           :min-level :debug}}})
 
 ;(log/merge-config!
@@ -168,7 +168,7 @@
               decoder        (partial decode compiled-codec)
               host-map       (get-session-state message)]
 
-          (if-let [decoded (decode-message decoder message)]
+          (if-let [decoded (decode-message compiled-codec message)]
             (let [m             (merge {:hash router} host-map decoded)
                   new-fsm-state (process-message fsm fsm-state m)
                   complete?     (-> new-fsm-state :accepted? true?)]

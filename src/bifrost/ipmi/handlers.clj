@@ -10,7 +10,7 @@
    {:type :rmcp-ack}})
 
 (defn chassis-status-response-msg [m]
-  (let [{:keys [sid seq-no]} m]
+  (let [{:keys [sid seq-no a e]} m]
     {:version 6
      :reserved 0,
      :sequence 255,
@@ -19,7 +19,7 @@
       {:ipmi-2-0-payload
        {:session-id sid,
         :session-seq 6,
-        :payload-type {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type {:encrypted? e, :authenticated? a, :type 0},
         :power-state
         {:reserved false,
          :power-restore-policy 0,
@@ -56,7 +56,7 @@
       :type :ipmi-session}}))
 
 (defn chassis-reset-response-msg [m]
-  (let [{:keys [sid seq seq-no status]} m]
+  (let [{:keys [sid seq seq-no status a e]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -65,7 +65,7 @@
       {:ipmi-2-0-payload
        {:session-id sid,
         :session-seq seq,
-        :payload-type {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type {:encrypted? e, :authenticated? a, :type 0},
         :command 2,
         :source-lun {:seq-no seq-no :source-lun 0}
         :source-address 32,
@@ -79,7 +79,7 @@
       :type :ipmi-session}}))
 
 (defn device-id-response-msg [m]
-  (let [{:keys [sid seq-no]} m]
+  (let [{:keys [sid seq-no a e]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -89,7 +89,7 @@
        {:session-id              sid,
         :major-firmware-revision 8,
         :session-seq             3,
-        :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type            {:encrypted? e, :authenticated? a, :type 0},
         :device-id               0,
         :additional-device-support
         {:chassis         true,
@@ -218,7 +218,7 @@
                   :type :ipmi-session}}))
 
 (defn rmcp-close-response-msg [m]
-  (let [{:keys [sid seq seq-no]} m]
+  (let [{:keys [sid seq seq-no a e]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -227,7 +227,7 @@
       {:ipmi-2-0-payload
        {:session-id       sid,
         :session-seq      seq
-        :payload-type     {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type     {:encrypted? e, :authenticated? a, :type 0},
         :command          60,
         :source-lun       {:seq-no seq-no :source-lun 0}
         :source-address   32,
@@ -373,9 +373,9 @@
                    :type :ipmi-2-0-session},
                   :type :ipmi-session}}))
 
-(defn hpm-capabilities-msg  [m seq-no]
+(defn hpm-capabilities-msg  [m]
   (log/debug "HPM Capabilities")
-  (let [{:keys [sid]} m]
+  (let [{:keys [sid seq-no a e]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -384,7 +384,7 @@
       {:ipmi-2-0-payload
        {:session-id              sid,
         :session-seq             2,
-        :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type            {:encrypted? e, :authenticated? a, :type 0},
         :command                 62,
         :source-lun      {:seq-no seq-no :source-lun 0}
         :source-address          32,
@@ -398,8 +398,8 @@
       :type :ipmi-session}}))
 
 (defn error-response-msg  [m]
-  (log/debug "Send Response")
-  (let [{:keys [sid sa ta seq command seq-no function status csum]} m]
+  (log/debug "Send Error Response" m)
+  (let [{:keys [sid sa ta seq command seq-no function status csum a e]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -408,7 +408,7 @@
       {:ipmi-2-0-payload
        {:session-id              sid,
         :session-seq             seq,
-        :payload-type            {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type            {:encrypted? e, :authenticated? a, :type 0},
         :command                 command,
         :source-lun    {:seq-no seq-no :source-lun 0}
         :source-address          sa,
@@ -423,7 +423,7 @@
 
 (defn picmg-response-msg  [m]
   (log/debug "PICMG Response")
-  (let [{:keys [sid seq-no]} m]
+  (let [{:keys [sid seq-no a e]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -432,7 +432,7 @@
       {:ipmi-2-0-payload
        {:session-id sid
         :session-seq 6,
-        :payload-type {:encrypted? false, :authenticated? false, :type 0},
+        :payload-type {:encrypted? e, :authenticated? a, :type 0},
         :signature 0,
         :command 0,
         :source-lun {:seq-no seq-no :source-lun 0}
@@ -447,24 +447,26 @@
 
 (defn vso-response-msg [m]
   (log/debug "VSO Capabilities")
-  (let [{:keys [sid seq-no]} m]
+  (let [{:keys [sid seq-no a e]} m]
     {:version    6,
      :reserved   0,
      :sequence   255,
-     :rmcp-class {:ipmi-session-payload {:ipmi-2-0-payload {:session-id       sid,
-                                                            :session-seq      13,
-                                                            :payload-type     {:encrypted?     false
-                                                                               :authenticated? false
-                                                                               :type           0},
-                                                            :signature        3,
-                                                            :command          0,
-                                                            :source-lun  {:seq-no seq-no :source-lun 0}
-                                                            :source-address   129,
-                                                            :checksum         104,
-                                                            :header-checksum  48,
-                                                            :target-address   32,
-                                                            :network-function {:function   44
-                                                                               :target-lun 0},
-                                                            :message-length   8},
-                                         :type             :ipmi-2-0-session},
-                  :type                 :ipmi-session}}))
+     :rmcp-class {:ipmi-session-payload
+                  {:ipmi-2-0-payload
+                   {:session-id       sid,
+                    :session-seq      13,
+                    :payload-type     {:encrypted?     e
+                                       :authenticated? a
+                                       :type           0},
+                    :signature        3,
+                    :command          0,
+                    :source-lun       {:seq-no seq-no :source-lun 0}
+                    :source-address   129,
+                    :checksum         104,
+                    :header-checksum  48,
+                    :target-address   32,
+                    :network-function {:function   44
+                                       :target-lun 0},
+                    :message-length   8},
+                   :type :ipmi-2-0-session},
+                  :type :ipmi-session}}))
