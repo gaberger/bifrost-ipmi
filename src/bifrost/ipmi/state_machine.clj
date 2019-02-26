@@ -63,7 +63,7 @@
 
 (defmulti send-message :type)
 (defmethod send-message :error-response [m]
-  (log/info "Sending Response: " m)
+  (log/info "Sending Response: ")
   (let [{:keys [input]} m
         message             (h/error-response-msg m)
         codec               (c/compile-codec (:hash input))
@@ -318,16 +318,16 @@
                                             hsum            (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :header-checksum] 0)
                                             sl              (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun] 0)
                                             completion-code 0xC1
-                                            c               (:command message)
+                                            c               (log/spy (:command message))
                                             f               (:response message)]
                                         ;ta  | nf |  hcsum | sa | slun | c   | cc | csum
                                         (send-message {:type     :error-response
                                                        :input    input
                                                        :sid      (get state :sidm) :seq seq
-                                                       :ta       0x81
+                                                       :ta       ta
                                                        :function f
                                                        :hcsum    0xcb
-                                                       :sa       0x81
+                                                       :sa       sa
                                                        :seq-no   seq-no
                                                        :sl       0x10
                                                        :command  c
@@ -542,7 +542,7 @@
                                           :rmcp-rakp)))
 
               :rmcp-rakp-3 (fn [state input]
-                             (log/info "RAKP-3 Request " state)
+                             (log/info "RAKP-3 Request ")
                              (let [h           (:hash input)
                                    message     (conj {} (c/get-message-type input))
                                    login-state (c/get-login-state h)
@@ -643,7 +643,13 @@
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]
-                                          (send-message  {:type :rmcp-close-session :input input :sid sid :seq seq :seq-no seq-no})
+                                          (send-message  {:type   :rmcp-close-session
+                                                          :input  input
+                                                          :sid    sid
+                                                          :seq    seq
+                                                          :seq-no seq-no
+                                                          :a      (:a? message)
+                                                          :e      (:e? message)})
                                           state))}})
 
 (defn view-fsm []

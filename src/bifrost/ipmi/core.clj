@@ -22,7 +22,7 @@
 
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true
-                                          :async? false
+                                          :async? true
                                           :min-level :debug}}})
 
 ;(log/merge-config!
@@ -258,7 +258,7 @@
   (when (start-udp-server  (Integer. port))
     (let []
       (start-consumer  @server-socket)
-      ;(start-reaper 120000)
+      (start-reaper 120000)
       (future
         (while true
           (Thread/sleep
