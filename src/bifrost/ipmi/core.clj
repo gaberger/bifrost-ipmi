@@ -21,9 +21,9 @@
            [java.time Duration Instant]))
 
 (log/refer-timbre)
-(log/merge-config! {:appenders {:println {:enabled? true
+(log/merge-config! {:appenders {:println {:enabled? false
                                           :async? true
-                                          :min-level :debug}}})
+                                          :min-level :debug}}}) 
 
 ;(log/merge-config!
 ;   {:appenders

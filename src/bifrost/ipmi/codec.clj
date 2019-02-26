@@ -266,6 +266,7 @@
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}))
                                                    {:type :error :payload payload-type :command command :function function}))
+                               
                              {:type :error :selector key})]
 
               selector)))]
@@ -830,25 +831,22 @@
                                                        identity) decrypted' false)]
                              (assoc-in a [:aes-decoded-payload] decoded)))
         aes-pre-encoder  (fn [b]
-                           (log/debug "aes-pre-encoder-raw" b)
                            (let [session-id     (get b :session-id)
                                  session-seq    (get b :session-seq)
                                  auth-type      0x06
                                  payload        (apply dissoc b [:session-id :session-seq :payload-type])
                                  payload-buffer (-> (i/contiguous (i/encode ipmb-message payload)) bs/to-byte-array)
-                                 _              (log/debug "pre-encode payload" (-> payload-buffer codecs/bytes->hex))
+                                ; _              (log/debug "pre-encode payload" (-> payload-buffer codecs/bytes->hex))
                                  payload'       (nnext payload-buffer)
                                  iv             (-> (nonce/random-nonce 16) vec)
                                  sik            (get-sik router-key)
                                  encrypted      (-> (encrypt sik iv payload') vec)
-                                 _              (log/debug "decrypt check" (-> (decrypt sik iv encrypted) codecs/bytes->hex))
+                                ; _              (log/debug "decrypt check" (-> (decrypt sik iv encrypted) codecs/bytes->hex))
                                  iv+data        (-> (conj iv encrypted) flatten vec)
                                  _              (log/debug "iv+data"
                                                            (-> iv+data byte-array codecs/bytes->hex)
                                                            "count" (count iv+data))
                                  message-length (-> (i/encode (compile-frame :uint16) (count iv+data)) bs/to-byte-array vec)
-                                 _              (log/debug "+++message-length" (-> message-length byte-array codecs/bytes->hex))
-
                                  ipmi-session      (ordered-map
                                                     :rmcp :ubyte
                                                     :message-type :ubyte
@@ -904,14 +902,9 @@
                                  f              (get-in payload-type [:network-function :function])]
                              (condp = t
                                0x00 (condp = conf
-                                      :rmcp-rakp-1-aes-cbc-128-confidentiality (condp = f
-                                                                                 1 aes-encode-codec
-                                                                                 0 aes-encode-codec
-                                                                                 6 aes-encode-codec
-                                                                                 7 aes-encode-codec
-                                                                                 44 aes-encode-codec
-                                                                                 45 aes-encode-codec
-                                                                                 aes-decode-codec)
+                                      :rmcp-rakp-1-aes-cbc-128-confidentiality (if (nil? f)
+                                                                                 aes-decode-codec
+                                                                                 aes-encode-codec)
                                       ipmb-message)
                                0x10 rmcp-open-session-request
                                0x11 rmcp-open-session-response
