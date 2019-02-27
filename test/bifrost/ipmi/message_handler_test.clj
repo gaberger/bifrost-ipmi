@@ -5,7 +5,8 @@
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.test-payloads :refer :all]
             [bifrost.ipmi.registrar :refer [lookup-userid]]
-            [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler ipmi-handler ipmi-fsm]]
+            [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler
+                                                ipmi-server-handler ipmi-server-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :refer :all :as c]
@@ -33,7 +34,7 @@
 
 (defn message-handler-mock  [message]
   (let [host-map       (get-session-state message)
-        fsm            (partial a/advance (a/compile ipmi-fsm ipmi-handler))
+        fsm            (partial a/advance (a/compile ipmi-server-fsm ipmi-server-handler))
         fsm-state      (if (empty? @test-app-state) nil @test-app-state)
         auth           (-> fsm-state :value :authentication-payload c/authentication-codec :codec)
         compiled-codec (compile-codec 0)

@@ -176,7 +176,7 @@
                                                      command        (get-in session [:command] nil)
                                                      signature      (get-in session [:signature] nil)
                                                      authenticated? (get-in session [:payload-type :authenticated?] false)
-                                                     encrypted? (get-in session [:payload-type :encrypted?] false)]
+                                                     encrypted?     (get-in session [:payload-type :encrypted?] false)]
 
                                                  (condp = payload-type
                                                    16 {:type         :open-session-request
@@ -201,73 +201,105 @@
                                                        :e?   encrypted?}
                                                    0  (condp = function
                                                         0  (condp = command
-                                                             1 {:type :chassis-status-req :command 1 :function 0
-                                                                :a?   authenticated?
-                                                                :e?   encrypted?}
-                                                             2 {:type :chassis-reset-req :command 2 :function 0
-                                                                :a?   authenticated?
-                                                                :e?   encrypted?})
+                                                             1 {:type     :chassis-status-req
+                                                                :command  1
+                                                                :function 0
+                                                                :a?       authenticated?
+                                                                :e?       encrypted?}
+                                                             2 {:type     :chassis-reset-req
+                                                                :command  2
+                                                                :function 0
+                                                                :a?       authenticated?
+                                                                :e?       encrypted?})
                                                         1  (condp = command
-                                                             1 {:type :chassis-status-rsp :command 1 :function 1
-                                                                :a?   authenticated?
-                                                                :e?   encrypted?}
-                                                             2 {:type :chassis-reset-rsp :command 2 :function 2
-                                                                :a?   authenticated?
-                                                                :e?   encrypted?})
+                                                             1 {:type     :chassis-status-rsp
+                                                                :command  1
+                                                                :function 1
+                                                                :a?       authenticated?
+                                                                :e?       encrypted?}
+                                                             2 {:type     :chassis-reset-rsp
+                                                                :command  2
+                                                                :function 2
+                                                                :a?       authenticated?
+                                                                :e?       encrypted?})
                                                         6  (condp = command
-                                                             1  {:type :device-id-req :command 1 :function 6
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?}
-                                                             59 {:type :set-session-prv-level-req :command 59 :function 6
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?}
-                                                             60 {:type :rmcp-close-session-req :command 60 :function 6
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?})
+                                                             1  {:type     :device-id-req
+                                                                 :command  1
+                                                                 :function 6
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?}
+                                                             59 {:type     :set-session-prv-level-req
+                                                                 :command  59
+                                                                 :function 6
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?}
+                                                             60 {:type     :rmcp-close-session-req
+                                                                 :command  60
+                                                                 :function 6
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?})
                                                         7  (condp = command
-                                                             1  {:type :device-id-rsp :command 1 :function 7
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?}
-                                                             59 {:type :set-session-prv-level-rsp :command 59 :function 7
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?}
-                                                             60 {:type :rmcp-close-session :command 60 :function 7
-                                                                 :a?   authenticated?
-                                                                 :e?   encrypted?})
+                                                             1  {:type     :device-id-rsp
+                                                                 :command  1
+                                                                 :function 7
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?}
+                                                             59 {:type     :set-session-prv-level-rsp
+                                                                 :command  59
+                                                                 :function 7
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?}
+                                                             60 {:type     :rmcp-close-session
+                                                                 :command  60
+                                                                 :function 7
+                                                                 :a?       authenticated?
+                                                                 :e?       encrypted?})
                                                         44 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type     :picmg-properties-req :command   0
-                                                                     :function 44
-                                                                     :response 45                    :signature 0
-                                                                     :a?       authenticated?
-                                                                     :e?       encrypted?}
-                                                                  3 {:type     :vso-capabilities-req :command   0
-                                                                     :function 44
-                                                                     :response 45                    :signature 3
-                                                                     :a?       authenticated?
-                                                                     :e?       encrypted?})
-                                                             62 {:type     :hpm-capabilities-req :command 62
+                                                                  0 {:type      :picmg-properties-req
+                                                                     :command   0
+                                                                     :function  44
+                                                                     :response  45
+                                                                     :signature 0
+                                                                     :a?        authenticated?
+                                                                     :e?        encrypted?}
+                                                                  3 {:type      :vso-capabilities-req
+                                                                     :command   0
+                                                                     :function  44
+                                                                     :response  45
+                                                                     :signature 3
+                                                                     :a?        authenticated?
+                                                                     :e?        encrypted?})
+                                                             62 {:type     :hpm-capabilities-req
+                                                                 :command  62
                                                                  :function 44
                                                                  :response 45
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?})
                                                         45 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type     :picmg-properties-rsp :command   0
-                                                                     :function 45                    :signature 0
-                                                                     :a?       authenticated?
-                                                                     :e?       encrypted?}
-                                                                  3 {:type     :vso-capabilities-rsp :command   0
-                                                                     :function 45                    :signature 3
-                                                                     :a?       authenticated?
-                                                                     :e?       encrypted?})
-                                                             62 {:type     :hpm-capabilities-req :command 62
+                                                                  0 {:type      :picmg-properties-rsp
+                                                                     :command   0
+                                                                     :function  45
+                                                                     :signature 0
+                                                                     :a?        authenticated?
+                                                                     :e?        encrypted?}
+                                                                  3 {:type      :vso-capabilities-rsp
+                                                                     :command   0
+                                                                     :function  45
+                                                                     :signature 3
+                                                                     :a?        authenticated?
+                                                                     :e?        encrypted?})
+                                                             62 {:type     :hpm-capabilities-req
+                                                                 :command  62
                                                                  :function 45
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}))
-                                                   {:type :error :payload payload-type :command command :function function}))
-                               
-                             {:type :error :selector key})]
+                                                   {:type     :error :payload payload-type
+                                                    :command  command
+                                                    :function function}))
+                             {:type     :error
+                              :selector key})]
 
               selector)))]
     (log/debug "Get Message Type: " type)
@@ -818,7 +850,6 @@
                                  data       (get-in a [:payload :data])
                                  sik        (get-sik router-key)
                                  decrypted  (decrypt sik iv data)
-                                 _          (log/debug "Decrypted " (codecs/bytes->hex decrypted))
                                  decrypted' (-> decrypted bs/to-byte-array to-buf-seq)
                                  decoded    (i/decode (compile-frame-enc
                                                        (header ipmb-header
@@ -841,7 +872,6 @@
                                  iv             (-> (nonce/random-nonce 16) vec)
                                  sik            (get-sik router-key)
                                  encrypted      (-> (encrypt sik iv payload') vec)
-                                ; _              (log/debug "decrypt check" (-> (decrypt sik iv encrypted) codecs/bytes->hex))
                                  iv+data        (-> (conj iv encrypted) flatten vec)
                                  _              (log/debug "iv+data"
                                                            (-> iv+data byte-array codecs/bytes->hex)
@@ -897,7 +927,6 @@
                           identity
                           aes-post-decoder)
         grpl             (fn [{:keys [payload-type auth conf] :as b}]
-                           (log/debug "GRPL" b)
                            (let [t              (get-in payload-type [:payload-type :type])
                                  f              (get-in payload-type [:network-function :function])]
                              (condp = t

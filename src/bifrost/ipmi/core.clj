@@ -6,10 +6,11 @@
             [byte-streams :as bs]
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.utils :refer [safe]]
-            [bifrost.ipmi.codec :as c :refer [decode-message compile-codec get-login-state get-authentication-codec]]
+            [bifrost.ipmi.codec :as c :refer [decode-message compile-codec
+                                              get-login-state get-authentication-codec]]
             [bifrost.ipmi.registrar :refer [registration-db register-user add-packet-driver]]
-            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-fsm
-                                                ipmi-handler mock-handler get-session-state]]
+            [bifrost.ipmi.state-machine :refer [send-message server-socket bind-fsm ipmi-server-fsm
+                                                ipmi-server-handler mock-handler get-session-state]]
             [clojure.string :as str]
             [clojure.core.async :refer [go dropping-buffer sliding-buffer chan close! pub sub >!! <! <!! >!
                                         go-loop unsub-all timeout alt! alts!! thread]]
@@ -21,7 +22,7 @@
            [java.time Duration Instant]))
 
 (log/refer-timbre)
-(log/merge-config! {:appenders {:println {:enabled? false
+(log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
                                           :min-level :debug}}}) 
 
@@ -153,31 +154,32 @@
   (let [reader (chan)]
     (sub publisher t reader)
     (try
-      (go-loop []
-        (let [{:keys [router message]} (<! reader)
-              _                        (log/debug  "Packet In Channel" (-> message
-                                                                           :message
-                                                                           bs/to-byte-array
-                                                                           codecs/bytes->hex))
-              fsm                      (bind-fsm)
-              fsm-state                (get-chan-map-state router)
-              login-state              (get-login-state router)
-              auth                     (get-authentication-codec router)
+      (go
+        (loop []
+          (let [{:keys [router message]} (<!! reader)
+                _                          (log/debug  "Packet In Channel" (-> message
+                                                                               :message
+                                                                               bs/to-byte-array
+                                                                               codecs/bytes->hex))
+                fsm                        (bind-fsm)
+                fsm-state                  (get-chan-map-state router)
+                login-state                (get-login-state router)
+                auth                       (get-authentication-codec router)
 
-              compiled-codec (compile-codec router)
-              decoder        (partial decode compiled-codec)
-              host-map       (get-session-state message)]
+                compiled-codec (compile-codec router)
+                host-map       (get-session-state message)]
 
-          (if-let [decoded (decode-message compiled-codec message)]
-            (let [m             (merge {:hash router} host-map decoded)
-                  new-fsm-state (process-message fsm fsm-state m)
-                  complete?     (-> new-fsm-state :accepted? true?)]
+            (if-let [decoded (decode-message compiled-codec message)]
+              (let [m             (merge {:hash router} host-map decoded)
+                    new-fsm-state (process-message fsm fsm-state m)
+                    complete?     (-> new-fsm-state :accepted? true?)]
               (update-chan-map-state router new-fsm-state)
               (when complete?
                 (delete-chan hash))
               (log/info "Completion State:" complete?  "Queued Requests " (count-peer)))
             #_(delete-chan hash))
-          (recur)))
+          (recur))
+          ))
       (catch Exception e (ex-data e)))))
 
 (defn publish [data]
@@ -192,9 +194,7 @@
                                 :message
                                 bs/to-byte-array
                                 codecs/bytes->hex))
-    (log/debug "APP-STATE" @app-state)
-
-    (when-not (log/spy (channel-exists? h))
+    (when-not (channel-exists? h)
       (do
         (log/debug "Creating subscriber for topic " h)
         (thread

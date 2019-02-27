@@ -94,15 +94,29 @@
     (calc-sha1-key sik const2)))
 
 (defn pad-count [size]
-  (if-not (= 0 (mod size 16))
-    (- 16 (mod size 16))
-    0))
+  (let [x (mod size 16)]
+    (condp = x
+      0 (- 16 (mod (inc size) 16))
+      15 1
+      (- 16 (mod size 16))
+      )))
+
+(comment "cleve use of partition but what if payload is greater than 32 bytes?")
+;;TODO fix interval handling
+(defn pad-vec [v]
+  (let [pad-count  (pad-count (count v))
+        pad-vec (vec (flatten (conj [] (range 1  pad-count)  (dec pad-count))))]
+    (if (= 15 pad-count)
+      (let [pad-vec (vec (flatten (conj [] (range 1 (inc pad-count))   pad-count)))]
+        (partition 32 16 pad-vec v))
+      (partition 16 16 pad-vec v))))
+
 
 (defn calc-integrity-96
   ^{:doc          "HMAC [sik] and iv"
     :test         (fn []
-                    (assert (ve? iv))
-                    (assert (vec? sik)))
+                    (assert (vector? iv))
+                    (assert (vector? sik)))
     :user/comment "Unless otherwise specified, the integrity algorithm is applied to the packet data starting with the
                     AuthType/Format field up to and including the field that immediately precedes the AuthCode field itself."}
   [sik payload]
@@ -117,15 +131,15 @@
     auth-code))
 
 (defn -process-block
-  "Takes a vector of 16 byte elements, byte-arrays for initialization vector and key returns a decrypted vector"
+  "Takes a vector of 16 byte elements, byte-arrays for initialization vector and key returns a encrypted/decrypted vector"
   [engine block]
   (crypto/process-block! engine (byte-array block)))
 
 (defn  encrypt
   ^{:doc          "Encrypt data using K2[sik] and iv"
     :test         (fn []
-                    (assert (ve? iv))
-                    (assert (vec? sik)))
+                    (assert (vector? iv))
+                    (assert (vector? sik)))
     :user/comment "AES-128 uses a 128-bit Cipher Key. The Cipher Key is the first 128-bits of key “K2”, K2 is generated from the
     Session Integrity Key (SIK) that was created during session activation. See Section 13.22, RAKP Message 3 and Section 13.32,
     Generating Additional Keying Material. Once the Cipher Key has been generated it is used to encrypt the payload data. The
@@ -143,32 +157,35 @@
         _             (crypto/init! engine {:key key16 :iv iv' :op :encrypt})
         _             (log/debug "Encrypting Input Data" (-> payload byte-array codecs/bytes->hex))
         output-buffer (mapv #(-process-block engine %)
-                            (partition 16 16 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] payload))
+                            (pad-vec payload))
         buffer        (reduce (fn [x y]
-                                (bytes/concat x y)) ;
+                                (bytes/concat x y))
                               []
                               output-buffer)]
-    ;;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
-    ;;(to-buf-seq trim-buffer)
     (log/debug "Encrypted Payload" (codecs/bytes->hex buffer) "Count" (count buffer))
     buffer))
 
 (defn decrypt
   [sik iv payload]
-  (let [engine        (crypto/block-cipher :aes :cbc)
-        iv'           (byte-array iv)
-        sik'          (byte-array sik)
-        key'          (K2 (byte-array sik'))
-        key           (bytes/slice (K2 (byte-array sik')) 0 16)
-        _             (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
-        _             (log/debug "Decrypting with key " (codecs/bytes->hex key))
-        _             (crypto/init! engine {:key key :iv iv' :op :decrypt})
-        output-buffer (mapv #(-process-block engine %)
-                            (partition 16 payload))
-        buffer        (reduce (fn [x y]
-                                (bytes/concat x y))
-                              []
-                              output-buffer)]
-        ;trim-buffer   buffer (bytes/slice buffer 0 (- (count buffer) padding))]
-    #_(to-buf-seq trim-buffer)
-    buffer))
+  (let [engine         (crypto/block-cipher :aes :cbc)
+        iv'            (byte-array iv)
+        sik'           (byte-array sik)
+        key'           (K2 (byte-array sik'))
+        key            (bytes/slice (K2 (byte-array sik')) 0 16)
+        _              (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
+        _              (log/debug "Decrypting with key " (codecs/bytes->hex key))
+        _              (crypto/init! engine {:key key :iv iv' :op :decrypt})
+        output-buffer  (mapv #(-process-block engine %)
+                             (partition 16 payload))
+        buffer         (vec (reduce (fn [x y]
+                                      (bytes/concat x y))
+                                    []
+                                    output-buffer))
+        padding-length (last buffer)
+        new-buffer_     (if (> padding-length 0)
+                         (->
+                          (take (- 16 (inc padding-length)) buffer)
+                          byte-array)
+                         (butlast buffer))]
+    (log/debug "Decrypted Payload" (codecs/bytes->hex new-buffer_) "Count" (count new-buffer_))
+    new-buffer_))

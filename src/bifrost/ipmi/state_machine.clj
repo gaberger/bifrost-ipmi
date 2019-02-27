@@ -18,12 +18,12 @@
 
 (defonce server-socket (atom nil))
 
-(declare ipmi-fsm)
-(declare ipmi-handler)
+(declare ipmi-server-fsm)
+(declare ipmi-server-handler)
 (declare mock-handler)
 
 (defn bind-fsm []
-  (partial a/advance (a/compile ipmi-fsm ipmi-handler)))
+  (partial a/advance (a/compile ipmi-server-fsm ipmi-server-handler)))
 
 
 ;; (add-watch session-atom :watcher
@@ -129,7 +129,6 @@
 
 (defmethod send-message :rmcp-rakp-4 [m]
   (log/info "Sending RAKP4")
-  (log/debug ">>>" m)
   (let [{:keys [input sidm]} m
         message              (h/rmcp-rakp-4-response-msg m)
         codec                (c/compile-codec (:hash input))
@@ -199,7 +198,7 @@
 ;;         encoded-message (safe (ipmi-encode message))]
 ;;     (send-message session encoded-message)))
 
-(def ipmi-fsm
+(def ipmi-server-fsm
   [(a/* (a/$ :init)
         [(a/or
           [:asf-ping (a/$ :asf-ping)]
@@ -219,8 +218,45 @@
              [:set-session-prv-level-req (a/$ :session-priv-level-req)]))))])
    [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]])
 
+(def ipmi-client-fsm
+  [[:get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
+         :open-session-response (a/$ :open-session-response)
+         :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
+         :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
+   (a/*
+    (a/or
+          [:chassis-status-rsp (a/$ :chassis-status-rsp)]
+          [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]
+          [:device-id-rsp (a/$ :device-id-rsp)]
+          [:hpm-capabilities-rsp (a/$ :hpm-capabilities-rsp)]
+          [:picmg-properties-rsp (a/$ :picmg-properties-rsp)]
+          [:vso-capabilities-rsp (a/$ :vso-capabilities-rsp)]
+          [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))
+        [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
 ;;TODO create schemas for send-message input to test handlers
+
+(def ipmi-client-handler
+  {:signal   #(:type  (c/get-message-type %))
+   :reducers {:init                 (fn [state _]
+                                      state)
+              :get-channel-auth-cap-rsp (fn [state input]
+                                          state)
+              :open-session-response (fn [state input]
+                                          state)
+              :device-id-rsp (fn [state input]
+                                          state)
+              :hpm-capabilities-rsp (fn [state input]
+                                          state)
+              :picmg-properties-rsp (fn [state input]
+                                          state)
+              :vso-capabilities-rsp (fn [state input]
+                                          state)
+              :session-priv-level-rsp (fn [state input]
+                                          state)
+              :rmcp-close-session-rsp (fn [state input]
+                                          state)}})
+
 
 
 (def mock-handler
@@ -250,7 +286,7 @@
               :rmcp-close-session-req (fn [state input]
                                         (log/debug :rmcp-close-session-req))}})
 
-(def ipmi-handler
+(def ipmi-server-handler
   {:signal   #(:type  (c/get-message-type %))
    :reducers {:init                 (fn [state _]
                                       (assoc state :last-message []))
@@ -652,5 +688,8 @@
                                                           :e      (:e? message)})
                                           state))}})
 
-(defn view-fsm []
-  (automat.viz/view (a/compile ipmi-fsm ipmi-handler)))
+(defn view-server-fsm []
+  (automat.viz/view (a/compile ipmi-server-fsm ipmi-server-handler)))
+
+(defn view-client-fsm []
+  (automat.viz/view (a/compile ipmi-client-fsm ipmi-client-handler)))

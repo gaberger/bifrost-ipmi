@@ -12,6 +12,10 @@
             [bifrost.ipmi.handlers :as h]
             [buddy.core.codecs :as codecs]))
 
+(log/merge-config! {:appenders {:println {:enabled? true
+                                          :async? false
+                                          :min-level :debug}}}) 
+
 ;; (deftest test-rmcp-ack
 ;;   (testing "ack"
 ;;     (let [codec (compile-codec 012345)
@@ -973,7 +977,7 @@
           :return [0x99 0xe6 0xf3 0x50 0x5a 0x8c 0x13 0xaa 0xea 0x1b 0xf4 0x99 0x8b 0xea 0xdd 0x29 0x64 0xba 0x87 0x75]}]
       (let [codec   (compile-codec 3)
             decode  (partial i/decode codec)
-            decoded (decode-message decode {:message (byte-array (rmcp-payloads-cipher-3 :encrypted))})]
+            decoded (decode-message codec {:message (byte-array (rmcp-payloads-cipher-3 :encrypted))})]
         (is (=     {:version 6,
                     :reserved 0,
                     :sequence 255,
@@ -1001,7 +1005,7 @@
                       :type :ipmi-2-0-session},
                      :type :ipmi-session}}
                    decoded)))))
-  #_(testing "encoder"
+  (testing "encoder"
       (with-mocks
         [m {:target :bifrost.ipmi.codec/get-authentication-codec
             :return :rmcp-rakp-hmac-sha1}
@@ -1014,10 +1018,8 @@
               decode  (partial i/decode codec)
               message (h/set-session-priv-level-rsp-msg {:sid 0x0a0a0a0a :session-seq-no 2 :seq-no 1 :e true :a true})
               encoded (encode message)]
-
-          ;;  decoded (decode encoded)]
-          (is (= 64
-                 (-> encoded bs/to-byte-array count)))))))
+          (is (= (-> encoded bs/to-byte-array codecs/bytes->hex)
+                 (-> (decode-message codec encoded) codecs/bytes->hex)))))))
 
 (def ipmi-decode (partial i/decode (compile-codec 11111)))
 

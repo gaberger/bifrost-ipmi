@@ -15,7 +15,9 @@
         gloss {:mvn/version "0.2.6"}
         com.clojure-goes-fast/jvm-alloc-rate-meter {:mvn/version "0.1.1"}
         com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.2"}
-        org.clojure/data.codec {:mvn/version "0.1.1"}}
+        org.clojure/data.codec {:mvn/version "0.1.1"}
+        com.taoensso/carmine {:mvn/version "2.20.0-alpha5"}}
+
 
  :paths ["src", "test"]
  :aliases {:nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.20.0"}

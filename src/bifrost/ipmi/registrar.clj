@@ -96,10 +96,4 @@
         api (get-driver-api-key user-key)]
     (reboot-device deviceid api)))
 
-;(register-user)
-
-;(def device "37d67cd4-8c08-461f-b08d-e1ab88454eb2")
-;(def api "N77UL4AfmhMp9zVWrhkkcrGRv9L4jBg7")
-
-
 ;(bifrost.ipmi.registrar/add-packet-driver "38af3caeaf36c269" device api)

@@ -9,6 +9,28 @@
    :rmcp-class
    {:type :rmcp-ack}})
 
+(defn ipmi-request-msg [m]
+  (let [{:keys [session-id session-seq seq-no type command function a e]} m]
+    {:version  6,
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-2-0-payload
+       {:session-id       session-id,
+        :session-seq      session-seq,
+        :payload-type     {:encrypted? e, :authenticated? a, :type type},
+        :command          1,
+        :source-lun       {:seq-no seq-no, :source-lun 0},
+        :source-address   129,
+        :checksum         102,
+        :header-checksum  224,
+        :target-address   32,
+        :network-function {:function function, :target-lun 0},
+        :message-length   8},
+       :type :ipmi-2-0-session},
+      :type :ipmi-session}})
+)
 (defn chassis-status-response-msg [m]
   (let [{:keys [sid seq-no a e]} m]
     {:version 6

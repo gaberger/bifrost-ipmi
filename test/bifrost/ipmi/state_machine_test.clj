@@ -67,7 +67,7 @@
   mock-get-driver-device-id)
 
 (deftest test-fsm-handlers
-  #_(testing "test crypto 0"
+  (testing "test crypto 0"
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
        :return :rmcp-rakp}
@@ -98,8 +98,8 @@
       (let [codec (compile-codec 0)
             adv         (bind-fsm)
             result      (-> nil
-                            (adv (decode-message codec (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-                           ; (adv (decode-message ipmi-decode (byte-array (:open-session-request rmcp-payloads-cipher-1))))
+                            ;(adv (decode-message codec (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
+                            (adv (decode-message codec (byte-array (:open-session-request rmcp-payloads-cipher-1))))
                            ; (adv (decode-message ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1))))
                            ; (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1)))))
                            ; (adv (safe (ipmi-decode (byte-array (:hpm-capabilities-req rmcp-payloads)))))
