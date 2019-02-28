@@ -173,7 +173,7 @@
     (safe (send-udp input encoded-message))))
 
 (defmethod send-message :open-session-request [m]
-  (log/info "Sending Open Session Response ")
+  (log/info "Sending Open Session Response " m)
   (let [{:keys [input]} m
         message         (h/rmcp-open-session-response-msg m)
         codec           (c/compile-codec (:hash input))
@@ -548,7 +548,7 @@
                                                                    :ipmi-2-0-payload
                                                                    :remote-session-id])
                                             ;;TODO bind to digital twin?
-                                            sidc    (nonce/random-nonce 16)
+                                            sidc    (rand-int (.pow (BigInteger. "2") 16))
                                             rolem   (get-in input [:rmcp-class :ipmi-session-payload
                                                                    :ipmi-2-0-payload :privilege-level
                                                                    :max-priv-level])
@@ -582,7 +582,7 @@
                                             sidm        (get state :sidm)
                                             login-state (c/get-login-state h)
                                             auth        (c/get-authentication-codec h)
-                                            rc          (nonce/random-nonce 16)
+                                            rc          (-> (nonce/random-nonce 16) vec)
                                             uid         (r/lookup-password-key unamem)
                                             guid        (r/get-device-id-bytes unamem)]
 

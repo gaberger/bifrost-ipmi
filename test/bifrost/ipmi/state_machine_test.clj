@@ -58,7 +58,7 @@
     (f)))
 
 (use-fixtures
-  :once
+  :each
   mock-send mock-get
   mock-packet-reset
   mock-lookup-password-key
@@ -75,16 +75,16 @@
             ipmi-decode (partial decode codec)
             adv         (bind-server-fsm)
             result      (-> nil
-                            (adv (safe (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:open-session-request rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:hpm-capabilities-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:set-sess-prv-level-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:chassis-status-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:chassis-reset-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:device-id-req rmcp-payloads)))))
-                            (adv (safe (ipmi-decode (byte-array (:rmcp-close-session-req rmcp-payloads))))))]
+                            (adv (decode-message codec {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:open-session-request rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-status-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-reset-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:device-id-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-close-session-req rmcp-payloads))})))]
         (is (and
              (true?
               (:accepted? result))
@@ -98,16 +98,16 @@
       (let [codec (compile-codec 0)
             adv         (bind-server-fsm)
             result      (-> nil
-                            ;(adv (decode-message codec (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
-                            (adv (decode-message codec (byte-array (:open-session-request rmcp-payloads-cipher-1))))
-                           ; (adv (decode-message ipmi-decode (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1))))
-                           ; (adv (safe (ipmi-decode (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:hpm-capabilities-req rmcp-payloads)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:set-sess-prv-level-req rmcp-payloads)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:chassis-status-req rmcp-payloads)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:chassis-reset-req rmcp-payloads)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:device-id-req rmcp-payloads)))))
-                           ; (adv (safe (ipmi-decode (byte-array (:rmcp-close-session-req rmcp-payloads)))))
+                            (adv (decode-message codec {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:open-session-request rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-status-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-reset-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:device-id-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}))
                             )]
         (is (and
              (true?

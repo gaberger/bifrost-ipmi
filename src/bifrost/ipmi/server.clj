@@ -28,7 +28,10 @@
   (log/info "Closing session for " hash)
   (state/delete-chan hash))
 
-(defn read-processor [t]
+(defn read-processor
+  "The read processor is an async subscriber listening on topic [t]. Each message is tagged with a hash of the host
+  port tuple a message payload and an execution role of either :client or :server"
+  [t]
   (let [reader (chan)]
     (sub publisher t reader)
     (try
@@ -61,10 +64,10 @@
                                                                  :message
                                                                  bs/to-byte-array
                                                                  codecs/bytes->hex))
-                      (state/update-chan-map-state router new-fsm-state)
-                      (when complete?
-                        (state/delete-chan hash)))))
-
+                      (if complete?
+                        (state/delete-chan hash)
+                        (state/update-chan-map-state router new-fsm-state))
+                      (log/info "Completion State:" complete?  "Queued Requests " (state/count-peer)))))
         (recur))
       (catch Exception e
         (throw (ex-info (ex-data e)))))))
