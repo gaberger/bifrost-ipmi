@@ -239,6 +239,33 @@
                    :type :ipmi-1-5-session},
                   :type :ipmi-session}}))
 
+
+(defn auth-capabilities-request-msg [m]
+  (let [{:keys []} m]
+    {:version 6,
+     :reserved 0,
+     :sequence 255,
+     :rmcp-class
+     {:ipmi-session-payload
+      {:ipmi-1-5-payload
+       {:session-seq 0,
+        :session-id 0,
+        :message-length 9,
+        :ipmb-payload
+        {:version-compatibility
+         {:version-compatibility true, :reserved 0, :channel 14},
+         :command 56,
+         :source-lun {:seq-no 0, :source-lun 0},
+         :source-address 129,
+         :checksum 181,
+         :header-checksum 200,
+         :target-address 32,
+         :network-function {:function 6, :target-lun 0},
+         :privilege-level {:reserved 0, :privilege-level 4}}},
+       :type :ipmi-1-5-session},
+      :type :ipmi-session}}
+  ))
+
 (defn rmcp-close-response-msg [m]
   (let [{:keys [sid seq seq-no a e]} m]
     {:version  6,

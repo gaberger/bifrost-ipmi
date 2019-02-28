@@ -23,6 +23,10 @@
 (defn get-login-state [h]
   (get-in @app-state [:chan-map h :login-state] {}))
 
+(defn get-fsm [h]
+  (get-in @app-state [:chan-map h :fsm] {}))
+
+
 (defn build-merge-header-with-data
   "Build a function that takes a header and returns a compiled
   frame (using `frame-fn`) that post-processes the frame to merge the

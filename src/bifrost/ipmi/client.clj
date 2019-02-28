@@ -1,5 +1,10 @@
 (ns bifrost.ipmi.client
-  (:require [bifrost.ipmi.handlers :as h]))
+  (:require [bifrost.ipmi.handlers :as h]
+            [bifrost.ipmi.state-machine :as state]
+            [bifrost.ipmi.server :as server]
+            [clojure.core.async :refer [thread]]
+            [taoensso.timbre :as log])
+  (:import [java.util Date]))
 
 
 
@@ -24,5 +29,28 @@
                          :i           i})
     )
   )
+
+(defn open-connection
+  "Need to go through client state machine and through auth-open-session-rakp negotiation. Get back a session id"
+  [host port]
+  (let [host-map {:host host :port port}
+        h        (hash host-map)]
+    (when-not (state/channel-exists? h)
+      (do
+        (log/debug "Creating subscriber for topic " h)
+        (thread
+          (try
+            (server/read-processor h)
+            (catch Exception e (ex-data e))))
+
+        (state/upsert-chan h  {:created-at  (Date.)
+                         :host-map    host-map
+                         :fsm         (state/bind-client-fsm)
+                         :login-state {:auth  0
+                                       :integ 0
+                                       :conf  0}
+                         :state       {}})))
+    (log/debug "Publish message on topic " h)
+    #_(let [message (h/auth-capabilities-request-msg m)])))
 
 

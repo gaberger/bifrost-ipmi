@@ -5,7 +5,7 @@
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.test-payloads :refer :all]
             [bifrost.ipmi.registrar :refer [lookup-userid]]
-            [bifrost.ipmi.state-machine :refer [bind-fsm get-session-state mock-handler
+            [bifrost.ipmi.state-machine :refer [bind-server-fsm get-session-state mock-handler
                                                 ipmi-server-handler ipmi-server-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]

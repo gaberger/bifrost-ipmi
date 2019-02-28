@@ -1,7 +1,7 @@
 (ns bifrost.ipmi.state-machine-test
   (:require [clojure.test :refer :all]
             [bifrost.ipmi.codec :refer [compile-codec decode-message]]
-            [bifrost.ipmi.state-machine :refer [bind-fsm]]
+            [bifrost.ipmi.state-machine :refer [bind-server-fsm]]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.test-payloads :refer :all]
             [bifrost.ipmi.registrar :refer [reboot-server]]
@@ -73,7 +73,7 @@
        :return :rmcp-rakp}
       (let [codec (compile-codec 0)
             ipmi-decode (partial decode codec)
-            adv         (bind-fsm)
+            adv         (bind-server-fsm)
             result      (-> nil
                             (adv (safe (ipmi-decode (byte-array (:get-channel-auth-cap-req rmcp-payloads)))))
                             (adv (safe (ipmi-decode (byte-array (:open-session-request rmcp-payloads)))))
@@ -96,7 +96,7 @@
       {:target :bifrost.ipmi.codec/get-authentication-codec
        :return :rmcp-rakp-hmac-sha1}
       (let [codec (compile-codec 0)
-            adv         (bind-fsm)
+            adv         (bind-server-fsm)
             result      (-> nil
                             ;(adv (decode-message codec (byte-array (:get-channel-auth-cap-req rmcp-payloads))))
                             (adv (decode-message codec (byte-array (:open-session-request rmcp-payloads-cipher-1))))

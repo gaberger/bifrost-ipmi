@@ -6,7 +6,7 @@
    [bifrost.ipmi.application-state :refer :all]
    [bifrost.ipmi.codec :as c]
    [bifrost.ipmi.crypto :refer [calc-sha1-key calc-rakp-1 calc-rakp-3 calc-rakp-4-sidm calc-rakp-4-sik]]
-   [bifrost.ipmi.registrar :refer :all]
+   [bifrost.ipmi.registrar :as r]
    [bifrost.ipmi.utils :refer [safe]]
    [manifold.stream :as s]
    [bifrost.ipmi.handlers :as h]
@@ -14,17 +14,72 @@
    [clj-uuid :as uuid]
    [buddy.core.codecs :as codecs]
    [buddy.core.bytes :as bytes]
-   [byte-streams :as bs]))
+   [byte-streams :as bs])
+  (:import [java.time Duration Instant]))
 
-(defonce server-socket (atom nil))
 
 (declare ipmi-server-fsm)
 (declare ipmi-server-handler)
+(declare ipmi-client-fsm)
+(declare ipmi-client-handler)
 (declare mock-handler)
+(defonce server-socket (atom nil))
 
-(defn bind-fsm []
+(defn bind-server-fsm []
   (partial a/advance (a/compile ipmi-server-fsm ipmi-server-handler)))
 
+(defn bind-client-fsm []
+  (partial a/advance (a/compile ipmi-client-fsm ipmi-client-handler)))
+
+(defn upsert-chan [host-hash chan-map]
+  (letfn [(add-chan-map
+            [ks & opts]
+            (let [peer-set (update-in ks [:peer-set] conj (first opts))
+                  chan-map (assoc-in peer-set [:chan-map (first opts)] (fnext opts))]
+              chan-map))]
+    (dosync
+     (alter app-state #(add-chan-map % host-hash chan-map)))))
+
+(defn delete-chan [host-hash]
+  (dosync
+   (letfn [(del-chan-map
+            [ks & opts]
+             (let  [peer-set (update-in ks [:peer-set] #(disj % (first opts)))
+                    chan-map (update-in peer-set [:chan-map] dissoc (first opts))]
+              chan-map))]
+     (alter app-state #(del-chan-map % host-hash)))))
+
+(defn channel-exists? [h]
+  (let [peer-set (get-in @app-state [:peer-set])]
+    (-> (some #{h} peer-set) boolean)))
+
+(defn get-peers []
+  (get-in @app-state [:peer-set] #{}))
+
+(defn count-peer []
+  (count (get-in @app-state [:peer-set])))
+
+(defn get-chan-map []
+  (get-in @app-state [:chan-map] {}))
+
+(defn update-chan-map-state [h state]
+  (dosync
+   (alter app-state assoc-in [:chan-map h :state] state)))
+
+(defn get-chan-map-state [h]
+  (get-in @app-state [:chan-map h :state] {}))
+
+(defn get-chan-map-host-map [h]
+  (get-in @app-state [:chan-map h :host-map] {}))
+
+(declare reset-peer)
+
+(defn dump-app-state []
+  (for [[k v] (get-chan-map)
+        :let  [n (.toInstant (java.util.Date.))
+               t (.toInstant (:created-at v))
+               duration (.toMillis (Duration/between t n))]]
+    {:hash k :duration duration}))
 
 ;; (add-watch session-atom :watcher
 ;;            (fn [key atom old-state new-state]
@@ -104,6 +159,14 @@
   (log/info "Sending Chassis Auth Capability Response")
   (let [{:keys [input]} m
         message         (h/auth-capabilities-response-msg m)
+        codec           (c/compile-codec (:hash input))
+        ipmi-encode     (partial encode codec)
+        encoded-message (safe (ipmi-encode message))]
+    (safe (send-udp input encoded-message))))
+
+(defmethod send-message :auth-capabiities-request-msg [m]
+  (let [{:keys [input]} m
+        message         (h/auth-capabilities-request-msg m)
         codec           (c/compile-codec (:hash input))
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
@@ -354,7 +417,7 @@
                                             hsum            (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :header-checksum] 0)
                                             sl              (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun] 0)
                                             completion-code 0xC1
-                                            c               (log/spy (:command message))
+                                            c               (:command message)
                                             f               (:response message)]
                                         ;ta  | nf |  hcsum | sa | slun | c   | cc | csum
                                         (send-message {:type     :error-response
@@ -435,9 +498,9 @@
                                                 seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
                                                 seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload  :source-lun :seq-no])
                                                 unamem  (get state :unamem)]
-                                            (if-not (nil? (log/spy (get-driver-device-id (keyword unamem))))
+                                            (if-not (nil? (r/get-driver-device-id (keyword unamem)))
                                               (do
-                                                (safe (reboot-server {:driver :packet :user-key (keyword unamem)}))
+                                                (safe (r/reboot-server {:driver :packet :user-key (keyword unamem)}))
                                                 (send-message  {:type   :chassis-reset
                                                                 :input  input
                                                                 :sid    sid
@@ -505,7 +568,7 @@
                                         (send-message  m)
                                         state))
               :rmcp-rakp-1          (fn [state input]
-                                      (log/info "RAKP-1 Request" state)
+                                      (log/info "RAKP-1 Request")
                                       (let [h           (:hash input)
                                             message     (conj {} (c/get-message-type input))
                                             rm          (get-in input [:rmcp-class :ipmi-session-payload
@@ -521,8 +584,8 @@
                                             auth        (c/get-authentication-codec h)
                                             ;; TODO Replace with nonce
                                             rc          (vec (take 16 (repeatedly #(rand-int 16))))
-                                            uid         (lookup-password-key unamem)
-                                            guid        (get-device-id-bytes unamem)]
+                                            uid         (r/lookup-password-key unamem)
+                                            guid        (r/get-device-id-bytes unamem)]
 
                                         (condp = auth
                                           :rmcp-rakp (let [m {:type       :rmcp-rakp-2
@@ -536,7 +599,7 @@
                                                        (send-message m)
                                                        state)
 
-                                          :rmcp-rakp-hmac-sha1 (if-not (nil? (lookup-userid unamem))
+                                          :rmcp-rakp-hmac-sha1 (if-not (nil? (r/lookup-userid unamem))
                                                                  (let [rakp2-hmac (vec (calc-rakp-1 {:rm     rm
                                                                                                      :rc     rc
                                                                                                      :guidc  guid
@@ -584,8 +647,8 @@
                                    login-state (c/get-login-state h)
                                    auth        (c/get-authentication-codec h)
                                    unamem      (get state :unamem)
-                                   uid         (lookup-password-key unamem)
-                                   guid        (get-device-id-bytes unamem)
+                                   uid         (r/lookup-password-key unamem)
+                                   guid        (r/get-device-id-bytes unamem)
                                    sidc        (get state :sidc)
                                    sidm        (get state :sidm)
                                    rolem       (get state :rolem)

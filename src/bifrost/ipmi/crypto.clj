@@ -103,12 +103,18 @@
 
 (comment "cleve use of partition but what if payload is greater than 32 bytes?")
 ;;TODO fix interval handling
-(defn pad-vec [v]
-  (let [pad-count  (pad-count (count v))
-        pad-vec (vec (flatten (conj [] (range 1  pad-count)  (dec pad-count))))]
+(defn pad-vec
+  "Encrypted traffic must terminate with a pad length byte. If no padding is required this byte must be 0x00
+  special case if mod size 16 == 0 must add 15 bytes of padding and padding-length"
+  [v]
+  (let [pad-count (pad-count (count v))
+        pad-vec   (vec (concat (range 1  pad-count)  [(dec pad-count)]))]
     (if (= 15 pad-count)
-      (let [pad-vec (vec (flatten (conj [] (range 1 (inc pad-count))   pad-count)))]
-        (partition 32 16 pad-vec v))
+      (let [pad-vec (vec (concat (range 1 (inc pad-count))   [pad-count]))
+            p-cnt (+ (inc pad-count) (count v))
+            p-div (quot p-cnt 16)
+            p-mult (* 16 p-div)]
+        (partition p-mult 16 pad-vec v))
       (partition 16 16 pad-vec v))))
 
 
