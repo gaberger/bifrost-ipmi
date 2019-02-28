@@ -21,9 +21,6 @@
                                               :message   message
                                               :fsm-state fsm-state}))
                              fsm-state))]
-    #_(condp = (:value ret)
-        nil fsm-state
-        ret)
     (log/debug "FSM-State "  new-fsm-state)
     new-fsm-state))
 
@@ -50,10 +47,6 @@
                         (let [m             (merge {:hash router} host-map decoded)
                               new-fsm-state (process-message fsm fsm-state m)
                               complete?     (-> new-fsm-state :accepted? true?)]
-                          #_(log/debug  "Packet In Server Channel" (-> message
-                                                                     :message
-                                                                     bs/to-byte-array
-                                                                     codecs/bytes->hex))
                           (if complete?
                             (state/delete-chan hash)
                             (state/update-chan-map-state router new-fsm-state))

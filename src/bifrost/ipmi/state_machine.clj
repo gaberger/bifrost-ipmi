@@ -14,7 +14,8 @@
    [clj-uuid :as uuid]
    [buddy.core.codecs :as codecs]
    [buddy.core.bytes :as bytes]
-   [byte-streams :as bs])
+   [byte-streams :as bs]
+   [buddy.core.nonce :as nonce])
   (:import [java.time Duration Instant]))
 
 
@@ -32,12 +33,12 @@
   (partial a/advance (a/compile ipmi-client-fsm ipmi-client-handler)))
 
 (defn upsert-chan [host-hash chan-map]
-  (letfn [(add-chan-map
+  (dosync
+   (letfn [(add-chan-map
             [ks & opts]
-            (let [peer-set (update-in ks [:peer-set] conj (first opts))
-                  chan-map (assoc-in peer-set [:chan-map (first opts)] (fnext opts))]
+             (let [peer-set (update-in ks [:peer-set] conj (first opts))
+                   chan-map (assoc-in peer-set [:chan-map (first opts)] (fnext opts))]
               chan-map))]
-    (dosync
      (alter app-state #(add-chan-map % host-hash chan-map)))))
 
 (defn delete-chan [host-hash]
@@ -100,7 +101,7 @@
   (let [host  (get session :host)
         port  (get session :port)
         bytes (-> message bs/to-byte-array)]
-    (log/debug "Sending Message to host:" host " port:" port)
+    (log/info "Sending Message to host:" host " port:" port)
     (log/debug  "Bytes" (-> message
                             bs/to-byte-array
                             codecs/bytes->hex))
@@ -123,7 +124,6 @@
         message             (h/error-response-msg m)
         codec               (c/compile-codec (:hash input))
         ipmi-encode         (partial encode codec)
-
         encoded-message     (ipmi-encode message)]
     (safe (send-udp input encoded-message))))
 
@@ -322,7 +322,7 @@
 
 
 
-(def mock-handler
+#_(def mock-handler
   {:signal #(:type (c/get-message-type %))
    :reducers {:get-channel-auth-cap-req (fn [state input]
                                           (log/debug :get-channel-auth-cap-req))
@@ -547,7 +547,8 @@
                                             sidm    (get-in input [:rmcp-class :ipmi-session-payload
                                                                    :ipmi-2-0-payload
                                                                    :remote-session-id])
-                                            sidc    (rand-int (.pow (BigInteger. "2") 16))
+                                            ;;TODO bind to digital twin?
+                                            sidc    (nonce/random-nonce 16)
                                             rolem   (get-in input [:rmcp-class :ipmi-session-payload
                                                                    :ipmi-2-0-payload :privilege-level
                                                                    :max-priv-level])
@@ -564,7 +565,6 @@
                                                      :sidc  sidc
                                                      :sidm  sidm}]
                                         (update-login-state {:auth a :integ i :conf c} (:hash input))
-                                        ; TODO Need selector for auth, ident, conf types
                                         (send-message  m)
                                         state))
               :rmcp-rakp-1          (fn [state input]
@@ -582,8 +582,7 @@
                                             sidm        (get state :sidm)
                                             login-state (c/get-login-state h)
                                             auth        (c/get-authentication-codec h)
-                                            ;; TODO Replace with nonce
-                                            rc          (vec (take 16 (repeatedly #(rand-int 16))))
+                                            rc          (nonce/random-nonce 16)
                                             uid         (r/lookup-password-key unamem)
                                             guid        (r/get-device-id-bytes unamem)]
 
