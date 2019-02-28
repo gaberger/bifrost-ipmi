@@ -620,8 +620,11 @@
                                                                                    :auth       auth}
                                                                        state      (-> state
                                                                                       (update-in [:last-message] conj message)
-                                                                                      (merge (select-keys  m [:sidc :sidm :rm :rc
-                                                                                                              :guidc :unamem :rolem])))]
+                                                                                      (merge (select-keys  m [:sidc :sidm
+                                                                                                              :rm :rc
+                                                                                                              :guidc
+                                                                                                              :unamem
+                                                                                                              :rolem])))]
                                                                    (send-message m)
                                                                    state)
                                                                  (let [m {:type       :rmcp-rakp-2
@@ -643,16 +646,16 @@
                              (log/info "RAKP-3 Request ")
                              (let [h           (:hash input)
                                    message     (conj {} (c/get-message-type input))
-                                   login-state (c/get-login-state h)
-                                   auth        (c/get-authentication-codec h)
-                                   unamem      (get state :unamem)
-                                   uid         (r/lookup-password-key unamem)
-                                   guid        (r/get-device-id-bytes unamem)
                                    sidc        (get state :sidc)
                                    sidm        (get state :sidm)
                                    rolem       (get state :rolem)
                                    rm          (get state :rm)
-                                   rc          (get state :rc)]
+                                   rc          (get state :rc)
+                                   unamem      (get state :unamem)
+                                   login-state (c/get-login-state h)
+                                   auth        (c/get-authentication-codec h)
+                                   uid         (r/lookup-password-key unamem)
+                                   guid        (r/get-device-id-bytes unamem)]
 
                                (condp = auth
                                  :rmcp-rakp           (let [m     {:type  :rmcp-rakp-4
@@ -736,8 +739,15 @@
                                         (let [h       (:hash input)
                                               message (conj {} (c/get-message-type input))
                                               sid     (get state :sidm)
-                                              seq     (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :session-seq] 0)
-                                              seq-no  (get-in input [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload :source-lun :seq-no])
+                                              seq     (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :session-seq] 0)
+                                              seq-no  (get-in input [:rmcp-class
+                                                                     :ipmi-session-payload
+                                                                     :ipmi-2-0-payload
+                                                                     :source-lun
+                                                                     :seq-no])
                                               state   (-> state
                                                           (update-in [:last-message] conj message)
                                                           (assoc :seq seq))]

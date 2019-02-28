@@ -1018,7 +1018,6 @@
                     (throw (ex-info "Decoder exception"
                                         {:error (.getMessage e)}))
                     nil))
-        _ (log/debug "Intermediate Decode Payload" decoded)
         aes-payload? (contains?
                       (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
                       :aes-decoded-payload)
@@ -1037,7 +1036,7 @@
     (log/debug "Decoded Message " message)
     message))
 
-(defn encode-message [encoder message]
+#_(defn encode-message [encoder message]
   (log/debug "Encode Message " message)
   (let [encode-payload (try
                          (encoder message)

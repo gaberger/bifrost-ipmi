@@ -4,8 +4,7 @@
             [gloss.io :as i]
             [mockery.core :refer [with-mock]]
             [bifrost.ipmi.test-payloads :refer [rmcp-payloads rmcp-payloads-cipher-1 rmcp-payloads-cipher-3 error-payloads]]
-            [bifrost.ipmi.codec :refer [decode-message encode-message
-                                        compile-codec get-message-type get-login-state get-authentication-codec
+            [bifrost.ipmi.codec :refer [decode-message compile-codec get-message-type get-login-state get-authentication-codec
                                         get-confidentiality-codec]]
             [byte-streams :as bs]
             [taoensso.timbre :as log]

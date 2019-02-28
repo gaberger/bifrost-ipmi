@@ -27,14 +27,6 @@
         rolem'      (byte-array 1 (byte 0x14))
         rakp2-input (bytes/concat sidm' sidc' rm rc guidc rolem' ulengthm unamem')
         rakp2-hmac  (calc-sha1-key uid rakp2-input)]
-    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
-                   :rc          (-> rc byte-array codecs/bytes->hex)
-                   :sidm        (format "%X" sidm)
-                   :sidc        (format "%X" sidc)
-                   :rolem       rolem
-                   :guidc       (->  guidc byte-array codecs/bytes->hex)
-                   :rakp2-input (codecs/bytes->hex rakp2-input)
-                   :rakp2-hmac  (codecs/bytes->hex rakp2-hmac)})
     rakp2-hmac))
 
 (defn calc-rakp-3
@@ -47,11 +39,6 @@
         rolem'      (byte-array 1 (byte 0x14))
         sidc-input (bytes/concat rc sidm' rolem' ulengthm unamem')
         sidc-hmac  (calc-sha1-key uid sidc-input)]
-    #_(log/debug  {:rc          (-> rc byte-array codecs/bytes->hex)
-                   :sidm        (format "%X" sidm)
-                   :rolem       rolem
-                   :sidc-input (codecs/bytes->hex sidc-input)
-                   :sidc-hmac  (codecs/bytes->hex sidc-hmac)})
     sidc-hmac))
 
 (defn calc-rakp-4-sik
@@ -61,11 +48,6 @@
         rolem'      (byte-array 1 (byte 0x14))
         sik-input (bytes/concat rm rc rolem' ulengthm unamem')
         sik-hmac  (calc-sha1-key uid sik-input)]
-    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
-                   :rc          (-> rc byte-array codecs/bytes->hex)
-                   :rolem       rolem
-                   :sik-input (codecs/bytes->hex sik-input)
-                   :sik-hmac  (codecs/bytes->hex sik-hmac)})
     sik-hmac))
 
 (defn calc-rakp-4-sidm
@@ -73,18 +55,12 @@
   (let [sidc'       (-> (encode int->bytes sidc) bs/to-byte-array reverse vec)
         sidm-input (bytes/concat rm sidc' guidc)
         sidm-hmac  (calc-sha1-key sik sidm-input)]
-    #_(log/debug  {:rm          (-> rm byte-array codecs/bytes->hex)
-                   :sidc        (format "%X" sidc)
-                   :guidc       (->  guidc byte-array codecs/bytes->hex)
-                   :sidm-input (codecs/bytes->hex sidm-input)
-                   :sidm-hmac  (codecs/bytes->hex sidm-hmac)})
     sidm-hmac))
 
 (defn K1 [sik]
   (let [const1 (byte-array [01 01 01 01 01 01 01 01 01 01
                             01 01 01 01 01 01 01 01 01 01])
         K1 (calc-sha1-key sik const1)]
-    (log/debug "K1" (-> K1 byte-array codecs/bytes->hex))
     K1
     ))
 
@@ -101,16 +77,15 @@
       (- 16 (mod size 16))
       )))
 
-(comment "cleve use of partition but what if payload is greater than 32 bytes?")
 ;;TODO fix interval handling
 (defn pad-vec
   "Encrypted traffic must terminate with a pad length byte. If no padding is required this byte must be 0x00
   special case if mod size 16 == 0 must add 15 bytes of padding and padding-length"
   [v]
   (let [pad-count (pad-count (count v))
-        pad-vec   (vec (concat (range 1  pad-count)  [(dec pad-count)]))]
+        pad-vec   (vec (concat (range 1  pad-count) [(dec pad-count)]))]
     (if (= 15 pad-count)
-      (let [pad-vec (vec (concat (range 1 (inc pad-count))   [pad-count]))
+      (let [pad-vec (vec (concat (range 1 (inc pad-count)) [pad-count]))
             p-cnt (+ (inc pad-count) (count v))
             p-div (quot p-cnt 16)
             p-mult (* 16 p-div)]
@@ -158,16 +133,16 @@
         iv'           (byte-array iv)
         key'          (K2 sik')
         key16         (bytes/slice key' 0 16)
-        _             (log/debug "Encrypting with IV " (-> iv byte-array codecs/bytes->hex))
-        _             (log/debug "Encrypting with key " (codecs/bytes->hex key16))
         _             (crypto/init! engine {:key key16 :iv iv' :op :encrypt})
-        _             (log/debug "Encrypting Input Data" (-> payload byte-array codecs/bytes->hex))
         output-buffer (mapv #(-process-block engine %)
                             (pad-vec payload))
         buffer        (reduce (fn [x y]
                                 (bytes/concat x y))
                               []
                               output-buffer)]
+    (log/debug "Encrypting with IV " (-> iv byte-array codecs/bytes->hex))
+    (log/debug "Encrypting with Key " (codecs/bytes->hex key16))
+    (log/debug "Encrypting Input Data" (-> payload byte-array codecs/bytes->hex))
     (log/debug "Encrypted Payload" (codecs/bytes->hex buffer) "Count" (count buffer))
     buffer))
 
@@ -178,8 +153,6 @@
         sik'           (byte-array sik)
         key'           (K2 (byte-array sik'))
         key            (bytes/slice (K2 (byte-array sik')) 0 16)
-        _              (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
-        _              (log/debug "Decrypting with key " (codecs/bytes->hex key))
         _              (crypto/init! engine {:key key :iv iv' :op :decrypt})
         output-buffer  (mapv #(-process-block engine %)
                              (partition 16 payload))
@@ -188,10 +161,12 @@
                                     []
                                     output-buffer))
         padding-length (last buffer)
-        new-buffer_     (if (> padding-length 0)
+        new-buffer_    (if (> padding-length 0)
                          (->
                           (take (- 16 (inc padding-length)) buffer)
                           byte-array)
                          (butlast buffer))]
+    (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
+    (log/debug "Decrypting with key " (codecs/bytes->hex key))
     (log/debug "Decrypted Payload" (codecs/bytes->hex new-buffer_) "Count" (count new-buffer_))
     new-buffer_))

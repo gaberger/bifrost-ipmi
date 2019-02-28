@@ -105,13 +105,13 @@
             (server/read-processor h)
           )
 
-        (state/upsert-chan h  {:created-at (Date.)
-                               :host-map         host-map
-                               :fsm              (state/bind-server-fsm)
-                               :login-state      {:auth  0
-                                                  :integ 0
-                                                  :conf  0}
-                               :state            {}})))
+        (state/upsert-chan h  {:created-at  (Date.)
+                               :host-map    host-map
+                               :fsm         (state/bind-server-fsm)
+                               :login-state {:auth  0
+                                             :integ 0
+                                             :conf  0}
+                               :state       {}})))
     (log/debug "Publish message on topic " h)
     (publish  {:router  h
                :role    :server

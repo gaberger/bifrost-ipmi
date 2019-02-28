@@ -6,7 +6,7 @@
             [buddy.core.codecs :as codecs]
             [byte-streams :as bs]
             [clojure.core.async :as async]
-            [taoensso.timbre :as log ]
+            [taoensso.timbre :as log]
             [buddy.core.codecs :as codecs]))
 
 (def input-chan (chan))
@@ -17,9 +17,9 @@
   (let [new-fsm-state (try (fsm fsm-state message)
                            (catch IllegalArgumentException e
                              (log/error (ex-info "State Machine Error"
-                                             {:error     (.getMessage e)
-                                              :message   message
-                                              :fsm-state fsm-state}))
+                                                 {:error     (.getMessage e)
+                                                  :message   message
+                                                  :fsm-state fsm-state}))
                              fsm-state))]
     (log/debug "FSM-State "  new-fsm-state)
     new-fsm-state))
@@ -42,30 +42,29 @@
               compiled-codec (c/compile-codec router)
               host-map       (state/get-session-state message)]
 
-            (condp = role
-              :server (if-let [decoded (c/decode-message compiled-codec message)]
-                        (let [m             (merge {:hash router} host-map decoded)
-                              new-fsm-state (process-message fsm fsm-state m)
-                              complete?     (-> new-fsm-state :accepted? true?)]
-                          (if complete?
-                            (state/delete-chan hash)
-                            (state/update-chan-map-state router new-fsm-state))
-                          (log/info "Completion State:" complete?  "Queued Requests " (state/count-peer)))
-                        #_(delete-chan hash))
-              :client (let [m             (merge {:hash router} host-map message)
-                            new-fsm-state (try
-                                            (process-message fsm fsm-state m)
-                                            (catch Exception e
-                                              (throw (ex-info {:error (.getMessage e)}))))
+          (condp = role
+            :server (if-let [decoded (c/decode-message compiled-codec message)]
+                      (let [m             (merge {:hash router} host-map decoded)
+                            new-fsm-state (process-message fsm fsm-state m)
                             complete?     (-> new-fsm-state :accepted? true?)]
-                        (log/debug  "Packet In client Channel" (-> message
-                                                                   :message
-                                                                   bs/to-byte-array
-                                                                   codecs/bytes->hex))
-                        (state/update-chan-map-state router new-fsm-state)
-                        (when complete?
-                          (state/delete-chan hash)))))
+                        (if complete?
+                          (state/delete-chan hash)
+                          (state/update-chan-map-state router new-fsm-state))
+                        (log/info "Completion State:" complete?  "Queued Requests " (state/count-peer))))
+            :client (let [m             (merge {:hash router} host-map message)
+                          new-fsm-state (try
+                                          (process-message fsm fsm-state m)
+                                          (catch Exception e
+                                            (throw (ex-info {:error (.getMessage e)}))))
+                          complete?     (-> new-fsm-state :accepted? true?)]
+                      (log/debug  "Packet In client Channel" (-> message
+                                                                 :message
+                                                                 bs/to-byte-array
+                                                                 codecs/bytes->hex))
+                      (state/update-chan-map-state router new-fsm-state)
+                      (when complete?
+                        (state/delete-chan hash)))))
 
-          (recur))
+        (recur))
       (catch Exception e
         (throw (ex-info (ex-data e)))))))
