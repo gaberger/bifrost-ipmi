@@ -10,7 +10,7 @@
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :refer :all :as c]
-            [bifrost.ipmi.core :refer [message-handler ]]
+            [bifrost.ipmi.core :refer [server-handler ]]
             [taoensso.timbre :as log]
             [automat.core :as a]))
 

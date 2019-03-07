@@ -3,7 +3,10 @@
             [bifrost.ipmi.state-machine :as state]
             [bifrost.ipmi.server :as server]
             [clojure.core.async :refer [thread]]
-            [taoensso.timbre :as log])
+            [taoensso.timbre :as log]
+            [manifold.stream :as s]
+            [manifold.deferred :as d]
+            [manifold.bus :as b])
   (:import [java.util Date]))
 
 
@@ -11,9 +14,9 @@
 (defn get-chassis
   "get chassis status"
   [server-id]
-  (let [session-id  nil
-        session-seq nil
-        seq-no      nil
+  (let [session-id   1
+        session-seq 1
+        seq-no      1
         type        nil
         command     nil
         function    nil
@@ -30,27 +33,44 @@
     )
   )
 
-(defn open-connection
-  "Need to go through client state machine and through auth-open-session-rakp negotiation. Get back a session id"
-  [host port]
-  (let [host-map {:host host :port port}
-        h        (hash host-map)]
-    (when-not (state/channel-exists? h)
-      (do
-        (log/debug "Creating subscriber for topic " h)
-        (thread
-          (try
-            (server/read-processor h)
-            (catch Exception e (ex-data e))))
+(defn open-connection [host port]
+  (let [host-map     {:host host :port port}
+        host-hash    (hash host-map)
+        init-message (h/auth-capabilities-request-msg)]
+    (state/upsert-chan host-hash  {:created-at  (Date.)
+                                   :host-map    host-map
+                                   :fsm         (state/bind-client-fsm)
+                                   :login-state {:auth  0
+                                                 :integ 0
+                                                 :conf  0}
+                                   :state       {}})
+                (when-not (state/channel-exists? host-hash)
+                  (do
+                    (log/debug "Creating subscriber for topic " host-hash)
+                    (state/upsert-chan host-hash  {:created-at  (Date.)
+                                                   :host-map    host-map
+                                                   :fsm         (state/bind-client-fsm)
+                                                   :login-state {:auth  0
+                                                                 :integ 0
+                                                                 :conf  0}
+                                                   :state       {}})
+                    (thread
+                      (server/read-processor host-map))
+                    (server/publish {:router  host-hash
+                                     :role    :client
+                                     :message init-message })))))
 
-        (state/upsert-chan h  {:created-at  (Date.)
-                         :host-map    host-map
-                         :fsm         (state/bind-client-fsm)
-                         :login-state {:auth  0
-                                       :integ 0
-                                       :conf  0}
-                         :state       {}})))
-    (log/debug "Publish message on topic " h)
-    #_(let [message (h/auth-capabilities-request-msg m)])))
+#_(comp
+ (get-message)
+ (decode-message)
+ (apply-state)
+ (send-reply)
+ )
 
-
+;; Steps
+;; Issue get-authentication-capabilities-request
+;; Issue open-session-request
+;; Issue rakp-1-request
+;; Issue ralp-3-request
+;; issue requests.
+;; Issue close-session-request when complete

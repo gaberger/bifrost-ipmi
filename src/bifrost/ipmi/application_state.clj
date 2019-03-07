@@ -1,7 +1,8 @@
 (ns bifrost.ipmi.application-state)
 
-(defonce app-state (ref  {:peer-set #{}
-                          :chan-map {}}))
+(def app-state (ref  {:server-port nil
+                      :peer-set #{}
+                      :chan-map {}}))
 
 (defn update-login-state [m h]
   (dosync

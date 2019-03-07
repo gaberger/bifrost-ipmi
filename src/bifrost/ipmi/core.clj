@@ -11,10 +11,12 @@
             [bifrost.ipmi.state-machine :as state]
             [clojure.string :as str]
             [clojure.core.async :as async :refer :all]
+            [integrant.core :as ig]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
             [jvm-alloc-rate-meter.core :as ameter]
-            [bifrost.ipmi.server :as server])
+            [bifrost.ipmi.server :as server]
+            [automat.core :as a])
   (:import [java.net InetSocketAddress]
            [java.util Date TimerTask Timer]
            [java.time Duration Instant]))
@@ -22,7 +24,8 @@
 (log/refer-timbre)
 (log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
-                                          :min-level :info}}}) 
+                                          :min-level :debug}}})
+
 
 ;(log/merge-config!
 ;   {:appenders
@@ -31,6 +34,7 @@
 ;; Design issues
 ;; Each IPMI "session" should run till completion given we are not supporting any interactive capability
 ;; Only rmcpping doesn't follow state-machine.. Lets carve it out seperately.
+
 
 (defn start-stop-meter []
   (ameter/start-alloc-rate-meter #(println "Rate is:" (/ % 1e6) "MB/sec")))
@@ -51,8 +55,6 @@
                                   :async? true
                                   :min-level :debug}}))
 
-
-
 (defn run-reaper []
   (log/info "Running Reaper on collection count " (state/count-peer))
   (doall
@@ -64,40 +66,13 @@
          :when (> duration 30000)]
      (server/reset-peer k))))
 
-
-;; (defn asf-ping-handler [hash]
-;;   (let [output-chan (chan)]
-;;     (sub publisher :ping output-chan)
-;;     (go-loop []
-;;       (let [{:keys [message]} (<! output-chan)
-;;             compiled-codec (compile-codec)
-;;             decoder (partial decode compiled-codec)
-;;             host-map (get-chan-map-host-map hash)
-;;             decoded (safe (decoder (:message message)))
-;;             message-tag  (get-in decoded [:rmcp-class
-;;                                           :asf-payload
-;;                                           :asf-message-header
-;;                                           :message-tag])]
-
-;;         (send-message {:type :asf-ping :input message :message-tag message-tag})))))
-
-
-
-
-
-(defn publish [data]
-  (try (go (>! server/input-chan data))
-       (catch Exception e
-         (throw (ex-info "Exception during publish" {:error (.getMessage e)})))
-       (finally data)))
-
-(defn message-handler  [message]
+(defn server-handler  [message]
   (let [host-map (state/get-session-state message)
         h        (hash host-map)]
     (log/debug  "Packet In" (-> message
                                 :message
                                 bs/to-byte-array
-                                codecs/bytes->hex))
+                                codecs/bytes->hex) "Port" (:port host-map))
     (when-not (state/channel-exists? h)
       (do
         (log/debug "Creating subscriber for topic " h)
@@ -111,56 +86,74 @@
         (thread
           (server/read-processor h))))
     (log/debug "Publish message on topic " h)
-    (publish  {:router  h
-               :role    :server
-               :message message})))
+    (server/publish  {:router h
+                      :message       message})))
 
-(defn start-consumer [server-socket]
+;(defn proxy-handler [message]
+;  (let [host-map (state/get-session-state message)
+;        h (hash host-map)
+;        fsm (state/bind-client-fsm)
+;        codec (c/compile-codec h)];
+
+;    (->> (decode-message codec message)
+;         (a/advance nil fsm fsm-state)
+;         (update-fsm-state)
+;         (send-message))
+
+;    ))
+;(send-message {:type :get-channel-auth-cap-req :input input :seq seq})
+
+(defn start-server-consumer [server-socket]
   (->> server-socket
-       (s/consume #(message-handler %))))
+       (s/consume #(server-handler %))))
+
+#_(defn start-proxy-consumer [server-socket]
+  (->> server-socket
+       (s/consume #(proxy-handler %))))
 
 (defn start-udp-server
   [port]
   (if-not (some-> (deref state/server-socket)  s/closed? not)
     (do
-      (reset! state/server-socket @(udp/socket {:port port :epoll? true})))
+      (reset! state/server-socket @(udp/socket {:port port :epoll? true}))
+      (dosync (alter app-state assoc :server-port port)))
     (do
       (log/error "Port in use")
       false)))
 
 (defn start-reaper [time-to-recur]
-  (go-loop []
-    (run-reaper)
-    (Thread/sleep time-to-recur)
-    (recur)))
+  (thread
+    (go-loop []
+      (run-reaper)
+      (Thread/sleep time-to-recur)
+      (recur))))
 
 (defn stop-server []
   (safe (s/close! @state/server-socket)))
 
 (defn start-server
-  ([port]
-   (log/info "Starting Server on Port " 623)
-   (if-not (empty? @r/registration-db)
-     (when (start-udp-server port)
-       (do
-         (reset-app-state)
-         (start-consumer  @state/server-socket)
-         #_(start-reaper 60000)
-         #_(future
-             (Thread/sleep 120000)
-             (stop-server)
-             (println "closed socket"))))
-     (log/error "Please register users first")))
-  ([]
-   (start-server 623)))
+  [& args]
+  (if-let [{:keys [mode port]} (first args)]
+    (condp = mode
+      :server (let []
+                (log/info "Starting Server on Port " (or port 623))
+                (if-not (empty? @r/registration-db)
+                  (when (start-udp-server (or port 623))
+                    (do
+                      (start-server-consumer  @state/server-socket)))
+                  (log/error "Please register users first")))
+      :proxy (do
+               (log/info "Starting proxy on Port" (or port 1623))))
+    (println "Must provide a port and a mode")))
 
-;;TODO Make sure to check fore registrations
+;;TODO Make sure to check for registrations
+
 
 (defn -main [port]
-  (log/info "Starting Server on Port " port)
-  (when (start-udp-server  (Integer. port))
+  (log/info "Starting Server on Port " (or port 623))
+  (when (start-udp-server  (Integer. (or port 623)))
     (let []
-      (start-consumer  @state/server-socket)
+      (start-server-consumer  @state/server-socket)
       (start-reaper 60000)
       (future
         (while true

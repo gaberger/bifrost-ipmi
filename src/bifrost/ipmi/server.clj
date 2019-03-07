@@ -28,10 +28,18 @@
   (log/info "Closing session for " hash)
   (state/delete-chan hash))
 
+(defn publish [data]
+  (try (go
+         (async/>! input-chan data))
+       (catch Exception e
+         (throw (ex-info "Exception during publish" {:error (.getMessage e)})))
+       (finally data)))
+
 (defn read-processor
   "The read processor is an async subscriber listening on topic [t]. Each message is tagged with a hash of the host
   port tuple a message payload and an execution role of either :client or :server"
   [t]
+  (log/debug "read processor input" t)
   (let [reader (chan)]
     (sub publisher t reader)
     (try
@@ -39,14 +47,10 @@
         (let [{:keys [router role message]} (async/<! reader)
               fsm                           (c/get-fsm router)
               fsm-state                     (state/get-chan-map-state router)
-              login-state                   (c/get-login-state router)
-              auth                          (c/get-authentication-codec router)
 
               compiled-codec (c/compile-codec router)
               host-map       (state/get-session-state message)]
-
-          (condp = role
-            :server (if-let [decoded (c/decode-message compiled-codec message)]
+          (if-let [decoded (c/decode-message compiled-codec message)]
                       (let [m             (merge {:hash router} host-map decoded)
                             new-fsm-state (process-message fsm fsm-state m)
                             complete?     (-> new-fsm-state :accepted? true?)]
@@ -54,20 +58,7 @@
                           (state/delete-chan hash)
                           (state/update-chan-map-state router new-fsm-state))
                         (log/info "Completion State:" complete?  "Queued Requests " (state/count-peer))))
-            :client (let [m             (merge {:hash router} host-map message)
-                          new-fsm-state (try
-                                          (process-message fsm fsm-state m)
-                                          (catch Exception e
-                                            (throw (ex-info {:error (.getMessage e)}))))
-                          complete?     (-> new-fsm-state :accepted? true?)]
-                      (log/debug  "Packet In client Channel" (-> message
-                                                                 :message
-                                                                 bs/to-byte-array
-                                                                 codecs/bytes->hex))
-                      (if complete?
-                        (state/delete-chan hash)
-                        (state/update-chan-map-state router new-fsm-state))
-                      (log/info "Completion State:" complete?  "Queued Requests " (state/count-peer)))))
+            )
         (recur))
       (catch Exception e
         (throw (ex-info (ex-data e)))))))

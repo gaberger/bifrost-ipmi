@@ -876,7 +876,7 @@
                                  iv             (-> (nonce/random-nonce 16) vec)
                                  sik            (get-sik router-key)
                                  encrypted      (-> (encrypt sik iv payload') vec)
-                                 iv+data        (-> (conj iv encrypted) flatten vec)
+                                 iv+data        (-> (concat iv encrypted) vec)
                                  _              (log/debug "iv+data"
                                                            (-> iv+data byte-array codecs/bytes->hex)
                                                            "count" (count iv+data))
