@@ -1,4 +1,4 @@
-(ns bifrost.ipmi.new-test
+(ns bifrost.ipmi.go-loop-test
   (:require  [clojure.test :refer :all]
              [gloss.io :refer [encode contiguous] :as i]
              [byte-streams :as bs]
