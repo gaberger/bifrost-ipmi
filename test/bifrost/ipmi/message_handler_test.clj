@@ -5,12 +5,9 @@
             [bifrost.ipmi.application-state :refer :all]
             [bifrost.ipmi.test-payloads :refer :all]
             [bifrost.ipmi.registrar :refer [lookup-userid]]
-            [bifrost.ipmi.state-machine :refer [bind-server-fsm get-session-state mock-handler
-                                                ipmi-server-handler ipmi-server-fsm]]
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :refer :all :as c]
-            [bifrost.ipmi.core :refer [server-handler ]]
             [taoensso.timbre :as log]
             [automat.core :as a]))
 
@@ -30,9 +27,8 @@
   :once
   mock-send mock-get)
 
-(def test-app-state (atom {}))
 
-(defn message-handler-mock  [message]
+#_(defn message-handler-mock  [message]
   (let [host-map       (get-session-state message)
         fsm            (partial a/advance (a/compile ipmi-server-fsm ipmi-server-handler))
         fsm-state      (if (empty? @test-app-state) nil @test-app-state)
@@ -53,7 +49,7 @@
       (reset! test-app-state new-fsm-state)))
     )
 
-(deftest test-message-handler-noauth
+#_(deftest test-message-handler-noauth
   (testing "message-handler-accepted"
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
@@ -68,7 +64,7 @@
             result    (mapv #(message-handler-mock %) payload)]
       (is (true? (:accepted? (last result))))))))
 
-(deftest test-message-handler-sha1-hmac
+#_(deftest test-message-handler-sha1-hmac
   (testing "message-handler-accepted"
     (with-mocks
       [a {:target :bifrost.ipmi.codec/get-authentication-codec

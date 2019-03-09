@@ -271,16 +271,14 @@
 ;;         ipmi-encode     (partial encode codec)
 ;;         encoded-message (safe (ipmi-encode message))]
 ;;     (send-message session encoded-message)))
-
 (def ipmi-server-fsm
-  [(a/* (a/$ :init)
-        [(a/or
-          [:asf-ping (a/$ :asf-ping)]
-          (a/*
-           [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-            :open-session-request (a/$ :open-session-request)
-            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+  [(a/$ :init)
+   (a/or
+    [(a/* :asf-ping (a/$ :asf-ping))
+          [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+          :open-session-request (a/$ :open-session-request)
+          :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+          :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]])
            (a/*
             (a/or
              [:chassis-status-req (a/$ :chassis-status-req)]
@@ -289,10 +287,19 @@
              [:hpm-capabilities-req (a/$ :hpm-capabilities-req)]
              [:picmg-properties-req (a/$ :picmg-properties-req)]
              [:vso-capabilities-req (a/$ :vso-capabilities-req)]
-             [:set-session-prv-level-req (a/$ :session-priv-level-req)]))))])
+             [:set-session-prv-level-req (a/$ :session-priv-level-req)]))
    [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]])
 
-#_(def ipmi-client-fsm
+#_(def ipmi-server-fsm
+  [(a/$ :init)
+        [(a/or
+          (a/* :asf-ping (a/$ :asf-ping))
+          [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+            :open-session-request (a/$ :open-session-request)
+            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]])]])
+
+(def ipmi-client-fsm
   [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
     ;:get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
     :open-session-response (a/$ :open-session-response)
@@ -309,10 +316,6 @@
           [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))
    [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
-(def ipmi-client-fsm
- [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-   :open-session-response (a/$ :open-session-response)
-  ]])
 
 ;;TODO create schemas for send-message input to test handlers
 

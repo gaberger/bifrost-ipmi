@@ -9,8 +9,10 @@
             [bifrost.ipmi.codec :as c]
             [bifrost.ipmi.registrar :as r]
             [bifrost.ipmi.state-machine :as state]
+            [bifrost.ipmi.decode :as decode]
+            [bifrost.ipmi.config :as config]
             [clojure.string :as str]
-            [clojure.core.async :as async :refer :all]
+            [clojure.core.async :as async]
             [integrant.core :as ig]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
@@ -25,6 +27,7 @@
 (log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
                                           :min-level :debug}}})
+(def config (config/server-config (state/bind-server-fsm)))
 
 
 ;(log/merge-config!
@@ -66,7 +69,7 @@
          :when (> duration 30000)]
      (server/reset-peer k))))
 
-(defn server-handler  [message]
+#_(defn server-handler  [message]
   (let [host-map (state/get-session-state message)
         h        (hash host-map)]
     (log/debug  "Packet In" (-> message
@@ -103,9 +106,23 @@
 ;    ))
 ;(send-message {:type :get-channel-auth-cap-req :input input :seq seq})
 
+
+(defn close-channels []
+  (async/close! (:command-channel config))
+  (async/close! (:decode-channel config)))
+
+(defn start-command-processor []
+  (async/pipe (:decode-channel @config) (:command-channel @config))
+  (async/thread
+    (loop []
+      (when-some [command (async/<!! (:command-channel @config))]
+        (log/debug "got command" command)))
+    (recur)))
+
+
 (defn start-server-consumer [server-socket]
   (->> server-socket
-       (s/consume #(server-handler %))))
+       (s/consume #(async/put! (:decode-channel @config) %))))
 
 #_(defn start-proxy-consumer [server-socket]
   (->> server-socket
@@ -122,8 +139,8 @@
       false)))
 
 (defn start-reaper [time-to-recur]
-  (thread
-    (go-loop []
+  (async/thread
+    (loop []
       (run-reaper)
       (Thread/sleep time-to-recur)
       (recur))))
@@ -135,13 +152,12 @@
   [& args]
   (if-let [{:keys [mode port]} (first args)]
     (condp = mode
-      :server (let []
-                (log/info "Starting Server on Port " (or port 623))
-                (if-not (empty? @r/registration-db)
+      :server (if-not (empty? @r/registration-db)
                   (when (start-udp-server (or port 623))
                     (do
+                      (log/info "Starting Server on Port " (or port 623))
                       (start-server-consumer  @state/server-socket)))
-                  (log/error "Please register users first")))
+                  (log/error "Please register users first"))
       :proxy (do
                (log/info "Starting proxy on Port" (or port 1623))))
     (println "Must provide a port and a mode")))

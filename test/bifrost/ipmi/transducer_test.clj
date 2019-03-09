@@ -11,14 +11,28 @@
              [manifold.stream :as s]
              [bifrost.ipmi.handlers :as h]
              [clojure.core.async :as async]
+             [mockery.core :refer [with-mock]]
              [taoensso.timbre :as log]))
+
+
+(defn mock-get [f]
+  (with-mock _
+    {:target  :bifrost.ipmi.state-machine/get-session-state
+     :return  {:host "127.0.0.1" :port 54123}
+     :side-effect #(println "Mock: get-session-state")}
+    (f)))
+
+(use-fixtures
+  :each
+  mock-get
 
 (defn create-message-stream []
   [(contiguous (encode (c/compile-codec 0) (h/auth-capabilities-request-msg)))
    (contiguous (encode (c/compile-codec 0) (h/rmcp-open-session-response-msg {:sidc 0 :sidm 0 :a 0 :i 0 :c 0})))])
 
 (defn decode-message [state message]
-  (let [codec (c/compile-codec state)
+  (let [host-map (state/get-session-state message)
+        codec (c/compile-codec state)
         decoded (try
                   (i/decode codec message)
                   (catch Exception e
@@ -38,10 +52,11 @@
                                      :ipmi-session-payload
                                      :ipmi-2-0-payload]
                                     dissoc :aes-decoded-payload)))
-                  decoded)]
+                  decoded)
+        decoded-message (merge message host-map)]
                    ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " message)
-    message))
+    (log/debug "Decoded Message " decoded-message)
+    decoded-message)))
 
 
 (defn state-transducer []

@@ -17,7 +17,7 @@
                                           :min-level :debug}}}) 
 
 
-(deftest test-client-open-connect
+#_(deftest test-client-open-connect
   (testing "client state machine"
     (log/debug "In test code")
     (letfn [(open-connection [host port]
@@ -52,7 +52,7 @@
 
 
 
-(deftest test-fsm-handlers
+#_(deftest test-fsm-handlers
   (testing "test client fsm"
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
