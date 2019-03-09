@@ -271,16 +271,14 @@
 ;;         ipmi-encode     (partial encode codec)
 ;;         encoded-message (safe (ipmi-encode message))]
 ;;     (send-message session encoded-message)))
-
 (def ipmi-server-fsm
-  [(a/* (a/$ :init)
-        [(a/or
-          [:asf-ping (a/$ :asf-ping)]
-          (a/*
-           [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-            :open-session-request (a/$ :open-session-request)
-            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+  [(a/$ :init)
+   (a/or
+    [(a/* :asf-ping (a/$ :asf-ping))
+          [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+          :open-session-request (a/$ :open-session-request)
+          :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+          :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]])
            (a/*
             (a/or
              [:chassis-status-req (a/$ :chassis-status-req)]
@@ -289,12 +287,21 @@
              [:hpm-capabilities-req (a/$ :hpm-capabilities-req)]
              [:picmg-properties-req (a/$ :picmg-properties-req)]
              [:vso-capabilities-req (a/$ :vso-capabilities-req)]
-             [:set-session-prv-level-req (a/$ :session-priv-level-req)]))))])
+             [:set-session-prv-level-req (a/$ :session-priv-level-req)]))
    [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]])
 
-#_(def ipmi-client-fsm
-  [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-    ;:get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
+#_(def ipmi-server-fsm
+  [(a/$ :init)
+        [(a/or
+          (a/* :asf-ping (a/$ :asf-ping))
+          [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+            :open-session-request (a/$ :open-session-request)
+            :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+            :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]])]])
+
+(def ipmi-client-fsm
+  [[(a/$ :init)
+    :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
     :open-session-response (a/$ :open-session-response)
     :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
     :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
@@ -309,46 +316,47 @@
           [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))
    [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
-(def ipmi-client-fsm
- [[:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-   :open-session-response (a/$ :open-session-response)
-  ]])
 
 ;;TODO create schemas for send-message input to test handlers
 
 (def ipmi-client-handler
   {:signal   #(:type  (c/get-message-type %))
    :reducers {:init                     (fn [state _]
-                                          state)
+                                          (assoc state :message []))
               :get-channel-auth-cap-req (fn [state input]
                                           (log/debug "Channel Auth Request")
-                                          (assoc state :message :get-channel-auth-cap-req
-                                                       :foobar :baz)
-                                          )
+                                          (let [state (update-in state [:message] conj :get-channel-auth-cap-req)]
+                                            (log/debug "channel-state" state)
+                                            state
+                                          ))
               :get-channel-auth-cap-rsp (fn [state input]
-                                         (log/info "Auth Capabilities Response")
-                                            (let [h       (:hash input)
-                                                  seq     (get-seq-no input)
-                                                  state   (update-in state [:last-message] conj :get-channel-auth-cap-rsp)]
-
-                                              (send-message {:type :get-channel-auth-cap-req :input input :seq seq})
-                                              state))
-              :open-session-response    (fn [state input]
-                                          (log/debug "Open Session Response")
-                                          state)
-              :device-id-rsp            (fn [state input]
-                                          (log/debug "Device ID Response")
-                                          state)
-              :hpm-capabilities-rsp     (fn [state input]
-                                          state)
-              :picmg-properties-rsp     (fn [state input]
-                                          state)
-              :vso-capabilities-rsp     (fn [state input]
-                                          state)
-              :session-priv-level-rsp   (fn [state input]
-                                          state)
-              :rmcp-close-session-rsp   (fn [state input]
-                                          state)}})
+                                          (log/info "Auth Capabilities Response")
+                                          (let [h     (:hash input)
+                                                seq   (get-seq-no input)
+                                                state (update-in state [:message] conj :get-channel-auth-cap-rsp)]
+                                            (send-message {:type :get-channel-auth-cap-req :input input :seq seq})
+                                            state))
+              :open-session-response  (fn [state input]
+                                        (log/debug "Open Session Response")
+                                        (update-in state [:message] conj :open-session-response))
+              :rmcp-rakp-2            (fn [state input]
+                                        (update-in state [:message] conj :rmcp-rakp-2))
+              :rmcp-rakp-4            (fn [state input]
+                                        (update-in state [:message] conj :rmcp-rakp-4))
+              :device-id-rsp          (fn [state input]
+                                        (log/debug "Device ID Response")
+                                        state)
+              :hpm-capabilities-rsp   (fn [state input]
+                                        state)
+              :picmg-properties-rsp   (fn [state input]
+                                        state)
+              :vso-capabilities-rsp   (fn [state input]
+                                        state)
+              :session-priv-level-rsp (fn [state input]
+                                        (update-in state [:message] conj :session-priv-level-rsp))
+              :rmcp-close-session-rsp (fn [state input]
+                                        (update-in state [:message] conj :rmcp-close-session-rsp))
+                                        }})
 
 
 

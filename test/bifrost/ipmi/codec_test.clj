@@ -1018,8 +1018,7 @@
               message (h/set-session-priv-level-rsp-msg {:sid 0x0a0a0a0a :session-seq-no 2 :seq-no 1 :e true :a true})
               encoded (encode message)]
           (is (= (-> encoded bs/to-byte-array codecs/bytes->hex)
-                 []
-                 #_(-> (decode-message codec encoded) codecs/bytes->hex)))))))
+                 (-> (decode-message codec encoded) codecs/bytes->hex)))))))
 
 
 (deftest test-message-select

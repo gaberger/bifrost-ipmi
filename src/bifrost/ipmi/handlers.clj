@@ -142,8 +142,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}}))
 
-(defn set-session-priv-level-rsp-msg [m]
-  (let [{:keys [sid session-seq-no seq-no e a]} m]
+(defn set-session-priv-level-rsp-msg [{:keys [sid session-seq-no seq-no e a]}]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -164,7 +163,7 @@
         :message-length 9,
         :privilege-level {:reserved 0, :priv-level 4}},
        :type :ipmi-2-0-session},
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
 ; Page 128
 (defn presence-ping-msg [tag]
@@ -264,8 +263,7 @@
      :type :ipmi-1-5-session},
     :type :ipmi-session}})
 
-(defn rmcp-close-response-msg [m]
-  (let [{:keys [sid seq seq-no a e]} m]
+(defn rmcp-close-response-msg [{:keys [sid seq seq-no a e]}]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -285,7 +283,7 @@
         :completion-code  0,
         :message-length   8},
        :type :ipmi-2-0-session},
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
 
 (defn rmcp-open-session-request-msg [m]
@@ -425,9 +423,8 @@
       :type :ipmi-session}}))
 
 (defmulti rmcp-rakp-2-response-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-2-response-msg :rmcp-rakp [m]
+(defmethod rmcp-rakp-2-response-msg :rmcp-rakp [{:keys [sidm rc guidc status]}]
   (log/debug "RMCP-RAKP Response")
-  (let [{:keys [sidm rc guidc status]} m]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -448,11 +445,10 @@
         :managed-system-guid          guidc,
         :remote-session-console-id    sidm},
        :type :ipmi-2-0-session}
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
-(defmethod rmcp-rakp-2-response-msg :rmcp-rakp-hmac-sha1 [m]
+(defmethod rmcp-rakp-2-response-msg :rmcp-rakp-hmac-sha1 [{:keys [sidm rc guidc rakp2-hmac status]}]
   (log/debug "Create RMCP-RAKP-HMAC-SHA1 Response")
-  (let [{:keys [sidm rc guidc rakp2-hmac status]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -474,12 +470,11 @@
         :managed-system-guid guidc,
         :remote-session-console-id sidm},
        :type :ipmi-2-0-session}
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
 (defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-4-response-msg :rmcp-rakp [m]
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp [{:keys [sidm]}]
   (log/debug "RMCP-RAKP-4 Response")
-  (let [{:keys [sidm]} m]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -495,7 +490,7 @@
         :reserved [0 0],
         :managed-console-session-id sidm},
        :type :ipmi-2-0-session},
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
 (defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [m]
   (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")

@@ -253,7 +253,7 @@
                                                                  :function 7
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}
-                                                             60 {:type     :rmcp-close-session
+                                                             60 {:type     :rmcp-close-session-rsp
                                                                  :command  60
                                                                  :function 7
                                                                  :a?       authenticated?
