@@ -1011,12 +1011,13 @@
      rmcp-header)))
 
 (defn decode-message [codec message]
-  (log/debug "Decode Message ")
+  (log/debug "Decode Message" (into [] message))
   (let [decoded (try
                   (i/decode codec (:message message) false)
                   (catch Exception e
                     (throw (ex-info "Decoder exception"
-                                        {:error (.getMessage e)}))
+                                    {:error (.getMessage e)
+                                     :message (:message message)}))
                     nil))
         _ (log/debug "Intermediate Decode Payload" decoded)
         aes-payload? (contains?
