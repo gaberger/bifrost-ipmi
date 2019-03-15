@@ -21,7 +21,7 @@
 
 (declare ipmi-server-fsm)
 (declare ipmi-server-handler)
-(declare ipmi-client-fsm)
+(declare ipmi-client-fsm-new)
 (declare ipmi-client-handler)
 (declare mock-handler)
 (defonce server-socket (atom nil))
@@ -30,7 +30,7 @@
   (partial a/advance (a/compile ipmi-server-fsm ipmi-server-handler)))
 
 (defn bind-client-fsm []
-  (partial a/advance (a/compile ipmi-client-fsm ipmi-client-handler)))
+  (partial a/advance (a/compile ipmi-client-fsm-new ipmi-client-handler)))
 
 (defn upsert-chan [host-hash chan-map]
   (dosync
@@ -314,6 +314,25 @@
           [:picmg-properties-rsp (a/$ :picmg-properties-rsp)]
           [:vso-capabilities-rsp (a/$ :vso-capabilities-rsp)]
           [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))
+   [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
+
+(def ipmi-client-fsm-new
+  [[(a/$ :init)
+    :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+    :open-session-response (a/$ :open-session-response)
+    :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
+    :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
+   [(a/*
+    (a/or
+     [:device-id-rsp (a/$ :device-id-rsp)]
+     [:hpm-capabilities-rsp (a/$ :hpm-capabilities-rsp)]
+     [:picmg-properties-rsp (a/$ :picmg-properties-rsp)]
+     [:vso-capabilities-rsp (a/$ :vso-capabilities-rsp)]
+     [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))]
+   [(a/*
+     (a/or
+      [:chassis-status-rsp (a/$ :chassis-status-rsp)]
+      [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]))]
    [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
 
@@ -802,4 +821,4 @@
   (automat.viz/view (a/compile ipmi-server-fsm ipmi-server-handler)))
 
 (defn view-client-fsm []
-  (automat.viz/view (a/compile ipmi-client-fsm ipmi-client-handler)))
+  (automat.viz/view (a/compile ipmi-client-fsm-new ipmi-client-handler)))

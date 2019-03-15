@@ -77,8 +77,7 @@
        :type :ipmi-2-0-session}
       :type :ipmi-session}}))
 
-(defn chassis-reset-response-msg [m]
-  (let [{:keys [sid seq seq-no status a e]} m]
+(defn chassis-reset-response-msg [{:keys [sid seq seq-no status a e]}]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -98,7 +97,7 @@
         :message-length 8,
         :command-completion-code status},
        :type :ipmi-2-0-session},
-      :type :ipmi-session}}))
+      :type :ipmi-session}})
 
 (defn device-id-response-msg [m]
   (let [{:keys [sid seq-no a e]} m]

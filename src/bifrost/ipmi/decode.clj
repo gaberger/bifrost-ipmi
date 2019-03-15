@@ -1,6 +1,7 @@
 (ns bifrost.ipmi.decode
   (:require [bifrost.ipmi.state-machine :as state]
             [bifrost.ipmi.codec :as c]
+            [clojure.core.async :as async]
             [gloss.io :as i]
             [taoensso.timbre :as log]
             [byte-streams :as bs]
@@ -34,60 +35,24 @@
     (log/debug "Decoded Message " message)
     message))
 
-#_(defn decode-message [state message host-map]
-  (let [codec           (c/compile-codec state)
-        decoded         (try
-                          (i/decode codec message)
-                          (catch Exception e
-                            (throw (ex-info "Decoder exception"
-                                            {:error (.getMessage e)}))
-                            nil))
-        aes-payload?    (contains?
-                         (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-                         :aes-decoded-payload)
-        decoded-message (if aes-payload?
-                          (let [aes-payload (get-in decoded [:rmcp-class
-                                                             :ipmi-session-payload
-                                                             :ipmi-2-0-payload
-                                                             :aes-decoded-payload])]
-                            (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
-                                (update-in  [:rmcp-class
-                                             :ipmi-session-payload
-                                             :ipmi-2-0-payload]
-                                            dissoc :aes-decoded-payload)))
-                          decoded)
-        message         (merge decoded-message host-map)]
-                   ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " message)
-    message))
 
-;; (defn decode-xf [fsm]
-;;   (fn [xf]
-;;     (let [state (volatile! {})]
-;;       (fn
-;;         ([result] result)
-;;         ([result input]
-;;          (let [decoded-message (decode-message (:value @state) input)]
-;;            (condp (log/spy (:state-index @state))
-;;                5 (xf result decoded-message)
-;;                1 (vreset! state {})
-;;                (do
-;;                  (vreset! state (log/spy (fsm @state decoded-message)))
-;;                  (xf result)))))))))
-
-
-(defn decode-xf [fsm]
+(defn decoder-xf [fsm]
   (fn [xf]
     (let [state (atom {})]
-      (completing
-       (fn
-         ([result input]
-          (let [message (:message input)
-                decoded-message (decode-message (:value @state) message)
-                new-state       (log/spy (fsm @state decoded-message))
-                _               (log/debug "new-state" new-state)]
-            (reset! state new-state)
-            (condp = (get @state :state-index 0)
-              4 (merge @state decoded-message)
-              5 (merge @state decoded-message)
-              nil))))))))
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result item]
+         (let [decoded-message (decode-message (:value @state) item)
+               new-state       (fsm @state decoded-message)]
+           (reset! state new-state)
+           (log/debug (:state-index new-state))
+           (condp = (:state-index @state)
+             5 (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
+             6 (reduced result)
+             (xf result {}) )))))))
+
+
+(defn make-decoder [fsm]
+  (let [decoder-chan (async/chan 1 (decoder-xf fsm))]
+    decoder-chan))

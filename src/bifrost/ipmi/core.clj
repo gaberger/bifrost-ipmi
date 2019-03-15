@@ -159,8 +159,8 @@
                       (start-server-consumer  @state/server-socket)))
                   (log/error "Please register users first"))
       :proxy (do
-               (log/info "Starting proxy on Port" (or port 1623))))
-    (println "Must provide a port and a mode")))
+               (log/info "Starting proxy on Port" (or port 1623)))
+    (println "Must provide a port and a mode"))))
 
 ;;TODO Make sure to check for registrations
 

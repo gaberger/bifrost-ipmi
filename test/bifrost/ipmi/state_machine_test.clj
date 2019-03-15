@@ -1,7 +1,6 @@
 (ns bifrost.ipmi.state-machine-test
   (:require [clojure.test :refer :all]
             [bifrost.ipmi.codec :refer [compile-codec] :as c]
-            [bifrost.ipmi.decode :refer [decode-xf]]
             [bifrost.ipmi.state-machine :refer [bind-server-fsm]]
             [gloss.io :refer [encode contiguous] :as i]
             [bifrost.ipmi.utils :refer [safe]]
@@ -101,7 +100,7 @@
     (let [result  (transduce (decode/decode-xf (state/bind-client-fsm)) conj (create-client-stream))]
       (is (true?
            (:accepted? result)))))
-  (testing "Test Server Stream"
+  #_(testing "Test Server Stream"
     (let [result  (transduce (decode/decode-xf (state/bind-server-fsm)) conj (create-server-stream))]
       (is (true?
            (:accepted? result))))))

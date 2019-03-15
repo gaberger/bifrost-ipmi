@@ -10,6 +10,7 @@
              [bifrost.ipmi.codec :as c]
              [manifold.stream :as s]
              [bifrost.ipmi.handlers :as h]
+             [bifrost.ipmi.decode :as decode]
              [clojure.core.async :as async]
              [mockery.core :refer [with-mock]]
              [taoensso.timbre :as log]))
@@ -43,42 +44,27 @@
    (contiguous (encode (c/compile-codec 0)
                        (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
    (contiguous (encode (c/compile-codec 0)
+                       (h/chassis-reset-response-msg {:sid 0 :seq 0 :seq-no 0 :status 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec 0)
                        (h/rmcp-close-response-msg {:sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))])
 
-#_(defn state-transducer []
-  (fn [xf]
-    (let [state (volatile! nil)]
-      (fn
-        ([result] result)
-        ([result input]
-         (let [decoded-message (decode-message (:value @state) input {})
-               new-state       ((state/bind-client-fsm) @state decoded-message)]
-           (vreset! state new-state)
-           (when (true? (:accepted? new-state))
-             (xf result new-state))))))))
 
-#_(deftest test-pipeline-transducer
-    (testing "pipeline transducer"
-      (let [state-channel (async/chan 10 (decode-xf (state/bind-client-fsm)))
-            command-channel (async/chan 10)]
-        (async/pipe state-channel command-channel)
-        (s/consume #(async/put! state-channel %) (s/->source (create-message-stream)))
-        (when-some [msg (async/<!! command-channel)]
-          (is (= true
-                 (:accepted? msg)))))))
-
-#_(deftest test-transducer
-  (is (=  5
-          (-> (transduce (decode-xf (state/bind-client-fsm))
-                         conj (create-message-stream)) :state-index))))
-
-#_(defn s []
-  (let [ch  (async/chan 10 (decode-xf (state/bind-client-fsm)))
-        out (async/chan 10)]
-    (async/pipe ch out)
-    (async/onto-chan ch  (create-message-stream))
-    (async/<!! (clojure.core.async/into {} ch))
-  out))
+(deftest test-transduce
+  (testing "Client State Machine"
+    (let [command-chan (async/chan)
+          decode-chan  (decode/make-decoder (state/bind-client-fsm))]
+      (async/pipe decode-chan command-chan)
+      (s/consume #(async/put! decode-chan %) (s/->source (create-message-stream)))
+      (async/go
+        (is (= []
+               (async/<! command-chan)))))))
 
 
+;;(def decoder-x-chan (make-test-loop))
+;;(def command-chan (make-command-loop))
+;;(async/pipe decoder-x-chan command-chan)
+
+;(s/consume #(async/put! decoder-x-chan %) (s/->source (create-message-stream)))
+;(async/close! decoder-x-chan)
+;(async/close! command-chan)
 
