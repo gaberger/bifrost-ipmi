@@ -268,8 +268,8 @@
 ;;         ipmi-encode     (partial encode codec)
 ;;         encoded-message (safe (ipmi-encode message))]
 ;;     (send-message session encoded-message)))
-
 (def ipmi-server-fsm
+<<<<<<< HEAD
   [[(a/$ :init)
     (a/* :asm-ping)
     :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)

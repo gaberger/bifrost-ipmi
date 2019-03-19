@@ -22,6 +22,7 @@
      :side-effect #(println "Mock: get-session-state")}
     (f)))
 
+
 (defn mock-send [f]
   (with-mock _
     {:target :bifrost.ipmi.state-machine/send-udp
@@ -68,11 +69,4 @@
 
 
 
-;;(def decoder-x-chan (make-test-loop))
-;;(def command-chan (make-command-loop))
-;;(async/pipe decoder-x-chan command-chan)
-
-;(s/consume #(async/put! decoder-x-chan %) (s/->source (create-message-stream)))
-;(async/close! decoder-x-chan)
-;(async/close! command-chan)
 
