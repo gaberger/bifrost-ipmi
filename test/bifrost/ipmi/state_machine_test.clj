@@ -10,6 +10,7 @@
             [bifrost.ipmi.handlers :as h]
             [bifrost.ipmi.state-machine :as state]
             [automat.core :as a]
+            [clojure.core.async :as async]
             [mockery.core :refer [with-mock]]
             [clj-uuid :as uuid]
             [bifrost.ipmi.decode :as decode]
@@ -72,85 +73,115 @@
   mock-get-driver-device-id)
 
 (defn create-client-stream []
-  [{:message (contiguous (encode (c/compile-codec 0) (h/auth-capabilities-request-msg)))}
-   {:message (contiguous (encode (c/compile-codec 0) (h/rmcp-open-session-response-msg {:sidc 0 :sidm 0 :a 0 :i 0 :c 0})))}
-   {:message (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-2-response-msg {:sidm 0 :rc [0] :guidc [0] :status 0})))}
-   {:message (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-4-response-msg {:sidm 0})))}
-   {:message (contiguous (encode (c/compile-codec 0)
-                                 (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))}
-   {:message (contiguous (encode (c/compile-codec 0)
-                                 (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))}
-   {:message (contiguous (encode (c/compile-codec 0)
-                                 (h/rmcp-close-response-msg {:sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))}])
+  [(contiguous (encode (c/compile-codec 0) (h/auth-capabilities-request-msg)))
+   (contiguous (encode (c/compile-codec 0) (h/rmcp-open-session-response-msg {:sidc 0 :sidm 0 :a 0 :i 0 :c 0})))
+   (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-2-response-msg {:sidm 0 :rc [0] :guidc [0] :status 0})))
+   (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-4-response-msg {:sidm 0})))
+   (contiguous (encode (c/compile-codec 0)
+                       (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec 0)
+                       (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec 0) (h/chassis-reset-response-msg {:sid 0 :seq 0 :seq-no 0 :status 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec 0)
+                       (h/rmcp-close-response-msg {:sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))])
 
 (defn create-server-stream []
-  [{:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}
-   {:message (byte-array (:open-session-request rmcp-payloads))}
-   {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}
-   {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}
-   {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}
-   {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}
-   {:message (byte-array (:chassis-status-req rmcp-payloads))}
-   {:message (byte-array (:chassis-reset-req rmcp-payloads))}
-   {:message (byte-array (:device-id-req rmcp-payloads))}
-   {:message (byte-array (:rmcp-close-session-req rmcp-payloads))}])
+  [(byte-array (:get-channel-auth-cap-req rmcp-payloads))
+   (byte-array (:open-session-request rmcp-payloads))
+   (byte-array (:rmcp-rakp-1 rmcp-payloads))
+   (byte-array (:rmcp-rakp-3 rmcp-payloads))
+   (byte-array (:hpm-capabilities-req rmcp-payloads))
+   (byte-array (:set-sess-prv-level-req rmcp-payloads))
+   (byte-array (:chassis-status-req rmcp-payloads))
+   (byte-array (:chassis-reset-req rmcp-payloads))
+   (byte-array (:device-id-req rmcp-payloads))
+   (byte-array (:rmcp-close-session-req rmcp-payloads))])
+
+(deftest test-server-state-machine
+  (testing "Test Server Stream"
+    (let [command-chan (async/chan)
+          decode-chan  (decode/make-decoder (state/bind-server-fsm))]
+      (async/pipe decode-chan command-chan)
+      (async/onto-chan decode-chan (create-server-stream))
+      (let [retval (async/<!! (async/into [] command-chan))
+            return  (mapv #(update-in % [:state :state] (fn [s] (apply dissoc s [:rc :server-sid]))) retval)]
+        (is (=
+             [{:type :command,
+               :state
+               {:state
+                {:guidc [0 0 0 0 0 0 0 0],
+                 :auth-codec :rmcp-rakp,
+                 :remote-sid 2695013284,
+                 :rolem 4,
+                 :conf-codec :rmcp-rakp-1-none-confidentiality,
+                 :unamem "admin",
+                 :rm [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76]}},
+               :message
+               {:type :chassis-status-req,
+                :command 1,
+                :function 0,
+                :seq-no 6,
+                :session-seq-no 21,
+                :a? false,
+                :e? false}}
+              {:type :command,
+               :state
+               {:state
+                {:guidc [0 0 0 0 0 0 0 0],
+                 :auth-codec :rmcp-rakp,
+                 :remote-sid 2695013284,
+                 :rolem 4,
+                 :conf-codec :rmcp-rakp-1-none-confidentiality,
+                 :unamem "admin",
+                 :rm [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76]}},
+               :message
+               {:type :chassis-reset-req,
+                :command 2,
+                :function 0,
+                :seq-no 6,
+                :session-seq-no 21,
+                :a? false,
+                :e? false}}]
+             return))))))
 
 (deftest test-client-state-machine
-  #_(testing "Test Client Stream"
-    (let [result  (transduce (decode/decode-xf (state/bind-client-fsm)) conj (create-client-stream))]
-      (is (true?
-           (:accepted? result)))))
-  #_(testing "Test Server Stream"
-    (let [result  (transduce (decode/decode-xf (state/bind-server-fsm)) conj (create-server-stream))]
-      (is (true?
-           (:accepted? result))))))
+  (testing "Test Client Stream"
+    (let [command-chan (async/chan)
+          decode-chan  (decode/make-decoder (state/bind-client-fsm))]
+      (async/pipe decode-chan command-chan)
+      (async/onto-chan decode-chan (create-client-stream))
+      (let [retval (async/<!! (async/into [] command-chan))]
+        (is (=   [{:type :command,
+                   :state {:state {}},
+                   :message
+                   {:type :rmcp-close-session-rsp,
+                    :command 60,
+                    :function 7,
+                    :seq-no 0,
+                    :a? false,
+                    :e? false}}]
+                 retval))))))
 
-
-#_(deftest test-fsm-handlers
-    (testing "test crypto 0"
-      (with-mock m
-        {:target :bifrost.ipmi.codec/get-authentication-codec
-         :return :rmcp-rakp}
-        (let [codec (compile-codec 0)
-              ipmi-decode (partial decode codec)
-              adv         (bind-server-fsm)
-              result      (-> nil
-                              (adv (decode-message codec {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:open-session-request rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-rakp-1 rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-rakp-3 rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:chassis-status-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:chassis-reset-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:device-id-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-close-session-req rmcp-payloads))})))]
-          (is (and
-               (true?
-                (:accepted? result))
-               (= 0)
-               (:state-index
-                result))))))
-    (testing "test crypto 1"
-      (with-mock m
-        {:target :bifrost.ipmi.codec/get-authentication-codec
-         :return :rmcp-rakp-hmac-sha1}
-        (let [codec (compile-codec 0)
-              adv         (bind-server-fsm)
-              result      (-> nil
-                              (adv (decode-message codec {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:open-session-request rmcp-payloads-cipher-1))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1))}))
-                              (adv (decode-message codec {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:chassis-status-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:chassis-reset-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:device-id-req rmcp-payloads))}))
-                              (adv (decode-message codec {:message (byte-array (:rmcp-close-session-req rmcp-payloads))})))]
-          (is (and
-               (true?
-                (:accepted? result))
-               (= 0)
-               (:state-index
-                result)))))))
+#_(testing "test crypto 1"
+    (with-mock m
+      {:target :bifrost.ipmi.codec/get-authentication-codec
+       :return :rmcp-rakp-hmac-sha1}
+      (let [codec (compile-codec 0)
+            adv         (bind-server-fsm)
+            result      (-> nil
+                            (adv (decode-message codec {:message (byte-array (:get-channel-auth-cap-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:open-session-request rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-1 rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-rakp-3 rmcp-payloads-cipher-1))}))
+                            (adv (decode-message codec {:message (byte-array (:hpm-capabilities-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:set-sess-prv-level-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-status-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:chassis-reset-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:device-id-req rmcp-payloads))}))
+                            (adv (decode-message codec {:message (byte-array (:rmcp-close-session-req rmcp-payloads))})))]
+        (is (and
+             (true?
+              (:accepted? result))
+             (= 0)
+             (:state-index
+              result))))))

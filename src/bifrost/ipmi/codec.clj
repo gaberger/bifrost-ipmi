@@ -150,9 +150,10 @@
           {:type :error}
           (if (-> (:rmcp-class m) (contains? :asf-payload))
             (let [message-type (get-in m [:rmcp-class :asf-payload :asf-message-header :asf-message-type])
+                  message-tag  (get-in m [:rmcp-class :asf-payload :asf-message-header :message-tag])
                   selector     (condp = message-type
-                                 128 {:type :asf-ping :message message-type}
-                                 64  {:type :asf-pong :message message-type}
+                                 128 {:type :asf-ping :message message-type :message-tag message-tag}
+                                 64  {:type :asf-pong :message message-type :message-tag message-tag}
                                  {:type :error :message message-type})]
               selector)
             (let [key      (-> (get-in m [:rmcp-class :ipmi-session-payload]) keys first)
@@ -173,103 +174,175 @@
                                                           6 {:type :get-channel-auth-cap-req :command 56 :function 6}
                                                           7 {:type :get-channel-auth-cap-req :command 56 :function 7}
                                                           {:type :error :command command :function function})))
-                             :ipmi-2-0-payload (let [session        (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-                                                     function       (get-in session [:network-function
-                                                                                     :function] nil)
-                                                     payload-type   (get-in session [:payload-type :type] nil)
-                                                     command        (get-in session [:command] nil)
-                                                     signature      (get-in session [:signature] nil)
-                                                     authenticated? (get-in session [:payload-type :authenticated?] false)
-                                                     encrypted?     (get-in session [:payload-type :encrypted?] false)]
-
+                             :ipmi-2-0-payload (let [session         (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
+                                                     session-seq     (get  session :session-seq 0)
+                                                     source-address  (get  session :source-address 0)
+                                                     target-address  (get  session :target-address 0)
+                                                     header-checksum (get session :header-checksum 0)
+                                                     source-lun      (get session :source-lun)
+                                                     function        (get-in session [:network-function
+                                                                                      :function] nil)
+                                                     payload-type    (get-in session [:payload-type :type] nil)
+                                                     seq-no          (get-in session [:source-lun :seq-no] 0)
+                                                     command         (get-in session [:command] nil)
+                                                     signature       (get-in session [:signature] nil)
+                                                     authenticated?  (get-in session [:payload-type :authenticated?] false)
+                                                     encrypted?      (get-in session [:payload-type :encrypted?] false)]
                                                  (condp = payload-type
-                                                   16 {:type         :open-session-request
-                                                       :payload-type 16
-                                                       :a?           authenticated?
-                                                       :e?           encrypted?}
-                                                   17 {:type         :open-session-response
-                                                       :payload-type 17
-                                                       :a?           authenticated?
-                                                       :e?           encrypted?}
-                                                   18 {:type :rmcp-rakp-1 :payload-type 18
-                                                       :a?   authenticated?
-                                                       :e?   encrypted?}
+                                                   16 ;; open-session-request
+                                                   (let [rolem       (get-in session [:privilege-level :max-priv-level])
+                                                         a           (get-in session [:authentication-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         i           (get-in session [:integrity-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         c           (get-in session [:confidentiality-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         auth-codec  (-> a
+                                                                         authentication-codec
+                                                                         :codec)
+                                                         integ-codec (-> i
+                                                                         integrity-codec
+                                                                         :codec)
+                                                         conf-codec  (-> c
+                                                                         confidentiality-codec
+                                                                         :codec)
+                                                         remote-sid  (get  session :remote-session-id 0)]
+                                                     {:type         :open-session-request
+                                                      :payload-type 16
+                                                      :a?           authenticated?
+                                                      :e?           encrypted?
+                                                      :a            a
+                                                      :i            i
+                                                      :c            c
+                                                      :auth-codec   auth-codec
+                                                      :integ-codec  integ-codec
+                                                      :conf-codec   conf-codec
+                                                      :rolem        rolem
+                                                      :remote-sid   remote-sid})
+                                                   17 ;; open-session-response
+                                                   (let [sidm (get session :managed-system-session-id )]
+                                                     {:type         :open-session-response
+                                                      :payload-type 17
+                                                      :a?           authenticated?
+                                                      :e?           encrypted?})
+                                                   18 ;;rmcp-rakp-1
+                                                   (let  [rm     (get-in session [:remote-console-random-number])
+                                                          unamem (get session :user-name)
+                                                          rolem  (get-in session [:requested-max-priv-level
+                                                                                  :requested-max-priv-level])]
+                                                     {:type   :rmcp-rakp-1 :payload-type 18
+                                                      :a?     authenticated?
+                                                      :e?     encrypted?
+                                                      :rm     rm
+                                                      :unamem unamem
+                                                      :rolem  rolem})
                                                    19 {:type :rmcp-rakp-2 :payload-type 19
                                                        :a?   authenticated?
                                                        :e?   encrypted?}
-                                                   20 {:type :rmcp-rakp-3 :payload-type 20
-                                                       :a?   authenticated?
-                                                       :e?   encrypted?}
+                                                   20 ;; rmcp-rakp-3
+                                                   (if (contains? session :key-exchange-code)
+                                                     {:type :rmcp-rakp-3 :payload-type 20
+                                                      :a?   authenticated?
+                                                      :e?   encrypted?
+                                                      :kec  (get session :key-exchange-code)}
+                                                     {:type :rmcp-rakp-3 :payload-type 20
+                                                      :a?   authenticated?
+                                                      :e?   encrypted?})
                                                    21 {:type :rmcp-rakp-4 :payload-type 21
                                                        :a?   authenticated?
                                                        :e?   encrypted?}
                                                    0  (condp = function
                                                         0  (condp = command
-                                                             1 {:type     :chassis-status-req
-                                                                :command  1
-                                                                :function 0
-                                                                :a?       authenticated?
-                                                                :e?       encrypted?}
-                                                             2 {:type     :chassis-reset-req
-                                                                :command  2
-                                                                :function 0
-                                                                :a?       authenticated?
-                                                                :e?       encrypted?})
+                                                             1 {:type           :chassis-status-req
+                                                                :command        1
+                                                                :function       0
+                                                                :seq-no         seq-no
+                                                                :session-seq-no session-seq
+                                                                :a?             authenticated?
+                                                                :e?             encrypted?}
+                                                             2 {:type           :chassis-reset-req
+                                                                :command        2
+                                                                :function       0
+                                                                :seq-no         seq-no
+                                                                :session-seq-no session-seq
+                                                                :a?             authenticated?
+                                                                :e?             encrypted?})
                                                         1  (condp = command
-                                                             1 {:type     :chassis-status-rsp
-                                                                :command  1
-                                                                :function 1
-                                                                :a?       authenticated?
-                                                                :e?       encrypted?}
-                                                             2 {:type     :chassis-reset-rsp
-                                                                :command  2
-                                                                :function 2
-                                                                :a?       authenticated?
-                                                                :e?       encrypted?})
+                                                             1 {:type           :chassis-status-rsp
+                                                                :command        1
+                                                                :function       1
+                                                                :seq-no         seq-no
+                                                                :session-seq-no session-seq
+                                                                :a?             authenticated?
+                                                                :e?             encrypted?}
+                                                             2 {:type           :chassis-reset-rsp
+                                                                :command        2
+                                                                :function       2
+                                                                :seq-no         seq-no
+                                                                :session-seq-no session-seq
+                                                                :a?             authenticated?
+                                                                :e?             encrypted?})
                                                         6  (condp = command
-                                                             1  {:type     :device-id-req
-                                                                 :command  1
-                                                                 :function 6
-                                                                 :a?       authenticated?
-                                                                 :e?       encrypted?}
-                                                             59 {:type     :set-session-prv-level-req
-                                                                 :command  59
-                                                                 :function 6
-                                                                 :a?       authenticated?
-                                                                 :e?       encrypted?}
-                                                             60 {:type     :rmcp-close-session-req
-                                                                 :command  60
-                                                                 :function 6
-                                                                 :a?       authenticated?
-                                                                 :e?       encrypted?})
+                                                             1  {:type           :device-id-req
+                                                                 :command        1
+                                                                 :function       6
+                                                                 :seq-no         seq-no
+                                                                 :session-seq-no session-seq
+                                                                 :a?             authenticated?
+                                                                 :e?             encrypted?}
+                                                             59 {:type           :set-session-prv-level-req
+                                                                 :command        59
+                                                                 :function       6
+                                                                 :seq-no         seq-no
+                                                                 :session-seq-no session-seq
+                                                                 :a?             authenticated?
+                                                                 :e?             encrypted?}
+                                                             60 ;; rmcp-close-session-req
+                                                             {:type           :rmcp-close-session-req
+                                                              :command        60
+                                                              :function       6
+                                                              :seq-no         seq-no
+                                                              :session-seq-no session-seq
+                                                              :a?             authenticated?
+                                                              :e?             encrypted?
+                                                              :session-seq    session-seq})
                                                         7  (condp = command
                                                              1  {:type     :device-id-rsp
                                                                  :command  1
                                                                  :function 7
+                                                                 :seq-no   seq-no
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}
                                                              59 {:type     :set-session-prv-level-rsp
                                                                  :command  59
                                                                  :function 7
+                                                                 :seq-no   seq-no
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}
                                                              60 {:type     :rmcp-close-session-rsp
                                                                  :command  60
                                                                  :function 7
+                                                                 :seq-no   seq-no
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?})
                                                         44 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type      :picmg-properties-req
-                                                                     :command   0
-                                                                     :function  44
-                                                                     :response  45
-                                                                     :signature 0
-                                                                     :a?        authenticated?
-                                                                     :e?        encrypted?}
+                                                                  0 {:type        :picmg-properties-req
+                                                                     :command     0
+                                                                     :function    44
+                                                                     :session-seq session-seq 
+                                                                     :seq-no      seq-no
+                                                                     :response    45
+                                                                     :signature   0
+                                                                     :a?          authenticated?
+                                                                     :e?          encrypted?}
                                                                   3 {:type      :vso-capabilities-req
                                                                      :command   0
                                                                      :function  44
+                                                                     :seq-no    seq-no
                                                                      :response  45
                                                                      :signature 3
                                                                      :a?        authenticated?
@@ -277,6 +350,7 @@
                                                              62 {:type     :hpm-capabilities-req
                                                                  :command  62
                                                                  :function 44
+                                                                 :seq-no   seq-no
                                                                  :response 45
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?})
@@ -285,18 +359,21 @@
                                                                   0 {:type      :picmg-properties-rsp
                                                                      :command   0
                                                                      :function  45
+                                                                     :seq-no    seq-no
                                                                      :signature 0
                                                                      :a?        authenticated?
                                                                      :e?        encrypted?}
                                                                   3 {:type      :vso-capabilities-rsp
                                                                      :command   0
                                                                      :function  45
+                                                                     :seq-no    seq-no
                                                                      :signature 3
                                                                      :a?        authenticated?
                                                                      :e?        encrypted?})
                                                              62 {:type     :hpm-capabilities-req
                                                                  :command  62
                                                                  :function 45
+                                                                 :seq-no   seq-no
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}))
                                                    {:type     :error :payload payload-type
@@ -1010,7 +1087,7 @@
     (compile-frame-enc
      rmcp-header)))
 
-(defn decode-message [codec message]
+#_(defn decode-message [codec message]
   (log/debug "Decode Message" (into [] message))
   (let [decoded (try
                   (i/decode codec (:message message) false)

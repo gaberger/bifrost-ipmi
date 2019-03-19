@@ -8,7 +8,6 @@
             [buddy.core.codecs :as codecs]))
 
 (defn decode-message [state message]
-  (log/debug "Decoding Message" message)
   (let [codec (c/compile-codec state)
         decoded (try
                   (i/decode codec message)
@@ -31,10 +30,17 @@
                                      :ipmi-2-0-payload]
                                     dissoc :aes-decoded-payload)))
                   decoded)]
-                   ;; TODO need to respond with an error message here
     (log/debug "Decoded Message " message)
     message))
 
+(defn decode-parser [msg]
+  (c/get-message-type msg))
+
+(defn decode [state msg]
+  (->>
+   msg
+   (decode-message state)
+   decode-parser))
 
 (defn decoder-xf [fsm]
   (fn [xf]
@@ -43,14 +49,20 @@
         ([] (xf))
         ([result] (xf result))
         ([result item]
-         (let [decoded-message (decode-message (:value @state) item)
-               new-state       (fsm @state decoded-message)]
+         (let [decoded-message (decode (:value @state) item)
+               new-state       (try
+                                 (fsm @state decoded-message)
+                                 (catch IllegalArgumentException e
+                                   (throw (ex-info "State Machine Error"
+                                                   {:error   (.getMessage e)
+                                                    :state   @state
+                                                    :message decoded-message}))
+                                 nil))]
            (reset! state new-state)
-           (log/debug (:state-index new-state))
            (condp = (:state-index @state)
-             5 (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
+             7 (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
              6 (reduced result)
-             (xf result {}) )))))))
+             {} )))))))
 
 
 (defn make-decoder [fsm]

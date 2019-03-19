@@ -28,7 +28,7 @@
                                           :async? true
                                           :min-level :debug}}})
 
-(def config (config/server-config (state/bind-server-fsm)))
+#_(def config (config/server-config (state/bind-server-fsm)))
 
 ;(log/merge-config!
 ;   {:appenders
@@ -107,11 +107,11 @@
 ;(send-message {:type :get-channel-auth-cap-req :input input :seq seq})
 
 
-(defn close-channels []
+#_(defn close-channels []
   (async/close! (:command-channel config))
   (async/close! (:decode-channel config)))
 
-(defn start-command-processor []
+#_(defn start-command-processor []
   (async/pipe (:decode-channel @config) (:command-channel @config))
   (async/thread
     (loop []
@@ -120,7 +120,7 @@
     (recur)))
 
 
-(defn start-server-consumer [server-socket]
+#_(defn start-server-consumer [server-socket]
   (->> server-socket
        (s/consume #(async/put! (:decode-channel @config) %))))
 
@@ -148,7 +148,7 @@
 (defn stop-server []
   (safe (s/close! @state/server-socket)))
 
-(defn start-server
+#_(defn start-server
   [& args]
   (if-let [{:keys [mode port]} (first args)]
     (condp = mode
@@ -165,7 +165,7 @@
 ;;TODO Make sure to check for registrations
 
 
-(defn -main [port]
+#_(defn -main [port]
   (log/info "Starting Server on Port " (or port 623))
   (when (start-udp-server  (Integer. (or port 623)))
     (let []

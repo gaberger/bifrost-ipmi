@@ -48,16 +48,24 @@
    (contiguous (encode (c/compile-codec 0)
                        (h/rmcp-close-response-msg {:sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))])
 
-
 (deftest test-transduce
   (testing "Client State Machine"
     (let [command-chan (async/chan)
           decode-chan  (decode/make-decoder (state/bind-client-fsm))]
       (async/pipe decode-chan command-chan)
-      (s/consume #(async/put! decode-chan %) (s/->source (create-message-stream)))
-      (async/go
-        (is (= []
-               (async/<! command-chan)))))))
+      (async/onto-chan decode-chan (create-message-stream))
+      (is (=  {:type :command,
+               :state {:state []},
+               :message
+               {:type :chassis-reset-rsp,
+                :command 2,
+                :function 2,
+                :seq-no 0,
+                :session-seq-no 0,
+                :a? false,
+                :e? false}}
+              (async/<!! command-chan))))))
+
 
 
 ;;(def decoder-x-chan (make-test-loop))
