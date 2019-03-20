@@ -229,16 +229,16 @@
                                                       :a?           authenticated?
                                                       :e?           encrypted?})
                                                    18 ;;rmcp-rakp-1
-                                                   (let  [rm     (get-in session [:remote-console-random-number])
-                                                          unamem (get session :user-name)
-                                                          rolem  (get-in session [:requested-max-priv-level
-                                                                                  :requested-max-priv-level])]
-                                                     {:type   :rmcp-rakp-1 :payload-type 18
-                                                      :a?     authenticated?
-                                                      :e?     encrypted?
-                                                      :rm     rm
-                                                      :unamem unamem
-                                                      :rolem  rolem})
+                                                   (let  [remote-rn (get-in session [:remote-console-random-number])
+                                                          unamem    (get session :user-name)
+                                                          rolem     (get-in session [:requested-max-priv-level
+                                                                                     :requested-max-priv-level])]
+                                                     {:type      :rmcp-rakp-1 :payload-type 18
+                                                      :a?        authenticated?
+                                                      :e?        encrypted?
+                                                      :remote-rn remote-rn
+                                                      :unamem    unamem
+                                                      :rolem     rolem})
                                                    19 {:type :rmcp-rakp-2 :payload-type 19
                                                        :a?   authenticated?
                                                        :e?   encrypted?}
@@ -370,7 +370,7 @@
                                                                      :signature 3
                                                                      :a?        authenticated?
                                                                      :e?        encrypted?})
-                                                             62 {:type     :hpm-capabilities-req
+                                                             62 {:type     :hpm-capabilities-rsp
                                                                  :command  62
                                                                  :function 45
                                                                  :seq-no   seq-no
@@ -907,9 +907,11 @@
   {:type :rmcp-ack})
 
 (defn compile-codec
-  [router-key]
-  (log/debug "Compile with key" router-key)
-  (let [ipmb-message (compile-frame-enc
+  ([state]
+   (log/debug "Compile with state" state)
+   (log/debug "Auth Codec " (get state :auth-codec))
+   (log/debug "Conf Codec " (get state :conf-codec :None))
+   (let [ipmb-message (compile-frame-enc
                       (header ipmb-header-1
                               (build-merge-header-with-data
                                #(get-network-function-codec  %))
@@ -929,7 +931,7 @@
         aes-post-decoder (fn [a]
                            (let [iv         (get-in a [:payload :iv])
                                  data       (get-in a [:payload :data])
-                                 sik        (get-sik router-key)
+                                 sik        (get state :sik)
                                  decrypted  (decrypt sik iv data)
                                  decrypted' (-> decrypted bs/to-byte-array to-buf-seq)
                                  decoded    (i/decode (compile-frame-enc
@@ -948,10 +950,10 @@
                                  auth-type      0x06
                                  payload        (apply dissoc b [:session-id :session-seq :payload-type])
                                  payload-buffer (-> (i/contiguous (i/encode ipmb-message payload)) bs/to-byte-array)
-                                ; _              (log/debug "pre-encode payload" (-> payload-buffer codecs/bytes->hex))
+                                 _             (log/debug "pre-encode payload" (-> payload-buffer codecs/bytes->hex))
                                  payload'       (nnext payload-buffer)
                                  iv             (-> (nonce/random-nonce 16) vec)
-                                 sik            (get-sik router-key)
+                                 sik            (get-in state [:state :sik])
                                  encrypted      (-> (encrypt sik iv payload') vec)
                                  iv+data        (-> (concat iv encrypted) vec)
                                  _              (log/debug "iv+data"
@@ -1053,8 +1055,8 @@
                                               (header rmcp-plus-header
                                                       (build-merge-header-with-data
                                                        #(grpl {:payload-type %
-                                                               :auth         (get-authentication-codec router-key)
-                                                               :conf         (get-confidentiality-codec router-key)}))
+                                                               :auth         (get state :auth-codec)
+                                                               :conf         (get state :conf-codec)}))
                                                       (fn [b]
                                                         b)))})
         asf-session      (compile-frame
@@ -1086,61 +1088,6 @@
                                        :rmcp-class rmcp-class-header)]
     (compile-frame-enc
      rmcp-header)))
-
-#_(defn decode-message [codec message]
-  (log/debug "Decode Message" (into [] message))
-  (let [decoded (try
-                  (i/decode codec (:message message) false)
-                  (catch Exception e
-                    (throw (ex-info "Decoder exception"
-                                    {:error (.getMessage e)
-                                     :message (:message message)}))
-                    nil))
-        aes-payload? (contains?
-                      (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-                      :aes-decoded-payload)
-        message (if aes-payload?
-                  (let [aes-payload (get-in decoded [:rmcp-class
-                                                     :ipmi-session-payload
-                                                     :ipmi-2-0-payload
-                                                     :aes-decoded-payload])]
-                    (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
-                        (update-in  [:rmcp-class
-                                     :ipmi-session-payload
-                                     :ipmi-2-0-payload]
-                                    dissoc :aes-decoded-payload)))
-                  decoded)]
-                   ;; TODO need to respond with an error message here
-    (log/debug "Decoded Message " message)
-    message))
-
-#_(defn encode-message [encoder message]
-  (log/debug "Encode Message " message)
-  (let [encode-payload (try
-                         (encoder message)
-                         (catch Exception e
-                           (log/error (ex-info "Encoder exception" {:error (.getMessage e)}))))]
-        ;encoded (try
-        ;           (encoder message)
-        ;           (catch Exception e
-        ;             (log/error (ex-info "Encoder exception"
-        ;                                 {:error (.getMessage e)}))
-        ;             false))]
-        ;;aes-payload? (contains?
-        ;;              (get-in encoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
-        ;;              :aes-decoded-payload)
-        ;;message (if aes-payload?
-    #_(let [aes-payload (get-in decoded [:rmcp-class
-                                         :ipmi-session-payload
-                                         :ipmi-2-0-payload
-                                         :aes-decoded-payload])]
-        (-> (update-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload] merge aes-payload)
-            (update-in  [:rmcp-class
-                         :ipmi-session-payload
-                         :ipmi-2-0-payload]
-                        dissoc :aes-decoded-payload)))
-
-                   ;; TODO need to respond with an error message here
-    (log/debug "Encoded Message " message)
-    message))
+   ([]
+    (compile-codec nil)))
 

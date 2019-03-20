@@ -18,43 +18,47 @@
     hmac))
 
 (defn calc-rakp-1
-  [{:keys [sidm sidc rc guidc rm rolem unamem uid]}]
-  (let [unamem'     (codecs/str->bytes unamem)
-        guidc'      (byte-array guidc)
-        ulengthm    (byte-array 1 (byte (count unamem)))
-        sidm'       (-> (encode int->bytes sidm) bs/to-byte-array reverse vec)
-        sidc'       (-> (encode int->bytes sidc) bs/to-byte-array reverse vec)
-        rolem'      (byte-array 1 (byte 0x14))
-        rakp2-input (bytes/concat sidm' sidc' rm rc guidc rolem' ulengthm unamem')
-        rakp2-hmac  (calc-sha1-key uid rakp2-input)]
+  [{:keys [remote-sid server-sid remote-rn server-rn server-guid rolem unamem uid]}]
+  (let [unamem'      (codecs/str->bytes unamem)
+        server-guid' (byte-array server-guid)
+        ulengthm     (byte-array 1 (byte (count unamem)))
+        remote-sid'  (-> (encode int->bytes remote-sid) bs/to-byte-array reverse vec)
+        server-sid'  (-> (encode int->bytes server-sid) bs/to-byte-array reverse vec)
+        rolem'       (byte-array 1 (byte 0x14))
+        rakp2-input  (bytes/concat remote-sid' server-sid' remote-rn server-rn server-guid' rolem' ulengthm unamem')
+        rakp2-hmac   (calc-sha1-key uid rakp2-input)]
+    (log/debug "rakp2 input buffer" (codecs/bytes->hex rakp2-input))
+    (log/debug "rakp2 server-rn" (-> server-rn byte-array codecs/bytes->hex))
+    (log/debug "rakp2 key" (-> uid codecs/str->bytes codecs/bytes->hex))
+    (log/debug "rakp2 hmac" (codecs/bytes->hex rakp2-hmac))
     rakp2-hmac))
 
 (defn calc-rakp-3
-  [{:keys [sidm rc rolem unamem uid]}]
-  {:pre  [(string? unamem)]}
+  [{:keys [remote-sid server-rn rolem unamem uid]}]
+  {:pre [(string? unamem)]}
   (let [;uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
-        unamem'     (codecs/str->bytes unamem)
-        ulengthm    (byte-array 1 (byte (count unamem)))
-        sidm'       (-> (encode int->bytes sidm) bs/to-byte-array reverse vec)
-        rolem'      (byte-array 1 (byte 0x14))
-        sidc-input (bytes/concat rc sidm' rolem' ulengthm unamem')
-        sidc-hmac  (calc-sha1-key uid sidc-input)]
-    sidc-hmac))
+        unamem'          (codecs/str->bytes unamem)
+        ulengthm         (byte-array 1 (byte (count unamem)))
+        remote-sid'      (-> (encode int->bytes remote-sid) bs/to-byte-array reverse vec)
+        rolem'           (byte-array 1 (byte 0x14))
+        server-sid-input (bytes/concat server-rn remote-sid' rolem' ulengthm unamem')
+        server-sid-hmac  (calc-sha1-key uid server-sid-input)]
+    server-sid-hmac))
 
 (defn calc-rakp-4-sik
-  [{:keys [rm rc rolem unamem uid]}]
-  (let [unamem'     (codecs/str->bytes unamem)
-        ulengthm    (byte-array 1 (byte (count unamem)))
-        rolem'      (byte-array 1 (byte 0x14))
-        sik-input (bytes/concat rm rc rolem' ulengthm unamem')
+  [{:keys [server-rn remote-rn rolem unamem uid]}]
+  (let [unamem'   (codecs/str->bytes unamem)
+        ulengthm  (byte-array 1 (byte (count unamem)))
+        rolem'    (byte-array 1 (byte 0x14))
+        sik-input (bytes/concat remote-rn server-rn rolem' ulengthm unamem')
         sik-hmac  (calc-sha1-key uid sik-input)]
     sik-hmac))
 
 (defn calc-rakp-4-sidm
-  [{:keys [rm sidc guidc sik]}]
-  (let [sidc'       (-> (encode int->bytes sidc) bs/to-byte-array reverse vec)
-        sidm-input (bytes/concat rm sidc' guidc)
-        sidm-hmac  (calc-sha1-key sik sidm-input)]
+  [{:keys [remote-rn server-sid server-guid sik]}]
+  (let [server-sid' (-> (encode int->bytes server-sid) bs/to-byte-array reverse vec)
+        sidm-input  (bytes/concat remote-rn server-sid' server-guid)
+        sidm-hmac   (calc-sha1-key sik sidm-input)]
     sidm-hmac))
 
 (defn K1 [sik]

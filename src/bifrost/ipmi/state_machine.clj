@@ -237,7 +237,7 @@
 (defmethod send-message :hpm-capabilities-req [m]
   (log/info "Sending HPM Capabilities Response")
   (let [{:keys [input]} m
-        message         (h/hpm-capabilities-msg m)
+        message         (h/hpm-capabilities-response-msg m)
         codec           (c/compile-codec (:hash input))
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
@@ -274,9 +274,9 @@
   [[(a/$ :init)
     (a/* :asm-ping)
     [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
-    :open-session-request (a/$ :open-session-request)
-    :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-    :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]]
+     :open-session-request (a/$ :open-session-request)
+     :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
+     :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]]
    [(a/*
      (a/or
       [:device-id-req (a/$ :device-id-req)]
@@ -294,9 +294,9 @@
   [[(a/$ :init)
     (a/* :asm-ping)
     [:get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
-    :open-session-response (a/$ :open-session-response)
-    :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
-    :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]]
+     :open-session-response (a/$ :open-session-response)
+     :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
+     :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]]
    [(a/*
      (a/or
       [:device-id-rsp (a/$ :device-id-rsp)]
@@ -310,26 +310,6 @@
       [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]))]
    [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
-#_(def ipmi-client-fsm
-    [[(a/$ :init)
-      (a/* :asm-ping)
-      :get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
-      :open-session-response (a/$ :open-session-response)
-      :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
-      :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
-     [(a/*
-       (a/or
-        [:device-id-rsp (a/$ :device-id-rsp)]
-        [:hpm-capabilities-rsp (a/$ :hpm-capabilities-rsp)]
-        [:picmg-properties-rsp (a/$ :picmg-properties-rsp)]
-        [:vso-capabilities-rsp (a/$ :vso-capabilities-rsp)]
-        [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))]
-     [(a/*
-       (a/or
-        [:chassis-status-rsp (a/$ :chassis-status-rsp)]
-        [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]))]
-     [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
-
 
 ;;TODO create schemas for send-message input to test handlers
 
@@ -337,43 +317,55 @@
 (def ipmi-client-handler
   {:signal   :type
    :reducers {:init                     (fn [state _]
-                                          (assoc state :state {}))
+                                          #_(assoc state :state {}))
               :get-channel-auth-cap-req (fn [state input]
                                           (log/debug "Channel Auth Request")
                                           state)
               :get-channel-auth-cap-rsp (fn [state input]
                                           (log/info "Auth Capabilities Response")
                                           (let [seq   (get-seq-no input)
-                                                state (update-in state [:state] assoc :seq seq)]
+                                                state (assoc state :seq seq)]
                                             (send-message {:type :get-channel-auth-cap-req :input input :seq seq})
                                             state))
-              :open-session-response  (fn [state input]
-                                        (log/debug "Open Session Response")
-                                        state)
-              :rmcp-rakp-2            (fn [state input]
-                                        state)
-              :rmcp-rakp-4            (fn [state input]
-                                        state)
-              :device-id-rsp          (fn [state input]
-                                        (log/debug "Device ID Response")
-                                        state)
-              :hpm-capabilities-rsp   (fn [state input]
-                                        state)
-              :picmg-properties-rsp   (fn [state input]
-                                        state)
-              :vso-capabilities-rsp   (fn [state input]
-                                        state)
-              :session-priv-level-rsp (fn [state input]
-                                        state)
-              :chassis-reset-rsp (fn [state input]
-                                   state)
-              :rmcp-close-session-rsp (fn [state input]
-                                        state)}})
+              :open-session-response    (fn [state input]
+                                          (log/debug "Open Session Response")
+                                          (let [a     (get input :a?)
+                                                e     (get input :e?)
+                                                state (assoc state :a? a :e? e)]
+                                            state))
+              :rmcp-rakp-2              (fn [state input]
+                                          state)
+              :rmcp-rakp-4              (fn [state input]
+                                          state)
+              :device-id-rsp            (fn [state input]
+                                          (log/debug "Device ID Response")
+                                          state)
+              :hpm-capabilities-rsp     (fn [state input]
+                                          state)
+              :picmg-properties-rsp     (fn [state input]
+                                          state)
+              :vso-capabilities-rsp     (fn [state input]
+                                          state)
+              :session-priv-level-rsp   (fn [state input]
+                                          state)
+              :chassis-reset-rsp        (fn [state input]
+                                          state)
+              :rmcp-close-session-rsp   (fn [state input]
+                                          state)}})
+(comment
+  """
+    sidm     - Remote console session ID                      - remote-sid
+    sidc     - BMC (Managed-System) session ID                - server-sid
+    rm       - Remote console random number                   - remote-rn
+    rc       - BMC (Managed-System) random number             - server-rn
+    guidc    - BMC guid                                       - server-guid
+    rolem    - Requested privilege level 
+    unamem   - Username (absent for null user names) """)
 
 (def ipmi-server-handler
   {:signal   :type
    :reducers {:init                     (fn [state _]
-                                          (assoc state :state {}))
+                                          #_(assoc state :state {}))
               :error                    (fn [state _]
                                           (log/debug "State machine error handler")
                                           state)
@@ -401,84 +393,78 @@
                                                 rolem      (get input :rolem)
                                                 auth-codec (get input :auth-codec)
                                                 conf-codec (get input :conf-codec)
-                                                state      (update-in state [:state] assoc :remote-sid  remote-sid
-                                                                      :server-sid  server-sid
-                                                                      :rolem rolem
-                                                                      :auth-codec auth-codec
-                                                                      :conf-codec conf-codec)
-                                                m          {:type  :open-session-request
-                                                            :a     a
-                                                            :i     i
-                                                            :c     c
-                                                            :input input
-                                                            :sidc  remote-sid
-                                                            :sidm  server-sid}]
+                                                state      (assoc state :remote-sid  remote-sid
+                                                                  :server-sid  server-sid
+                                                                  :rolem rolem
+                                                                  :auth-codec auth-codec
+                                                                  :conf-codec conf-codec)
+                                                m          {:type       :open-session-request
+                                                            :a          a
+                                                            :i          i
+                                                            :c          c
+                                                            :input      input
+                                                            :remote-sid remote-sid
+                                                            :server-sid server-sid}]
                                         ;(update-login-state {:auth a :integ i :conf c} (:hash input))
                                             (send-message  m)
                                             state))
               :rmcp-rakp-1              (fn [state input]
                                           (log/info "RAKP-1 Request" "input" {:input input :state state})
-                                          (let [h          (:hash input)
-                                                remote-sid (get-in state [:state :remote-sid])
-                                                server-sid (get-in state [:state :server-sid])
-                                                auth       (get-in state [:state :auth-codec])
+                                          (let [h           (:hash input)
+                                                remote-sid  (get state :remote-sid)
+                                                server-sid  (get state :server-sid)
+                                                auth        (get state :auth-codec)
                                                 ;;login-state (c/get-login-state h)
                                                 ;;auth        (c/get-authentication-codec h)
-                                                unamem     (get input :unamem)
-                                                rm         (get input :rm)
-                                                rolem      (get input :rolem)
-                                                rc    (vec (nonce/random-nonce 16))
-                                                uid   (r/lookup-password-key unamem)
-                                                guid  (r/get-device-id-bytes unamem)
-                                                state (update-in state [:state] assoc :unamem unamem
-                                                                 :rm rm
-                                                                 :rolem rolem
-                                                                 :rc rc
-                                                                 :guidc guid)]
-                                            (log/debug "Updated State " state)
-                                            (log/debug "auth" auth)
+                                                unamem      (get input :unamem)
+                                                remote-rn   (get input :remote-rn)
+                                                rolem       (get input :rolem)
+                                                server-rn   (vec (nonce/random-nonce 16))
+                                                uid         (r/lookup-password-key unamem)
+                                                server-guid (r/get-device-id-bytes unamem)
+                                                state       (assoc state :unamem unamem :remote-rn remote-rn :rolem rolem :server-rn server-rn :server-guid server-guid)]
 
                                             (condp = auth
-                                              :rmcp-rakp           (let [m {:type       :rmcp-rakp-2
-                                                                            :input      input
-                                                                            :auth       auth
-                                                                            :rc         rc
-                                                                            :sidm       server-sid
-                                                                            :status     0
-                                                                            :guidc      guid
-                                                                            :rakp2-hmac [0]}]
+                                              :rmcp-rakp           (let [m {:type        :rmcp-rakp-2
+                                                                            :input       input
+                                                                            :auth        auth
+                                                                            :server-rn   server-rn
+                                                                            :unamem      unamem
+                                                                            :rolem       rolem
+                                                                            :remote-sid  remote-sid
+                                                                            :status      0
+                                                                            :server-guid server-guid
+                                                                            :rakp2-hmac  [0]}]
                                                                      (send-message m))
                                               :rmcp-rakp-hmac-sha1 (if-not (nil? (r/lookup-userid unamem))
-                                                                     (let [rakp2-hmac (vec (calc-rakp-1 {:rm     rm
-                                                                                                         :rc     rc
-                                                                                                         :guidc  guid
-                                                                                                         :sidc   remote-sid
-                                                                                                         :sidm   server-sid
-                                                                                                         :unamem unamem
-                                                                                                         :rolem  rolem
-                                                                                                         :uid    uid}))
-                                                                           m          {:type       :rmcp-rakp-2
-                                                                                       :input      input
-                                                                                       :sidc       remote-sid
-                                                                                       :rc         rc
-                                                                                       :unamem     unamem
-                                                                                       :rm         rm
-                                                                                       :status     0x00
-                                                                                       :sidm       server-sid
-                                                                                       :guidc      guid
-                                                                                       :rakp2-hmac rakp2-hmac
-                                                                                       :auth       auth}]
+                                                                     (let [rakp2-hmac (vec (calc-rakp-1 {:remote-rn   remote-rn
+                                                                                                         :server-rn   server-rn
+                                                                                                         :server-guid server-guid
+                                                                                                         :remote-sid  remote-sid
+                                                                                                         :server-sid  remote-sid
+                                                                                                         :unamem      unamem
+                                                                                                         :rolem       rolem
+                                                                                                         :uid         uid}))
+                                                                           m          {:type        :rmcp-rakp-2
+                                                                                       :input       input
+                                                                                       :remote-sid  remote-sid
+                                                                                       :server-rn   server-rn
+                                                                                       :unamem      unamem
+                                                                                       :status      0x00
+                                                                                       :server-guid server-guid
+                                                                                       :rakp2-hmac  rakp2-hmac
+                                                                                       :auth        auth}]
                                                                        (send-message m))
-                                                                     (let [m {:type       :rmcp-rakp-2
-                                                                              :input      input
-                                                                              :auth       auth
-                                                                              :rc         rc
-                                                                              :sidm       server-sid
-                                                                              :status     0x0D
+                                                                     (let [m {:type        :rmcp-rakp-2
+                                                                              :input       input
+                                                                              :auth        auth
+                                                                              :server-rn   server-rn
+                                                                              :remote-sid  remote-sid
+                                                                              :status      0x0D
                                                                               ;; TODO enum error codes
-                                                                              :guidc      (-> uuid/null uuid/as-byte-array vec)
+                                                                              :server-guid (-> uuid/null uuid/as-byte-array vec)
                                                                               ;;TODO create device quid outside registrar?
-                                                                              :rakp2-hmac [0]}]
+                                                                              :rakp2-hmac  [0]}]
                                                                        (log/error (format "User %s  Not Found.." unamem))
                                                                        (send-message m)))
                                               :rmcp-rakp)
@@ -487,194 +473,151 @@
               :rmcp-rakp-3 (fn [state input]
                              (log/info "RAKP-3 Request ")
                              (let [h           (:hash input)
-                                   remote-sid  (get-in state [:state :remote-sid])
-                                   server-sid  (get-in state  [:state :server-sid])
-                                   rolem       (get-in state [:state :rolem])
-                                   rm          (get-in state [:state :rm])
-                                   rc          (get-in state [:state :rc])
-                                   unamem      (get-in state [:state :unamem])
+                                   remote-sid  (get state :remote-sid)
+                                   server-sid  (get state  :server-sid)
+                                   rolem       (get state :rolem)
+                                   server-rn   (get state :server-rn)
+                                   remote-rn   (get state :remote-rn)
+                                   unamem      (get state :unamem)
                                    login-state (c/get-login-state h)
-                                   auth        (get-in state [:state :auth-codec])
-                                   guid        (get-in state [:state :guidc])
+                                   auth        (get state :auth-codec)
+                                   server-guid (get state :server-guid)
                                    uid         (r/lookup-password-key unamem)
                                         ;guid        (r/get-device-id-bytes unamem)
                                    ]
 
                                (condp = auth
-                                 :rmcp-rakp           (let [m {:type  :rmcp-rakp-4
-                                                               :auth  auth
-                                                               :input input
-                                                               :sidm  server-sid}]
+                                 :rmcp-rakp           (let [m {:type       :rmcp-rakp-4
+                                                               :auth       auth
+                                                               :input      input
+                                                               :server-sid server-sid}]
                                                         (send-message m)
                                                         state)
                                  :rmcp-rakp-hmac-sha1 (let [kec          (get input :kec 0)
-                                                            sidc-hmac    (calc-rakp-3 {:sidm   server-sid
-                                                                                       :rc     rc
-                                                                                       :rolem  rolem
-                                                                                       :unamem unamem
-                                                                                       :uid    uid})
-                                                            sik          (calc-rakp-4-sik {:rm     rm
-                                                                                           :rc     rc
-                                                                                           :rolem  rolem
-                                                                                           :unamem unamem
-                                                                                           :uid    uid})
-                                                            sidm-hmac    (calc-rakp-4-sidm {:rm    rm
-                                                                                            :sidc  remote-sid
-                                                                                            :guidc guid
-                                                                                            :sik   sik
-                                                                                            :uid   uid})
+                                                            sidc-hmac    (calc-rakp-3 {:server-sid server-sid
+                                                                                       :server-rn  server-rn
+                                                                                       :rolem      rolem
+                                                                                       :unamem     unamem
+                                                                                       :uid        uid})
+                                                            sik          (calc-rakp-4-sik {:remote-rn remote-rn
+                                                                                           :server-rn server-rn
+                                                                                           :rolem     rolem
+                                                                                           :unamem    unamem
+                                                                                           :uid       uid})
+                                                            sidm-hmac    (calc-rakp-4-sidm {:remote-rn   remote-rn
+                                                                                            :server-sid  server-sid
+                                                                                            :server-guid server-guid
+                                                                                            :sik         sik
+                                                                                            :uid         uid})
                                                             sidm-hmac-96 (-> sidm-hmac (bytes/slice 0 12) vec)
-                                                            m            {:type      :rmcp-rakp-4
-                                                                          :auth      auth
-                                                                          :input     input
-                                                                          :sidm      server-sid
-                                                                          :sidm-hmac sidm-hmac-96}
-                                                            state        (update-in state [:state]
-                                                                                    assoc :sidm-hmac sidm-hmac-96 :sik sik)]
+                                                            m            {:type       :rmcp-rakp-4
+                                                                          :auth       auth
+                                                                          :input      input
+                                                                          :server-sid server-sid
+                                                                          :sidm-hmac  sidm-hmac-96}
+                                                            state        (assoc state :sidm-hmac sidm-hmac-96 :sik sik)]
                                                         (upsert-sik (vec sik) h)
                                                         (send-message m)
                                                         state))))
 
-              :hpm-capabilities-req (fn [state input]
-                                      (log/info "HPM Capabilities")
-                                      (let [h               (:hash input)
-                                            seq             (get input :session-seq 0) seq-no (get input :seq-no 0)
-                                            completion-code 0xC1
-                                            c               (get input :command)
-                                            f               (get input :function)
-                                            server-sid      (get-in state [:state :server-sid])]
+              :hpm-capabilities-req   (fn [state input]
+                                        (log/info "HPM Capabilities")
+                                        (let [h               (:hash input)
+                                              seq             (get input :session-seq 0) seq-no (get input :seq-no 0)
+                                              completion-code 0xC1
+                                              c               (get input :command)
+                                              f               (get input :response)
+                                              remote-sid      (get state :remote-sid)]
                                         ;ta  | nf |  hcsum | sa | slun | c   | cc | csum
-                                        (send-message  {:type     :error-response
-                                                        :input    input
-                                                        :sid      server-sid
-                                                        :seq      seq
-                                                        :ta       0x81
-                                                        :function f
-                                                        :hcsum    0xcb
-                                                        :sa       0x81
-                                                        :seq-no   seq-no
-                                                        :sl       0x08
-                                                        :command  c
-                                                        :status   0xC1
-                                                        :csum     0x17
-                                                        :a        (:a? input)
-                                                        :e        (:e? input)}))
-                                      state)
-              :picmg-properties-req (fn [state input]
-                                      (log/info "PICMG Properties")
-                                      (log/debug "Incoming " input)
-                                      (let [h               (:hash input)
-                                            seq-no          (get input :seq-no 0)
-                                            session-seq     (get input :session-seq 0)
-                                            completion-code 0xC1
-                                            server-sid      (get-in state [:state :server-sid])
-                                            c               (:command input)
-                                            f               (:response input)]
+                                          (send-message  {:type       :hpm-capabilities-req
+                                                          :input      input
+                                                          :remote-sid remote-sid
+                                                          :seq        seq
+                                                          :ta         0x81
+                                                          :function   f
+                                                          :hcsum      0xcb
+                                                          :sa         0x81
+                                                          :seq-no     seq-no
+                                                          :sl         0x08
+                                                          :command    c
+                                                          :status     0xC1
+                                                          :csum       0x17
+                                                          :a          (:a? input)
+                                                          :e          (:e? input)}))
+                                        state)
+              :picmg-properties-req   (fn [state input]
+                                        (log/info "PICMG Properties")
+                                        (let [h               (:hash input)
+                                              seq-no          (get input :seq-no 0)
+                                              session-seq     (get input :session-seq 0)
+                                              completion-code 0xC1
+                                              remote-sid      (get state :remote-sid)
+                                              c               (:command input)
+                                              f               (:response input)]
                                         ;ta  | nf |  hcsum | sa | slun | c   | cc | csum
-                                        (send-message {:type     :error-response
-                                                       :input    input
-                                                       :sid      server-sid
-                                                       :seq      session-seq
-                                                       :ta       0
-                                                       :function f
-                                                       ;;TODO Fix calc for this
-                                                       :hcsum    0xcb
-                                                       :sa       0
-                                                       :seq-no   seq-no
-                                                       :sl       0x10
-                                                       :command  c
-                                                       :status   0xC1
-                                                       ;;TODO Fix calc for this
-                                                       :csum     0x17
-                                                       :a        (:a? input)
-                                                       :e        (:e? input)}))
-                                      state)
-              :vso-capabilities-req (fn [state input]
-                                      (log/info "VSO Capabilities")
-                                      (let [h               (:hash input)
-                                            seq-no          (get input :seq-no 0)
-                                            session-seq     (get input :session-seq 0)
-                                            completion-code 0xC1
-                                            server-sid      (get-in state [:state :server-sid])
-                                            c               (:command input)
-                                            f               (:response input)]
-                                        (send-message  {:type        :error-response
-                                                        :input       input
-                                                        :sid         server-sid
-                                                        :sa          0
-                                                        :ta          0
-                                                        :session-seq session-seq
-                                                        :command     c
-                                                        :seq-no      seq-no
-                                                        :function    f
-                                                        :status      0
-                                                        ;;TODO fix
-                                                        :csum        204
-                                                        :a           (:a? input)
-                                                        :e           (:e? input)}))
-                                      state)
-
-              :chassis-status-req (fn [state input]
-                                    (log/info "Chassis Status Request")
-                                    (let [h          (:hash input)
-                                          server-sid      (get-in state [:state :server-sid])
-                                          seq-no     (get input :seq-no)]
-                                      (send-message  {:type   :chassis-status
-                                                      :input  input
-                                                      :sid    server-sid
-                                                      :seq-no seq-no
-                                                      :a      (:a? input)
-                                                      :e      (:e? input)})
-                                      state))
-              :device-id-req      (fn [state input]
-                                    (log/info "Device ID Request")
-                                    (let [h          (:hash input)
-                                          server-sid      (get-in state [:state :server-sid])
-                                          seq-no     (get input :seq-no)]
-                                      (send-message  {:type   :device-id-req
-                                                      :input  input
-                                                      :sid    server-sid
-                                                      :seq-no seq-no
-                                                      :a      (:a? input)
-                                                      :e      (:e? input)})
-                                      state))
-              :chassis-reset-req  (fn [state input]
-                                    (log/info "Chassis Reset Request")
-                                    (let [h           (:hash input)
-                                          server-sid  (get-in state [:state :server-sid])
-                                          seq-no      (get input :seq-no)
-                                          session-seq (get input :session-seq)
-                                          unamem      (get-in state [:state :unamem])]
-                                      (if-not (nil? (r/get-driver-device-id (keyword unamem)))
-                                        (do
-                                          (safe (r/reboot-server {:driver :packet :user-key (keyword unamem)}))
-                                          (send-message  {:type        :chassis-reset
+                                          (send-message {:type       :error-response
+                                                         :input      input
+                                                         :remote-sid remote-sid
+                                                         :seq        session-seq
+                                                         :ta         0
+                                                         :function   f
+                                                         ;;TODO Fix calc for this
+                                                         :hcsum      0xcb
+                                                         :sa         0
+                                                         :seq-no     seq-no
+                                                         :sl         0x10
+                                                         :command    c
+                                                         :status     0xC1
+                                                         ;;TODO Fix calc for this
+                                                         :csum       0x17
+                                                         :a          (:a? input)
+                                                         :e          (:e? input)}))
+                                        state)
+              :vso-capabilities-req   (fn [state input]
+                                        (log/info "VSO Capabilities")
+                                        (let [h               (:hash input)
+                                              seq-no          (get input :seq-no 0)
+                                              session-seq     (get input :session-seq 0)
+                                              completion-code 0xC1
+                                              remote-sid      (get state :remote-sid)
+                                              c               (:command input)
+                                              f               (:response input)]
+                                          (send-message  {:type        :vso-capabilities-req
                                                           :input       input
-                                                          :sid         server-sid
-                                                          :session-seq seq
+                                                          :remote-sid  remote-sid
+                                                          :sa          0
+                                                          :ta          0
+                                                          :session-seq session-seq
+                                                          :command     c
                                                           :seq-no      seq-no
+                                                          :function    f
                                                           :status      0
+                                                          ;;TODO fix
+                                                          :csum        204
                                                           :a           (:a? input)
                                                           :e           (:e? input)}))
-                                        #_(send-message  {:type        :chassis-reset
-                                                        :input       input
-                                                        :sid         server-sid
-                                                        :session-seq session-seq
-                                                        :seq-no      seq-no
-                                                        :status      0x12
-                                                        :a           (:a? input)
-                                                        :e           (:e? input)}))
-                                      state))
-
+                                        state)
+              :device-id-req          (fn [state input]
+                                        (log/info "Device ID Request")
+                                        (let [h          (:hash input)
+                                              remote-sid (get state :remote-sid)
+                                              seq-no     (get input :seq-no)]
+                                          (send-message  {:type       :device-id-req
+                                                          :input      input
+                                                          :remote-sid remote-sid
+                                                          :seq-no     seq-no
+                                                          :a          (:a? input)
+                                                          :e          (:e? input)})
+                                          state))
               :session-priv-level-req (fn [state input]
                                         (log/info "Set Session Priv Level")
                                         (let [h          (:hash input)
-                                              server-sid      (get-in state [:state :server-sid])
+                                              remote-sid (get state :remote-sid)
                                               seq        (get input :session-seq 0)
                                               seq-no     (get input :seq-no 0)]
                                           (send-message  {:type           :session-priv-level
                                                           :input          input
-                                                          :sid            server-sid
+                                                          :remote-sid     remote-sid
                                                           :seq-no         seq-no
                                                           :session-seq-no seq
                                                           :a              (:a? input)
@@ -683,17 +626,50 @@
               :rmcp-close-session-req (fn [state input]
                                         (log/info "Session Closing ")
                                         (let [h          (:hash input)
-                                              server-sid      (get-in state [:state :server-sid])
+                                              remote-sid (get state :remote-sid)
                                               seq        (get input :session-seq 0)
                                               seq-no     (get input :seq-no 0)]
-                                          (send-message  {:type   :rmcp-close-session
-                                                          :input  input
-                                                          :sid    server-sid
-                                                          :seq    seq
-                                                          :seq-no seq-no
-                                                          :a      (:a? input)
-                                                          :e      (:e? input)})
-                                          state))}})
+                                          (send-message  {:type       :rmcp-close-session
+                                                          :input      input
+                                                          :remote-sid remote-sid
+                                                          :seq        seq
+                                                          :seq-no     seq-no
+                                                          :a          (:a? input)
+                                                          :e          (:e? input)})
+                                          state))
+              ;; COMMAND HANDLERS
+              :chassis-status-req     (fn [state input]
+                                        (log/info "Chassis Status Request")
+                                        (let [h          (:hash input)
+                                              server-sid (get state :server-sid)
+                                              seq-no     (get input :seq-no)]
+                                          #_(send-message  {:type   :chassis-status
+                                                            :input  input
+                                                            :sid    server-sid
+                                                            :seq-no seq-no
+                                                            :a      (:a? input)
+                                                            :e      (:e? input)})
+                                          state))
+
+              :chassis-reset-req (fn [state input]
+                                   (log/info "Chassis Reset Request")
+                                   (let [h           (:hash input)
+                                         server-sid  (get state :server-sid)
+                                         seq-no      (get input :seq-no)
+                                         session-seq (get input :session-seq)
+                                         unamem      (get state :unamem)]
+                                     #_(if-not (nil? (r/get-driver-device-id (keyword unamem)))
+                                         (do
+                                           (safe (r/reboot-server {:driver :packet :user-key (keyword unamem)}))
+                                           (send-message  {:type        :chassis-reset
+                                                           :input       input
+                                                           :sid         server-sid
+                                                           :session-seq seq
+                                                           :seq-no      seq-no
+                                                           :status      0
+                                                           :a           (:a? input)
+                                                           :e           (:e? input)})))
+                                     state))}})
 
 (defn view-client-fsm []
   (automat.viz/view (a/compile ipmi-client-fsm ipmi-client-handler)))

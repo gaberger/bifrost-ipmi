@@ -10,11 +10,13 @@
 (defn decode-message [state message]
   (let [codec (c/compile-codec state)
         decoded (try
-                  (i/decode codec message)
+                  (i/decode codec message false)
                   (catch Exception e
                     (throw (ex-info "Decoder exception"
                                     {:error (.getMessage e)
-                                     :payload (codecs/bytes->hex message)}))
+                                     :payload (if (bytes? message)
+                                                (codecs/bytes->hex message)
+                                                message)}))
                     nil))
         aes-payload? (contains?
                       (get-in decoded [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
@@ -42,6 +44,12 @@
    (decode-message state)
    decode-parser))
 
+(defn get-session-state [msg]
+  (let [sender (:sender msg)
+        address (-> (.getAddress sender) (.getHostAddress))
+        port (.getPort sender)]
+    {:host address :port port}))
+
 (defn server-decoder-xf [fsm]
   (fn [xf]
     (let [state (atom {})]
@@ -49,22 +57,26 @@
         ([] (xf))
         ([result] (xf result))
         ([result item]
-         (let [decoded-message (decode (:value @state) item)
+         (let [message (get item :message)
+               host-map (state/get-session-state message)
+               payload (:message message)
+               decoded-message (decode (get-in @state [:value :state]) payload)
+               decorate-message (merge host-map decoded-message)
                new-state       (try
-                                 (fsm @state decoded-message)
+                                 (fsm @state decorate-message)
                                  (catch IllegalArgumentException e
                                    (throw (ex-info "State Machine Error"
                                                    {:error   (.getMessage e)
                                                     :state   @state
-                                                    :message decoded-message}))
+                                                    :message decorate-message}))
                                    nil))]
            (log/debug "New State" new-state)
            (reset! state new-state)
            (condp = (:state-index new-state)
-             6 (reduced result)
-             7 (do (log/debug "Command Message" (:type decoded-message))
-                   (xf result (assoc {} :type :command :state (:value @state) :message decoded-message)))
-             nil)))))))
+             6 (do (reset! state {}) (log/debug "Reseting State to " @state)  (reduced result))
+             7 (do (log/debug "Command Message" (:type decorate-message))
+                   (xf result (assoc {} :type :command :state (:value @state) :message decorate-message)))
+             {})))))))
 
 (defn client-decoder-xf [fsm]
   (fn [xf]
@@ -73,27 +85,32 @@
         ([] (xf))
         ([result] (xf result))
         ([result item]
-         (let [decoded-message (decode (:value @state) item)
+         (let [host-map        (state/get-session-state item)
+               payload         (:message item)
+               decoded-message (decode (:value @state) payload)
+               decorate-message (merge host-map decoded-message)
                new-state       (try
-                                 (fsm @state decoded-message)
+                                 (fsm @state decorate-message)
                                  (catch IllegalArgumentException e
                                    (throw (ex-info "State Machine Error"
                                                    {:error   (.getMessage e)
                                                     :state   @state
-                                                    :message decoded-message}))
+                                                    :message decorate-message}))
                                    nil))]
            (log/debug "New State" new-state)
            (reset! state new-state)
            (condp = (:state-index new-state)
-               7  (reduced result)
-               6  (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
-               {})))))))
+             7 (reduced result)
+             6 (xf result (assoc {} :type :command :state (:value @state) :message decorate-message))
+             {})))))))
 
-(defn make-server-decoder [fsm]
-  (let [decoder-chan (async/chan 10 (server-decoder-xf fsm))]
+(defn ex-handler [ex]
+  (log/error "Exception while processing message" ex))
+
+(defn make-server-decoder []
+  (let [decoder-chan (async/chan 10 (server-decoder-xf (state/bind-server-fsm)) ex-handler)]
     decoder-chan))
 
-
 (defn make-client-decoder [fsm]
-  (let [decoder-chan (async/chan 10 (client-decoder-xf fsm))]
+  (let [decoder-chan (async/chan 10 (client-decoder-xf fsm) ex-handler)]
     decoder-chan))

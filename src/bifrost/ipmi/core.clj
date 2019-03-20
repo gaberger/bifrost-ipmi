@@ -70,64 +70,52 @@
          :when (> duration 30000)]
      (server/reset-peer k))))
 
-#_(defn server-handler  [message]
-  (let [host-map (state/get-session-state message)
-        h        (hash host-map)]
-    (log/debug  "Packet In" (-> message
-                                :message
-                                bs/to-byte-array
-                                codecs/bytes->hex) "Port" (:port host-map))
-    (when-not (state/channel-exists? h)
-      (do
-        (log/debug "Creating subscriber for topic " h)
-        (state/upsert-chan h  {:created-at  (Date.)
-                               :host-map    host-map
-                               :fsm         (state/bind-server-fsm)
-                               :login-state {:auth  0
-                                             :integ 0
-                                             :conf  0}
-                               :state       {}})
-        (thread
-          (server/read-processor h))))
-    (log/debug "Publish message on topic " h)
-    (server/publish  {:router h
-                      :message       message})))
+(def input-chan (async/chan))
+(def publisher (async/pub input-chan :host-map))
 
-;(defn proxy-handler [message]
-;  (let [host-map (state/get-session-state message)
-;        h (hash host-map)
-;        fsm (state/bind-client-fsm)
-;        codec (c/compile-codec h)];
+(defn create-procesor
+   [hostmap]
+   (log/debug "read processor input" hostmap)
+  (let [subscriber (decode/make-server-decoder)
+        decoder (decode/make-server-decoder)]
+    (async/sub publisher hostmap subscriber)
+    #_(async/pipe subscriber decoder)
+    (async/thread
+      (loop []
+      (when-some [msg (async/<!! subscriber)]
+        (log/debug "found message" msg))
+      (recur)))))
 
-;    (->> (decode-message codec message)
-;         (a/advance nil fsm fsm-state)
-;         (update-fsm-state)
-;         (send-message))
-
-;    ))
-;(send-message {:type :get-channel-auth-cap-req :input input :seq seq})
-
-
-#_(defn close-channels []
-  (async/close! (:command-channel config))
-  (async/close! (:decode-channel config)))
-
-#_(defn start-command-processor []
-  (async/pipe (:decode-channel @config) (:command-channel @config))
-  (async/thread
-    (loop []
-      (when-some [command (async/<!! (:command-channel @config))]
-        (log/debug "got command" command)))
-    (recur)))
+(defn server-handler  [udp-message]
+    (let [host-map (state/get-session-state udp-message)
+          h        (hash host-map)
+          decoder-chan (async/chan)]
+      (log/debug  "Packet In" (-> udp-message
+                                  :message
+                                  bs/to-byte-array
+                                  codecs/bytes->hex) "Port" (:port host-map))
+      (when-not (state/channel-exists? h)
+        (do
+          (log/debug "Creating subscriber for topic " h)
+          (state/upsert-chan h  {:created-at  (Date.)
+                                 :host-map    host-map
+                                 :state       {}})
+          (create-procesor h)
+          (async/put! input-chan {:host-map h
+                                  :message udp-message})))
+      (log/debug "Publish message on topic " h)
+      (async/put! input-chan   {:host-map h
+                                :message  udp-message})))
 
 
-#_(defn start-server-consumer [server-socket]
-  (->> server-socket
-       (s/consume #(async/put! (:decode-channel @config) %))))
+(defn start-server-consumer [server-socket]
+    (->> server-socket
+         (s/consume #(server-handler %))))
 
-#_(defn start-proxy-consumer [server-socket]
-  (->> server-socket
-       (s/consume #(proxy-handler %))))
+(defn run-command-loop [command-chan]
+   (async/go-loop [] (when-some [command (async/<! command-chan)]
+                       (log/debug "Received Command" command)
+                (recur))))
 
 (defn start-udp-server
   [port]
@@ -149,30 +137,28 @@
 (defn stop-server []
   (safe (s/close! @state/server-socket)))
 
-#_(defn start-server
+(defn start-server
   [& args]
-  (if-let [{:keys [mode port]} (first args)]
-    (condp = mode
-      :server (if-not (empty? @r/registration-db)
-                  (when (start-udp-server (or port 623))
-                    (do
-                      (log/info "Starting Server on Port " (or port 623))
-                      (start-server-consumer  @state/server-socket)))
-                  (log/error "Please register users first"))
-      :proxy (do
-               (log/info "Starting proxy on Port" (or port 1623)))
-    (println "Must provide a port and a mode"))))
+  (if-let [{:keys [port]} (first args)]
+    (if-not (empty? @r/registration-db)
+      (when (start-udp-server (or port 623))
+        (do
+          (log/info "Starting Server on Port " (or port 623))
+          (let [stream (start-server-consumer @state/server-socket)]
+            (log/debug "Stream" stream))))
+      (log/error "Please register users first"))
+    (println "Must provide a port")))
 
 ;;TODO Make sure to check for registrations
 
 
 #_(defn -main [port]
-  (log/info "Starting Server on Port " (or port 623))
-  (when (start-udp-server  (Integer. (or port 623)))
-    (let []
-      (start-server-consumer  @state/server-socket)
-      (start-reaper 60000)
-      (future
-        (while true
-          (Thread/sleep
-           1000))))))
+    (log/info "Starting Server on Port " (or port 623))
+    (when (start-udp-server  (Integer. (or port 623)))
+      (let []
+        (start-server-consumer  @state/server-socket)
+        (start-reaper 60000)
+        (future
+          (while true
+            (Thread/sleep
+             1000))))))

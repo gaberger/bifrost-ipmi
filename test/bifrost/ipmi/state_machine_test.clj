@@ -82,17 +82,17 @@
   mock-get-driver-device-id)
 
 (defn create-client-stream []
-  [(contiguous (encode (c/compile-codec 0) (h/auth-capabilities-response-msg {:seq 0})))
-   (contiguous (encode (c/compile-codec 0) (h/rmcp-open-session-response-msg {:sidc 0 :sidm 0 :a 0 :i 0 :c 0})))
-   (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-2-response-msg {:sidm 0 :rc [0] :guidc [0] :status 0})))
-   (contiguous (encode (c/compile-codec 0) (h/rmcp-rakp-4-response-msg {:sidm 0})))
-   (contiguous (encode (c/compile-codec 0)
-                       (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
-   (contiguous (encode (c/compile-codec 0)
-                       (h/set-session-priv-level-rsp-msg {:sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
-   (contiguous (encode (c/compile-codec 0) (h/chassis-reset-response-msg {:sid 0 :seq 0 :seq-no 0 :status 0 :e 0 :a 0})))
-   (contiguous (encode (c/compile-codec 0)
-                       (h/rmcp-close-response-msg {:sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))])
+  [(contiguous (encode (c/compile-codec) (h/auth-capabilities-response-msg {:seq 0})))
+   (contiguous (encode (c/compile-codec) (h/rmcp-open-session-response-msg {:remote-sid 0 :server-sid 0 :a 0 :i 0 :c 0})))
+   (contiguous (encode (c/compile-codec) (h/rmcp-rakp-2-response-msg {:remote-sid 0 :server-rn [0] :server-guid [0] :status 0})))
+   (contiguous (encode (c/compile-codec) (h/rmcp-rakp-4-response-msg {:server-sid 0})))
+   (contiguous (encode (c/compile-codec)
+                       (h/set-session-priv-level-rsp-msg {:remote-sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec)
+                       (h/set-session-priv-level-rsp-msg {:remote-sid 0 :session-seq-no 0 :seq-no 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec) (h/chassis-reset-response-msg {:remote-sid 0 :seq 0 :seq-no 0 :status 0 :e 0 :a 0})))
+   (contiguous (encode (c/compile-codec)
+                       (h/rmcp-close-response-msg {:remote-sid 0 :seq 0 :seq-no 0 :a 0 :e 0})))])
 
 (defn create-server-stream []
   [(byte-array (:get-channel-auth-cap-req rmcp-payloads))
@@ -109,66 +109,72 @@
 (deftest test-server-state-machine
   (testing "Test Server Stream"
     (let [command-chan (async/chan)
-          decode-chan  (decode/make-server-decoder (state/bind-server-fsm))]
+          decode-chan  (decode/make-server-decoder)]
       (async/pipe decode-chan command-chan)
-      (async/onto-chan decode-chan (create-server-stream))
+      (async/onto-chan decode-chan (map #(assoc {} :host-map 1234 :message {:message % }) (create-server-stream)))
       (let [retval (async/<!! (async/into [] command-chan))
-            return  (mapv #(update-in % [:state :state] (fn [s] (apply dissoc s [:rc :server-sid]))) retval)]
-        (is (= [{:type :command,
-                 :state
-                 {:state
-                  {:guidc [0 0 0 0 0 0 0 0],
-                   :auth-codec :rmcp-rakp,
-                   :remote-sid 2695013284,
-                   :rolem 4,
-                   :conf-codec :rmcp-rakp-1-none-confidentiality,
-                   :unamem "admin",
-                   :rm [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76]}},
-                 :message
-                 {:type :chassis-status-req,
-                  :command 1,
-                  :function 0,
-                  :seq-no 6,
-                  :session-seq-no 21,
-                  :a? false,
-                  :e? false}}
-                {:type :command,
-                 :state
-                 {:state
-                  {:guidc [0 0 0 0 0 0 0 0],
-                   :auth-codec :rmcp-rakp,
-                   :remote-sid 2695013284,
-                   :rolem 4,
-                   :conf-codec :rmcp-rakp-1-none-confidentiality,
-                   :unamem "admin",
-                   :rm [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76]}},
-                 :message
-                 {:type :chassis-reset-req,
-                  :command 2,
-                  :function 0,
-                  :seq-no 6,
-                  :session-seq-no 21,
-                  :a? false,
-                  :e? false}}]
-               return))))))
+            return  (mapv #(update-in % [:state] (fn [s] (apply dissoc s [:server-rn :server-sid]))) retval)]
+        (is (=      [{:type :command,
+                      :state
+                      {:server-guid [0 0 0 0 0 0 0 0],
+                       :remote-rn
+                       [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76],
+                       :auth-codec :rmcp-rakp,
+                       :remote-sid 2695013284,
+                       :rolem 4,
+                       :conf-codec :rmcp-rakp-1-none-confidentiality,
+                       :unamem "admin"},
+                      :message
+                      {:a? false,
+                       :command 1,
+                       :type :chassis-status-req,
+                       :e? false,
+                       :port 54123,
+                       :function 0,
+                       :host "127.0.0.1",
+                       :seq-no 6,
+                       :session-seq-no 21}}
+                     {:type :command,
+                      :state
+                      {:server-guid [0 0 0 0 0 0 0 0],
+                       :remote-rn
+                       [207 101 36 153 230 186 137 68 79 143 233 101 74 214 188 76],
+                       :auth-codec :rmcp-rakp,
+                       :remote-sid 2695013284,
+                       :rolem 4,
+                       :conf-codec :rmcp-rakp-1-none-confidentiality,
+                       :unamem "admin"},
+                      :message
+                      {:a? false,
+                       :command 2,
+                       :type :chassis-reset-req,
+                       :e? false,
+                       :port 54123,
+                       :function 0,
+                       :host "127.0.0.1",
+                       :seq-no 6,
+                       :session-seq-no 21}}]
+                    return))))))
 
 (deftest test-client-state-machine
-  (testing "Test Client Stream"
+  #_(testing "Test Client Stream"
     (let [command-chan (async/chan)
           decode-chan  (decode/make-client-decoder (state/bind-client-fsm))]
       (async/pipe decode-chan command-chan)
-      (async/onto-chan decode-chan (create-client-stream))
+      (async/onto-chan decode-chan (map #(assoc {} :host-map 1234 :message {:message % }) (create-client-stream)))
       (let [retval (async/<!! (async/into [] command-chan))]
         (is (=     [{:type :command,
-                     :state {:state {:seq 0}},
+                     :state {:seq 0, :a? false, :e? false},
                      :message
-                     {:type :chassis-reset-rsp,
+                     {:a? false,
                       :command 2,
+                      :type :chassis-reset-rsp,
+                      :e? false,
+                      :port 54123,
                       :function 2,
+                      :host "127.0.0.1",
                       :seq-no 0,
-                      :session-seq-no 0,
-                      :a? false,
-                      :e? false}}]
+                      :session-seq-no 0}}]
                    retval))))))
 
 #_(testing "test crypto 1"
