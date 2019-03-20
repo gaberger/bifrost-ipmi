@@ -42,7 +42,7 @@
    (decode-message state)
    decode-parser))
 
-(defn decoder-xf [fsm]
+(defn server-decoder-xf [fsm]
   (fn [xf]
     (let [state (atom {})]
       (fn
@@ -57,16 +57,43 @@
                                                    {:error   (.getMessage e)
                                                     :state   @state
                                                     :message decoded-message}))
-                                 nil))]
+                                   nil))]
+           (log/debug "New State" new-state)
            (reset! state new-state)
-           (condp = (:state-index @state)
-             7 (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
+           (condp = (:state-index new-state)
              6 (reduced result)
-             {} )))))))
+             7 (do (log/debug "Command Message" (:type decoded-message))
+                   (xf result (assoc {} :type :command :state (:value @state) :message decoded-message)))
+             nil)))))))
 
+(defn client-decoder-xf [fsm]
+  (fn [xf]
+    (let [state (atom {})]
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result item]
+         (let [decoded-message (decode (:value @state) item)
+               new-state       (try
+                                 (fsm @state decoded-message)
+                                 (catch IllegalArgumentException e
+                                   (throw (ex-info "State Machine Error"
+                                                   {:error   (.getMessage e)
+                                                    :state   @state
+                                                    :message decoded-message}))
+                                   nil))]
+           (log/debug "New State" new-state)
+           (reset! state new-state)
+           (condp = (:state-index new-state)
+               7  (reduced result)
+               6  (xf result (assoc {} :type :command :state (:value @state) :message decoded-message))
+               {})))))))
 
-(defn make-decoder [fsm]
-  (let [decoder-chan (async/chan 1 (decoder-xf fsm))]
+(defn make-server-decoder [fsm]
+  (let [decoder-chan (async/chan 10 (server-decoder-xf fsm))]
     decoder-chan))
 
 
+(defn make-client-decoder [fsm]
+  (let [decoder-chan (async/chan 10 (client-decoder-xf fsm))]
+    decoder-chan))

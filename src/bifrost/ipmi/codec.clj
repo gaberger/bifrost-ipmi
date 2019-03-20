@@ -172,7 +172,7 @@
                                                  (condp = command
                                                    0x38 (condp = function
                                                           6 {:type :get-channel-auth-cap-req :command 56 :function 6}
-                                                          7 {:type :get-channel-auth-cap-req :command 56 :function 7}
+                                                          7 {:type :get-channel-auth-cap-rsp :command 56 :function 7}
                                                           {:type :error :command command :function function})))
                              :ipmi-2-0-payload (let [session         (get-in m [:rmcp-class :ipmi-session-payload :ipmi-2-0-payload])
                                                      session-seq     (get  session :session-seq 0)

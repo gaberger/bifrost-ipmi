@@ -268,14 +268,15 @@
 ;;         ipmi-encode     (partial encode codec)
 ;;         encoded-message (safe (ipmi-encode message))]
 ;;     (send-message session encoded-message)))
+
+
 (def ipmi-server-fsm
-<<<<<<< HEAD
   [[(a/$ :init)
     (a/* :asm-ping)
-    :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+    [:get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
     :open-session-request (a/$ :open-session-request)
     :rmcp-rakp-1 (a/$ :rmcp-rakp-1)
-    :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]
+    :rmcp-rakp-3 (a/$ :rmcp-rakp-3)]]
    [(a/*
      (a/or
       [:device-id-req (a/$ :device-id-req)]
@@ -286,16 +287,16 @@
    [(a/*
      (a/or
       [:chassis-status-req (a/$ :chassis-status-req)]
-      [:chassis-reset-req (a/$ :chassis-reset)]))]
+      [:chassis-reset-req (a/$ :chassis-reset-req)]))]
    [:rmcp-close-session-req (a/$ :rmcp-close-session-req)]])
 
 (def ipmi-client-fsm
   [[(a/$ :init)
     (a/* :asm-ping)
-    :get-channel-auth-cap-req (a/$ :get-channel-auth-cap-req)
+    [:get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
     :open-session-response (a/$ :open-session-response)
     :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
-    :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
+    :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]]
    [(a/*
      (a/or
       [:device-id-rsp (a/$ :device-id-rsp)]
@@ -308,6 +309,26 @@
       [:chassis-status-rsp (a/$ :chassis-status-rsp)]
       [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]))]
    [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
+
+#_(def ipmi-client-fsm
+    [[(a/$ :init)
+      (a/* :asm-ping)
+      :get-channel-auth-cap-rsp (a/$ :get-channel-auth-cap-rsp)
+      :open-session-response (a/$ :open-session-response)
+      :rmcp-rakp-2 (a/$ :rmcp-rakp-2)
+      :rmcp-rakp-4 (a/$ :rmcp-rakp-4)]
+     [(a/*
+       (a/or
+        [:device-id-rsp (a/$ :device-id-rsp)]
+        [:hpm-capabilities-rsp (a/$ :hpm-capabilities-rsp)]
+        [:picmg-properties-rsp (a/$ :picmg-properties-rsp)]
+        [:vso-capabilities-rsp (a/$ :vso-capabilities-rsp)]
+        [:set-session-prv-level-rsp (a/$ :session-priv-level-rsp)]))]
+     [(a/*
+       (a/or
+        [:chassis-status-rsp (a/$ :chassis-status-rsp)]
+        [:chassis-reset-rsp (a/$ :chassis-reset-rsp)]))]
+     [:rmcp-close-session-rsp (a/$ :rmcp-close-session-rsp)]])
 
 
 ;;TODO create schemas for send-message input to test handlers
@@ -348,33 +369,6 @@
                                    state)
               :rmcp-close-session-rsp (fn [state input]
                                         state)}})
-
-#_(def mock-handler
-    {:signal #(:type (c/get-message-type %))
-     :reducers {:get-channel-auth-cap-req (fn [state input]
-                                            (log/debug :get-channel-auth-cap-req))
-                :open-session-request (fn [state input]
-                                        (log/debug :open-session-request))
-                :rmcp-rakp-1           (fn [state input]
-                                         (log/debug :rmcp-rakp-1))
-                :rmcp-rakp-3           (fn [state input]
-                                         (log/debug :rmcp-rakp-3))
-                :hpm-capabilities-req (fn [state input]
-                                        (log/debug :hpm-capabilities-req))
-                :picmg-properties-req (fn [state input]
-                                        (log/debug :picmg-properties-req))
-                :vso-capabilities-req (fn [state input]
-                                        (log/debug :vso-capabilities-req))
-                :chassis-status-req  (fn [state input]
-                                       (log/debug :chassis-status-req))
-                :chassis-reset-req   (fn [state input]
-                                       (log/debug :chassis-reset-req))
-                :device-id-req       (fn [state input]
-                                       (log/debug :device-id-req))
-                :set-session-prv-level-req (fn [state input]
-                                             (log/debug :set-session-prv-level-req))
-                :rmcp-close-session-req (fn [state input]
-                                          (log/debug :rmcp-close-session-req))}})
 
 (def ipmi-server-handler
   {:signal   :type
@@ -493,7 +487,6 @@
               :rmcp-rakp-3 (fn [state input]
                              (log/info "RAKP-3 Request ")
                              (let [h           (:hash input)
-                                        ;message     (conj {} (c/get-message-type input))
                                    remote-sid  (get-in state [:state :remote-sid])
                                    server-sid  (get-in state  [:state :server-sid])
                                    rolem       (get-in state [:state :rolem])
@@ -503,7 +496,6 @@
                                    login-state (c/get-login-state h)
                                    auth        (get-in state [:state :auth-codec])
                                    guid        (get-in state [:state :guidc])
-                                        ; auth        (c/get-authentication-codec h)
                                    uid         (r/lookup-password-key unamem)
                                         ;guid        (r/get-device-id-bytes unamem)
                                    ]
@@ -552,21 +544,21 @@
                                             f               (get input :function)
                                             server-sid      (get-in state [:state :server-sid])]
                                         ;ta  | nf |  hcsum | sa | slun | c   | cc | csum
-                                        #_(send-message  {:type     :error-response
-                                                          :input    input
-                                                          :sid      server-sid
-                                                          :seq      seq
-                                                          :ta       0x81
-                                                          :function f
-                                                          :hcsum    0xcb
-                                                          :sa       0x81
-                                                          :seq-no   seq-no
-                                                          :sl       0x08
-                                                          :command  c
-                                                          :status   0xC1
-                                                          :csum     0x17
-                                                          :a        (:a? input)
-                                                          :e        (:e? input)}))
+                                        (send-message  {:type     :error-response
+                                                        :input    input
+                                                        :sid      server-sid
+                                                        :seq      seq
+                                                        :ta       0x81
+                                                        :function f
+                                                        :hcsum    0xcb
+                                                        :sa       0x81
+                                                        :seq-no   seq-no
+                                                        :sl       0x08
+                                                        :command  c
+                                                        :status   0xC1
+                                                        :csum     0x17
+                                                        :a        (:a? input)
+                                                        :e        (:e? input)}))
                                       state)
               :picmg-properties-req (fn [state input]
                                       (log/info "PICMG Properties")
@@ -664,7 +656,7 @@
                                                           :status      0
                                                           :a           (:a? input)
                                                           :e           (:e? input)}))
-                                        (send-message  {:type        :chassis-reset
+                                        #_(send-message  {:type        :chassis-reset
                                                         :input       input
                                                         :sid         server-sid
                                                         :session-seq session-seq
@@ -703,8 +695,8 @@
                                                           :e      (:e? input)})
                                           state))}})
 
-(defn view-server-fsm []
-  (automat.viz/view (a/compile ipmi-server-fsm ipmi-server-handler)))
-
 (defn view-client-fsm []
   (automat.viz/view (a/compile ipmi-client-fsm ipmi-client-handler)))
+
+(defn view-server-fsm []
+  (automat.viz/view (a/compile ipmi-server-fsm ipmi-server-handler)))

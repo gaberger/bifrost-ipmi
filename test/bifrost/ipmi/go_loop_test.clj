@@ -85,7 +85,3 @@
           :else                        (println "+++" result)))))
 
 
-(deftest test-decode-pipeline
-  (testing "streaming pipeline"
-    (is (= :accepted
-           (stream-messages)))))

@@ -198,8 +198,7 @@
       :supported-entities 0}},
     :type :asf-session}})
 
-(defn auth-capabilities-response-msg [m]
-  (let [{:keys [seq]} m]
+(defn auth-capabilities-response-msg [{:keys [seq]}]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -235,7 +234,7 @@
                                                      :network-function {:function 7, :target-lun 0},
                                                      :command-completion-code 0}},
                    :type :ipmi-1-5-session},
-                  :type :ipmi-session}}))
+                  :type :ipmi-session}})
 
 
 (defn auth-capabilities-request-msg []

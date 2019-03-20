@@ -27,7 +27,7 @@
 (log/merge-config! {:appenders {:println {:enabled? true
                                           :async? true
                                           :min-level :debug}}})
-(def config (config/server-config (state/bind-server-fsm)))
+#_(def config (config/server-config (state/bind-server-fsm)))
 
 #_(def config (config/server-config (state/bind-server-fsm)))
 
