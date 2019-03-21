@@ -144,24 +144,31 @@
 
 (defn decrypt
   [sik iv payload]
+  (log/debug "decrypt" sik iv payload)
   (let [engine         (crypto/block-cipher :aes :cbc)
         iv'            (byte-array iv)
         sik'           (byte-array sik)
         key'           (K2 (byte-array sik'))
         key            (bytes/slice (K2 (byte-array sik')) 0 16)
         _              (crypto/init! engine {:key key :iv iv' :op :decrypt})
-        output-buffer  (mapv #(-process-block engine %)
-                             (partition 16 payload))
+        output-buffer  (doall (mapv #(-process-block engine %) (partition 16 payload)))
+        _              (log/debug "OUTPUT_BUFFER" (bs/print-bytes output-buffer))
         buffer         (vec (reduce (fn [x y]
                                       (bytes/concat x y))
                                     []
                                     output-buffer))
+        _              (log/debug "decrypt buffer" "Count" (count buffer) (last buffer))
         padding-length (last buffer)
-        new-buffer_    (if (> padding-length 0)
-                         (->
-                          (take (- 16 (inc padding-length)) buffer)
-                          byte-array)
-                         (butlast buffer))]
+        _              (log/debug "Padding Length" padding-length)
+        new-buffer_    (log/spy (if (= (mod (count buffer) 16) 0)
+                                  (byte-array buffer)
+                                  (->
+                                   (take (- 16 (inc padding-length)) buffer)
+                                   byte-array)))
+        ]
+    (assert (bytes? new-buffer_))
+    (log/debug "Decrypting with SIK" (codecs/bytes->hex sik'))
+    (log/debug "Decrypting with payload "  payload)
     (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
     (log/debug "Decrypting with key " (codecs/bytes->hex key))
     (log/debug "Decrypted Payload" (codecs/bytes->hex new-buffer_) "Count" (count new-buffer_))

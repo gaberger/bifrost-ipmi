@@ -10,7 +10,7 @@
 (defn decode-message [state message]
   (let [codec (c/compile-codec state)
         decoded (try
-                  (i/decode codec message false)
+                  (i/decode codec message)
                   (catch Exception e
                     (throw (ex-info "Decoder exception"
                                     {:error (.getMessage e)

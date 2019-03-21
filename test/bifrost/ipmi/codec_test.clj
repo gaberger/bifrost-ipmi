@@ -987,14 +987,7 @@
                (get-authentication-codec 1))))))
 
 (deftest test-encrypted-payload
-  #_(testing "Decryption Decoder"
-    (with-mocks
-      [m {:target :bifrost.ipmi.codec/get-authentication-codec
-          :return :rmcp-rakp-hmac-sha1}
-       n {:target :bifrost.ipmi.codec/get-confidentiality-codec
-          :return :rmcp-rakp-1-aes-cbc-128-confidentialit}
-       o {:target :bifrost.ipmi.codec/get-sik
-          :return [0x99 0xe6 0xf3 0x50 0x5a 0x8c 0x13 0xaa 0xea 0x1b 0xf4 0x99 0x8b 0xea 0xdd 0x29 0x64 0xba 0x87 0x75]}]
+  (testing "Decryption Decoder"
       (let [state {:auth-codec :rmcp-rakp-hmac-sha1 :conf-codec
                    :rmcp-rakp-1-aes-cbc-128-confidentiality
                    :sik [0x99 0xe6 0xf3 0x50 0x5a 0x8c 0x13 0xaa 0xea 0x1b 0xf4 0x99 0x8b 0xea 0xdd 0x29 0x64 0xba 0x87 0x75]}
@@ -1026,7 +1019,7 @@
                         :network-function {:function 6, :target-lun 0}},
                        :type :ipmi-2-0-session},
                       :type :ipmi-session}}
-                    decoded)))))
+                    decoded))))
   (testing "encoder"
     (let [state {:auth-codec :rmcp-rakp-hmac-sha1
                  :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality

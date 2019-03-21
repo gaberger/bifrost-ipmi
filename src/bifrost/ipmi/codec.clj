@@ -910,7 +910,7 @@
   ([state]
    (log/debug "Compile with state" state)
    (log/debug "Auth Codec " (get state :auth-codec))
-   (log/debug "Conf Codec " (get state :conf-codec :None))
+   (log/debug "Conf Codec " (get state :conf-codec))
    (let [ipmb-message (compile-frame-enc
                       (header ipmb-header-1
                               (build-merge-header-with-data
@@ -932,7 +932,15 @@
                            (let [iv         (get-in a [:payload :iv])
                                  data       (get-in a [:payload :data])
                                  sik        (get state :sik)
-                                 decrypted  (decrypt sik iv data)
+                                 decrypted  (try
+                                              (decrypt sik iv data)
+                                              (catch Exception e
+                                                (throw (ex-info "Decrypt error"
+                                                                {:error (.getMessage e)
+                                                                 :sik sik
+                                                                 :iv iv
+                                                                 :data data})))
+                                                 )
                                  decrypted' (-> decrypted bs/to-byte-array to-buf-seq)
                                  decoded    (i/decode (compile-frame-enc
                                                        (header ipmb-header
@@ -1011,7 +1019,7 @@
                           aes-post-decoder)
         grpl             (fn [{:keys [payload-type auth conf] :as b}]
                            (let [t              (get-in payload-type [:payload-type :type])
-                                 f              (get-in payload-type [:network-function :function])]
+                                 f              (log/spy (get-in payload-type [:network-function :function]))]
                              (condp = t
                                0x00 (condp = conf
                                       :rmcp-rakp-1-aes-cbc-128-confidentiality (if (nil? f)
