@@ -1,7 +1,6 @@
 (ns bifrost.ipmi.server
   (:require [clojure.core.async :refer [chan sub pub go <!!]]
             [bifrost.ipmi.codec :refer [get-fsm]]
-            [bifrost.ipmi.state-machine :as state]
             [bifrost.ipmi.codec :as c]
             [bifrost.ipmi.config :as config]
             [buddy.core.codecs :as codecs]
@@ -25,9 +24,6 @@
 ;;     (log/debug "FSM-State "  new-fsm-state)
 ;;     new-fsm-state))
 
-(defn reset-peer [hash]
-   (log/info "Closing session for " hash)
-   (state/delete-chan hash))
 
 ;; #_(defn publish [data]
 ;;   (try (async/put! ()input-chan data))

@@ -8,9 +8,9 @@
             [bifrost.ipmi.utils :refer [safe]]
             [bifrost.ipmi.codec :as c]
             [bifrost.ipmi.registrar :as r]
-            [bifrost.ipmi.state-machine :as state]
             [bifrost.ipmi.decode :as decode]
             [bifrost.ipmi.config :as config]
+            [bifrost.ipmi.messages :as messages]
             [clojure.string :as str]
             [clojure.core.async :as async]
             [integrant.core :as ig]
@@ -60,15 +60,15 @@
                                   :min-level :debug}}))
 
 (defn run-reaper []
-  (log/info "Running Reaper on collection count " (state/count-peer))
+  (log/info "Running Reaper on collection count " (count-peer))
   (doall
-   (for [[k v] (state/get-chan-map)
+   (for [[k v] (get-chan-map)
          :let  [n (.toInstant (java.util.Date.))
                 t (.toInstant (:created-at v))
                 duration (.toMillis (Duration/between t n))
                 _ (log/debug {:hash k :duration duration})]
          :when (> duration 30000)]
-     (server/reset-peer k))))
+     (reset-peer k))))
 
 (def input-chan (async/chan))
 (def publisher (async/pub input-chan :host-map))
@@ -87,16 +87,16 @@
         (recur)))))
 
 (defn server-handler  [udp-message]
-  (let [host-map (state/get-session-state udp-message)
+  (let [host-map (decode/get-session-state udp-message)
         h        (hash host-map)]
     (log/debug  "Packet In" (-> udp-message
                                 :message
                                 bs/to-byte-array
                                 codecs/bytes->hex) "Port" (:port host-map))
-    (when-not (state/channel-exists? h)
+    (when-not (channel-exists? h)
       (do
         (log/debug "Creating subscriber for topic " h)
-        (state/upsert-chan h  {:created-at  (Date.)
+        (upsert-chan h  {:created-at  (Date.)
                                :host-map    host-map
                                :state       {}})
         (create-processor h)
@@ -118,9 +118,9 @@
 
 (defn start-udp-server
   [port]
-  (if-not (some-> (deref state/server-socket)  s/closed? not)
+  (if-not (some-> (deref messages/server-socket)  s/closed? not)
     (do
-      (reset! state/server-socket @(udp/socket {:port port :epoll? true}))
+      (reset! messages/server-socket @(udp/socket {:port port :epoll? true}))
       (dosync (alter app-state assoc :server-port port)))
     (do
       (log/error "Port in use")
@@ -134,7 +134,7 @@
       (recur))))
 
 (defn stop-server []
-  (safe (s/close! @state/server-socket)))
+  (safe (s/close! @messages/server-socket)))
 
 (defn start-server
   [& args]
@@ -143,7 +143,7 @@
       (when (start-udp-server (or port 623))
         (do
           (log/info "Starting Server on Port " (or port 623))
-          (let [stream (start-server-consumer @state/server-socket)]
+          (let [stream (start-server-consumer @messages/server-socket)]
             (log/debug "Stream" stream))))
       (log/error "Please register users first"))
     (println "Must provide a port")))

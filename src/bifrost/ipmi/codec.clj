@@ -223,32 +223,54 @@
                                                       :rolem        rolem
                                                       :remote-sid   remote-sid})
                                                    17 ;; open-session-response
-                                                   (let [sidm (get session :managed-system-session-id )]
+                                                   (let [server-sid  (get session :managed-system-session-id )
+                                                         remote-sid  (get session :remote-session-id)
+                                                         rolem       (get-in session [:privilege-level :max-priv-level])
+                                                         a           (get-in session [:authentication-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         i           (get-in session [:integrity-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         c           (get-in session [:confidentiality-payload
+                                                                                      :algo
+                                                                                      :algorithm] 0)
+                                                         auth-codec  (-> a
+                                                                         authentication-codec
+                                                                         :codec)
+                                                         integ-codec (-> i
+                                                                         integrity-codec
+                                                                         :codec)
+                                                         conf-codec  (-> c
+                                                                         confidentiality-codec
+                                                                         :codec)
+                                                         ]
                                                      {:type         :open-session-response
                                                       :payload-type 17
-                                                      :server-sid   sidm
-                                                      :a?           authenticated?
-                                                      :e?           encrypted?})
+                                                      :server-sid   server-sid
+                                                      :remote-sid   remote-sid
+                                                      :rolem        rolem
+                                                      :auth-codec   auth-codec
+                                                      :integ-codec  integ-codec
+                                                      :conf-codec   conf-codec})
                                                    18 ;;rmcp-rakp-1
-                                                   (let  [remote-rn (get-in session [:remote-console-random-number])
-                                                          unamem    (get session :user-name)
-                                                          rolem     (get-in session [:requested-max-priv-level
-                                                                                     :requested-max-priv-level])]
-                                                     {:type      :rmcp-rakp-1 :payload-type 18
-                                                      :a?        authenticated?
-                                                      :e?        encrypted?
-                                                      :remote-rn remote-rn
-                                                      :unamem    unamem
-                                                      :rolem     rolem})
+                                                   (let  [unamem      (get session :user-name)
+                                                          remote-rn   (get session :remote-console-random-number)]
+                                                     {:type         :rmcp-rakp-1
+                                                      :payload-type 18
+                                                      :a?           authenticated?
+                                                      :e?           encrypted?
+                                                      :unamem       unamem
+                                                      :remote-rn    remote-rn})
                                                    19 ;;rmcp-rakp-2
                                                    (let [server-guid (get session :managed-system-guid)
-                                                         server-rn (get session :managed-system-random-number)
-                                                         remote-sid (get session :remote-session-console-id)]
-                                                     {:type :rmcp-rakp-2 :payload-type 19
+                                                         server-rn   (get session :managed-system-random-number)
+                                                         remote-sid  (get session :remote-session-console-id)]
+                                                     {:type        :rmcp-rakp-2 :payload-type 19
                                                       :server-guid server-guid
-                                                      :server-rn server-rn
-                                                      :a?   authenticated?
-                                                      :e?   encrypted?}
+                                                      :server-rn   server-rn
+                                                      :a?          authenticated?
+                                                      :e?          encrypted?}
                                                      )
                                                    20 ;; rmcp-rakp-3
                                                    (if (contains? session :key-exchange-code)
@@ -364,23 +386,23 @@
                                                                  :e?       encrypted?})
                                                         45 (condp = command
                                                              0  (condp = signature
-                                                                  0 {:type      :picmg-properties-rsp
-                                                                     :command   0
-                                                                     :function  45
-                                                                     :seq-no    seq-no
-                                                                     :signature 0
-                                                                     :a?        authenticated?
-                                                                     :e?        encrypted?}
-                                                                  3 {:type      :vso-capabilities-rsp
-                                                                     :command   0
-                                                                     :function  45
-                                                                     :seq-no    seq-no
-                                                                     :signature 3
-                                                                     :a?        authenticated?
-                                                                     :e?        encrypted?}
-                                                                  nil {:type :picmg-properties-rsp
+                                                                  0   {:type      :picmg-properties-rsp
+                                                                       :command   0
+                                                                       :function  45
+                                                                       :seq-no    seq-no
+                                                                       :signature 0
+                                                                       :a?        authenticated?
+                                                                       :e?        encrypted?}
+                                                                  3   {:type      :vso-capabilities-rsp
+                                                                       :command   0
+                                                                       :function  45
+                                                                       :seq-no    seq-no
+                                                                       :signature 3
+                                                                       :a?        authenticated?
+                                                                       :e?        encrypted?}
+                                                                  nil {:type     :picmg-properties-rsp
                                                                        :function 45
-                                                                       :command 0
+                                                                       :command  0
                                                                        })
                                                              62 {:type     :hpm-capabilities-rsp
                                                                  :command  62
@@ -388,11 +410,11 @@
                                                                  :seq-no   seq-no
                                                                  :a?       authenticated?
                                                                  :e?       encrypted?}
-                                                        {:type :error
-                                                         :payload payload-type
-                                                         :command command
-                                                         :function function}
-                                                        ))
+                                                             {:type     :error
+                                                              :payload  payload-type
+                                                              :command  command
+                                                              :function function}
+                                                             ))
                                                    {:type     :error :payload payload-type
                                                     :command  command
                                                     :function function}))

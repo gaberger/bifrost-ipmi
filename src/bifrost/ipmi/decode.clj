@@ -1,5 +1,6 @@
 (ns bifrost.ipmi.decode
-  (:require [bifrost.ipmi.state-machine :as state]
+  (:require [bifrost.ipmi.server-state-machine :as server]
+            [bifrost.ipmi.client-state-machine :as client]
             [bifrost.ipmi.codec :as c]
             [clojure.core.async :as async]
             [gloss.io :as i]
@@ -61,16 +62,14 @@
   for encryption types and the byte-array for the IPMI message. It returns a new map with the transformation from
   IPMI decode to a selection map that is passed into the state-machine. Output is a map with keys [:type :state :message]"
   [state msg]
-  (decode-parser (decode-message state (byte-array msg)))
-  #_(try
-    (some->>
-     (byte-array msg)
-      (decode-message state)
-      (decode-parser))
+  (try
+    (decode-parser (decode-message state (byte-array msg)))
     (catch Exception e
       (throw (ex-info "Error in decode"
                       {:message (.getMessage e)
-                       :state   state})))))
+                       :state   state
+                       :msg-type (type msg)
+                       :msg (codecs/bytes->hex (:message msg))})))))
 
 (defn get-session-state [msg]
   (let [sender (:sender msg)
@@ -86,7 +85,7 @@
         ([result] (xf result))
         ([result item]
          (let [udp-message      (get item :message)
-               host-map         (state/get-session-state udp-message)
+               host-map         (get-session-state udp-message)
                payload          (:message udp-message)
                decoded-message  (decode (get @state  :value) payload)
                decorate-message (merge host-map decoded-message)
@@ -106,6 +105,10 @@
                    (xf result (assoc {} :type :command :state (:value @state) :message decorate-message)))
              {})))))))
 
+
+
+
+
 (defn client-decoder-xf [fsm]
   (fn [xf]
     (let [state (atom {})]
@@ -113,18 +116,19 @@
         ([] (xf))
         ([result] (xf result))
         ([result item]
-         (let [host-map        (state/get-session-state item)
-               payload         (:message item)
-               decoded-message (decode (:value @state) payload)
+         (let [udp-message      (get item :message)
+               host-map         (get-session-state udp-message)
+               payload          (:message udp-message)
+               decoded-message  (decode (get @state  :value) payload)
                decorate-message (merge host-map decoded-message)
-               new-state       (try
-                                 (fsm @state decorate-message)
-                                 (catch IllegalArgumentException e
-                                   (throw (ex-info "State Machine Error"
-                                                   {:error   (.getMessage e)
-                                                    :state   @state
-                                                    :message decorate-message}))
-                                   nil))]
+               new-state        (try
+                                  (fsm @state decorate-message)
+                                  (catch IllegalArgumentException e
+                                    (log/error (ex-info "State Machine Error"
+                                                    {:error   (.getMessage e)
+                                                     :state   @state
+                                                     :message decorate-message}))
+                                    nil))]
            (log/debug "New State" new-state)
            (reset! state new-state)
            (condp = (:state-index new-state)
@@ -137,9 +141,9 @@
                              {:message ex})))
 
 (defn make-server-decoder []
-  (let [decoder-chan (async/chan 10 (server-decoder-xf (state/bind-server-fsm)) ex-handler)]
+  (let [decoder-chan (async/chan 10 (server-decoder-xf (server/bind-server-fsm)) ex-handler)]
     decoder-chan))
 
-(defn make-client-decoder [fsm]
-  (let [decoder-chan (async/chan 10 (client-decoder-xf fsm) ex-handler)]
+(defn make-client-decoder []
+  (let [decoder-chan (async/chan 10 (client-decoder-xf (client/bind-client-fsm)) ex-handler)]
     decoder-chan))

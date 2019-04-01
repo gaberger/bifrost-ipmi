@@ -1118,178 +1118,167 @@
     (is (= [{:type :get-channel-auth-cap-req, :command 56, :function 6}
             {:type :get-channel-auth-cap-rsp, :command 56, :function 7}
             {:payload-type 16,
-             :integ-codec :rmcp-rakp-1-none-integrity,
-             :a? false,
-             :type :open-session-request,
-             :e? false,
-             :c 0,
-             :auth-codec :rmcp-rakp,
-             :remote-sid 2695013284,
-             :rolem 0,
-             :conf-codec :rmcp-rakp-1-none-confidentiality,
-             :i 0,
-             :a 0}
-            {:type :open-session-response, :payload-type 17, :a? false, :e? false :server-sid 1410}
-            {:type :rmcp-rakp-1,
+             :integ-codec  :rmcp-rakp-1-none-integrity,
+             :a?           false,
+             :type         :open-session-request,
+             :e?           false,
+             :c            0,
+             :auth-codec   :rmcp-rakp-hmac-sha1,
+             :remote-sid   2695013284,
+             :rolem        0,
+             :conf-codec   :rmcp-rakp-1-none-confidentiality,
+             :i            0,
+             :a            1}
+            {:type         :open-session-response,
+             :payload-type 17,
+             :server-sid   1538,
+             :remote-sid   2695013284,
+             :rolem        0,
+             :auth-codec   :rmcp-rakp-hmac-sha1,
+             :integ-codec  :rmcp-rakp-1-none-integrity,
+             :conf-codec   :rmcp-rakp-1-none-confidentiality}
+            {:type         :rmcp-rakp-1,
              :payload-type 18,
-             :a? false,
-             :e? false,
-             :remote-rn [130 240 106 5 2 196 62 41 251 20 164 150 238 33 47 72],
-             :unamem "ADMIN",
-             :rolem 4}
-            {:type :rmcp-rakp-2, :payload-type 19, :a? false, :e? false}
-            {:type :rmcp-rakp-3, :payload-type 20, :a? false, :e? false}
-            {:type :rmcp-rakp-4, :payload-type 21, :a? false, :e? false}
-            {:type :set-session-prv-level-req,
-             :command 59,
-             :function 6,
-             :seq-no 1,
+             :a?           false,
+             :e?           false,
+             :unamem       "ADMIN",
+             :remote-rn    [164 231 102 247 225 127 193 98 185 10 4 8 103 202 9 52]}
+            {:type :error, :selector nil}
+            {:type :error, :selector nil}
+            {:type :error, :selector nil}
+            {:type           :set-session-prv-level-req,
+             :command        59,
+             :function       6,
+             :seq-no         1,
              :session-seq-no 3,
-             :a? false,
-             :e? false}
-            {:type :set-session-prv-level-rsp,
-             :command 59,
+             :a?             false,
+             :e?             false}
+            {:type     :set-session-prv-level-rsp,
+             :command  59,
              :function 7,
-             :seq-no 1,
-             :a? false,
-             :e? false}
-            {:type :hpm-capabilities-req,
-             :command 62,
+             :seq-no   1,
+             :a?       false,
+             :e?       false}
+            {:type     :hpm-capabilities-req,
+             :command  62,
              :function 44,
-             :seq-no 2,
+             :seq-no   2,
              :response 45,
-             :a? false,
-             :e? false}
-            {:type :hpm-capabilities-rsp,
-             :command 62,
+             :a?       false,
+             :e?       false}
+            {:type     :hpm-capabilities-rsp,
+             :command  62,
              :function 45,
-             :seq-no 2,
-             :a? false,
-             :e? false}
-            {:type :device-id-req,
-             :command 1,
-             :function 6,
-             :seq-no 3,
+             :seq-no   2,
+             :a?       false,
+             :e?       false}
+            {:type           :device-id-req,
+             :command        1,
+             :function       6,
+             :seq-no         3,
              :session-seq-no 5,
-             :a? false,
-             :e? false}
-            {:type :device-id-rsp,
-             :command 1,
+             :a?             false,
+             :e?             false}
+            {:type     :device-id-rsp,
+             :command  1,
              :function 7,
-             :seq-no 3,
-             :a? false,
-             :e? false}
-            {:response 45,
+             :seq-no   3,
+             :a?       false,
+             :e?       false}
+            {:response    45,
              :session-seq 6,
-             :signature 0,
-             :a? false,
-             :command 0,
-             :type :picmg-properties-req,
-             :e? false,
-             :function 44,
-             :seq-no 4}
+             :signature   0,
+             :a?          false,
+             :command     0,
+             :type        :picmg-properties-req,
+             :e?          false,
+             :function    44,
+             :seq-no      4}
             {:type :picmg-properties-rsp, :function 45, :command 0}
-            {:type :vso-capabilities-req,
-             :command 0,
-             :function 44,
-             :seq-no 5,
-             :response 45,
+            {:type      :vso-capabilities-req,
+             :command   0,
+             :function  44,
+             :seq-no    5,
+             :response  45,
              :signature 3,
-             :a? false,
-             :e? false}
+             :a?        false,
+             :e?        false}
             {:type :picmg-properties-rsp, :function 45, :command 0}
-            {:type :chassis-status-req,
-             :command 1,
-             :function 0,
-             :seq-no 6,
+            {:type           :chassis-status-req,
+             :command        1,
+             :function       0,
+             :seq-no         6,
              :session-seq-no 8,
-             :a? false,
-             :e? false}
-            {:type :chassis-status-rsp,
-             :command 1,
-             :function 1,
-             :seq-no 6,
+             :a?             false,
+             :e?             false}
+            {:type           :chassis-status-rsp,
+             :command        1,
+             :function       1,
+             :seq-no         6,
              :session-seq-no 6,
-             :a? false,
-             :e? false}
-            {:type :rmcp-close-session-req,
-             :command 60,
-             :function 6,
-             :seq-no 7,
+             :a?             false,
+             :e?             false}
+            {:type           :rmcp-close-session-req,
+             :command        60,
+             :function       6,
+             :seq-no         7,
              :session-seq-no 9,
-             :a? false,
-             :e? false,
-             :session-seq 9}
-            {:type :rmcp-close-session-rsp,
-             :command 60,
+             :a?             false,
+             :e?             false,
+             :session-seq    9}
+            {:type     :rmcp-close-session-rsp,
+             :command  60,
              :function 7,
-             :seq-no 7,
-             :a? false,
-             :e? false}]
+             :seq-no   7,
+             :a?       false,
+             :e?       false}]
            res))))
 
 (deftest test-decoder-cipher-3
   (let [b-array (take 8 (u/create-rmcp-stream "cipher-3.hex"))
         res     (mapv #(sut/decode {:auth-codec :rmcp-rakp-hmac-sha1
                                     :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality} %) b-array)]
-    (is (=      [{:type :get-channel-auth-cap-req, :command 56, :function 6}
-                 {:type :get-channel-auth-cap-rsp, :command 56, :function 7}
-                 {:payload-type 16,
-                  :integ-codec :rmcp-rakp-1-hmac-sha1-96-integrity,
-                  :a? false,
-                  :type :open-session-request,
-                  :e? false,
-                  :c 1,
-                  :auth-codec :rmcp-rakp-hmac-sha1,
-                  :remote-sid 2695013284,
-                  :rolem 0,
-                  :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality,
-                  :i 1,
-                  :a 1}
-                 {:type :open-session-response,
-                  :payload-type 17,
-                  :server-sid 1794,
-                  :a? false,
-                  :e? false}
-                 {:type :rmcp-rakp-1,
-                  :payload-type 18,
-                  :a? false,
-                  :e? false,
-                  :remote-rn
-                  [65 69 218 159 110 213 102 167 0 0 238 14 229 117 167 176],
-                  :unamem "ADMIN",
-                  :rolem 4}
-                 {:type :rmcp-rakp-2,
-                  :payload-type 19,
-                  :server-guid
-                  [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
-                  :server-rn [74 123 83 211 243 11 250 190 126 105 53 3 214 148 24 69],
-                  :a? false,
-                  :e? false}
-                 {:type :rmcp-rakp-3,
-                  :payload-type 20,
-                  :a? false,
-                  :e? false,
-                  :kec
-                  [255
-                   197
-                   199
-                   229
-                   30
-                   50
-                   81
-                   233
-                   18
-                   34
-                   86
-                   94
-                   11
-                   61
-                   254
-                   242
-                   146
-                   211
-                   251
-                   226]}
-                 {:type :rmcp-rakp-4, :payload-type 21, :a? false, :e? false}]
-                res))))
+    (is (= [{:type :get-channel-auth-cap-req, :command 56, :function 6}
+            {:type :get-channel-auth-cap-rsp, :command 56, :function 7}
+            {:payload-type 16,
+             :integ-codec  :rmcp-rakp-1-hmac-sha1-96-integrity,
+             :a?           false,
+             :type         :open-session-request,
+             :e?           false,
+             :c            1,
+             :auth-codec   :rmcp-rakp-hmac-sha1,
+             :remote-sid   2695013284,
+             :rolem        0,
+             :conf-codec   :rmcp-rakp-1-aes-cbc-128-confidentiality,
+             :i            1,
+             :a            1}
+            {:type         :open-session-response,
+             :payload-type 17,
+             :server-sid   1794,
+             :remote-sid   2695013284,
+             :rolem        0,
+             :auth-codec   :rmcp-rakp-hmac-sha1,
+             :integ-codec  :rmcp-rakp-1-hmac-sha1-96-integrity,
+             :conf-codec   :rmcp-rakp-1-aes-cbc-128-confidentiality}
+            {:type         :rmcp-rakp-1,
+             :payload-type 18,
+             :a?           false,
+             :e?           false,
+             :unamem       "ADMIN",
+             :remote-rn
+             [65 69 218 159 110 213 102 167 0 0 238 14 229 117 167 176]}
+            {:type         :rmcp-rakp-2,
+             :payload-type 19,
+             :server-guid
+             [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
+             :server-rn    [74 123 83 211 243 11 250 190 126 105 53 3 214 148 24 69],
+             :a?           false,
+             :e?           false}
+            {:type         :rmcp-rakp-3,
+             :payload-type 20,
+             :a?           false,
+             :e?           false,
+             :kec
+             [255 197 199 229 30 50 81 233 18 34 86 94 11 61 254 242 146 211 251 226]}
+            {:type :rmcp-rakp-4, :payload-type 21, :a? false, :e? false}]
+           res))))

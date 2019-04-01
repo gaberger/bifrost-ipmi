@@ -179,7 +179,7 @@
         key            (bytes/slice (K2 (byte-array sik')) 0 16)
         _              (crypto/init! engine {:key key :iv iv' :op :decrypt})
         output-buffer  (doall (mapv #(-process-block engine %) (partition 16 payload)))
-        _              (log/debug "OUTPUT_BUFFER" (bs/print-bytes output-buffer))
+        _              (log/debug "OUTPUT_BUFFER" )
         buffer         (vec (reduce (fn [x y]
                                       (bytes/concat x y))
                                     []

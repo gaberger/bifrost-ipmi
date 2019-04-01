@@ -22,7 +22,6 @@
 
 
  :paths ["src", "test" "resources"]
- :extra-paths ["resources"]
  :aliases {:nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.20.0"}
                                 nrepl/nrepl       {:mvn/version "0.5.3"}}
 

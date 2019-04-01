@@ -1,6 +1,5 @@
 (ns bifrost.ipmi.client
   (:require [bifrost.ipmi.handlers :as h]
-            [bifrost.ipmi.state-machine :as state]
             [bifrost.ipmi.server :as server]
             [clojure.core.async :refer [thread]]
             [taoensso.timbre :as log]
