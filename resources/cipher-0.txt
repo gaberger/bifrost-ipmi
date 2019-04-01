@@ -1,9 +1,8 @@
-ipmitool -vvvvv -C 1 -H 100.67.141.16 -U root -P Dell0SS! -I lanplus chassis status
 
 >> Sending IPMI command payload
 >>    netfn   : 0x06
 >>    command : 0x38
->>    data    : 0x8e 0x04
+>>    data    : 0x8e 0x04 
 
 BUILDING A v1.5 COMMAND
 added list entry seq=0x00 cmd=0x38
@@ -24,7 +23,7 @@ added list entry seq=0x00 cmd=0x38
  c8 81 00 38 8e 04 b5
 << received packet (30 bytes)
  06 00 ff 07 00 00 00 00 00 00 00 00 00 10 81 1c
- 63 20 00 38 00 01 84 1c 02 00 00 00 00 05
+ 63 20 00 38 00 01 97 04 03 00 00 00 00 09
 << IPMI Response Session Header
 <<   Authtype                : NONE
 <<   Payload type            : IPMI (0)
@@ -46,122 +45,50 @@ removed list entry seq=0x00 cmd=0x38
 
 >> sending packet (48 bytes)
  06 00 ff 07 06 10 00 00 00 00 00 00 00 00 20 00
- 00 00 00 00 a4 a3 a2 a0 00 00 00 08 01 00 00 00
+ 00 00 00 00 a4 a3 a2 a0 00 00 00 08 00 00 00 00
  01 00 00 08 00 00 00 00 02 00 00 08 00 00 00 00
 << received packet (52 bytes)
  06 00 ff 07 06 11 00 00 00 00 00 00 00 00 24 00
- 00 00 04 00 a4 a3 a2 a0 00 1b 00 02 00 00 00 08
- 01 00 00 00 01 00 00 08 00 00 00 00 02 00 00 08
+ 00 00 00 00 a4 a3 a2 a0 82 05 00 00 00 00 00 08
+ 00 00 00 00 01 00 00 08 00 00 00 00 02 00 00 08
  00 00 00 00
-<<OPEN SESSION RESPONSE
-<<  Message tag                        : 0x00
-<<  RMCP+ status                       : no errors
-<<  Maximum privilege level            : admin
-<<  Console Session ID                 : 0xa0a2a3a4
-<<  BMC Session ID                     : 0x02001b00
-<<  Negotiated authenticatin algorithm : hmac_sha1
-<<  Negotiated integrity algorithm     : none
-<<  Negotiated encryption algorithm    : none
-
 >> Console generated random number (16 bytes)
- fe d2 f2 b3 7c e4 ac 7d 98 13 86 5b 73 07 0c 4e
+ 82 f0 6a 05 02 c4 3e 29 fb 14 a4 96 ee 21 2f 48
 >> SENDING A RAKP 1 MESSAGE
 
->> sending packet (48 bytes)
- 06 00 ff 07 06 12 00 00 00 00 00 00 00 00 20 00
- 00 00 00 00 00 1b 00 02 fe d2 f2 b3 7c e4 ac 7d
- 98 13 86 5b 73 07 0c 4e 14 00 00 04 72 6f 6f 74
-<< received packet (76 bytes)
- 06 00 ff 07 06 13 00 00 00 00 00 00 00 00 3c 00
- 00 00 00 00 a4 a3 a2 a0 93 23 b3 4d c9 58 cd 93
- 9d 6c e7 6d 4d 31 89 e2 44 45 4c 4c 38 00 10 52
- 80 36 c2 c0 4f 57 35 32 e0 55 78 df 37 66 e6 a5
- 86 5d c8 a7 61 97 28 75 dd f9 45 21
-<<RAKP 2 MESSAGE
-<<  Message tag                   : 0x00
-<<  RMCP+ status                  : no errors
-<<  Console Session ID            : 0xa0a2a3a4
-<<  BMC random number             : 0x9323b34dc958cd939d6ce76d4d3189e2
-<<  BMC GUID                      : 0x44454c4c380010528036c2c04f573532
-<<  Key exchange auth code [sha1] : 0xe05578df3766e6a5865dc8a761972875ddf94521
-
+>> sending packet (49 bytes)
+ 06 00 ff 07 06 12 00 00 00 00 00 00 00 00 21 00
+ 00 00 00 00 82 05 00 00 82 f0 6a 05 02 c4 3e 29
+ fb 14 a4 96 ee 21 2f 48 14 00 00 05 41 44 4d 49
+ 4e
+<< received packet (56 bytes)
+ 06 00 ff 07 06 13 00 00 00 00 00 00 00 00 28 00
+ 00 00 00 00 a4 a3 a2 a0 be 9b 7b b3 92 d3 8b 47
+ 22 20 59 00 60 0c 7e a4 a1 23 45 67 89 ab cd ef
+ a1 23 45 67 89 ab cd ef
 bmc_rand (16 bytes)
- 93 23 b3 4d c9 58 cd 93 9d 6c e7 6d 4d 31 89 e2
->> rakp2 mac input buffer (62 bytes)
- a4 a3 a2 a0 00 1b 00 02 fe d2 f2 b3 7c e4 ac 7d
- 98 13 86 5b 73 07 0c 4e 93 23 b3 4d c9 58 cd 93
- 9d 6c e7 6d 4d 31 89 e2 44 45 4c 4c 38 00 10 52
- 80 36 c2 c0 4f 57 35 32 14 04 72 6f 6f 74
->> rakp2 mac key (20 bytes)
- 44 65 6c 6c 30 53 53 21 00 00 00 00 00 00 00 00
- 00 00 00 00
->> rakp2 mac as computed by the remote console (20 bytes)
- e0 55 78 df 37 66 e6 a5 86 5d c8 a7 61 97 28 75
- dd f9 45 21
->> rakp3 mac input buffer (26 bytes)
- 93 23 b3 4d c9 58 cd 93 9d 6c e7 6d 4d 31 89 e2
- a4 a3 a2 a0 14 04 72 6f 6f 74
->> rakp3 mac key (20 bytes)
- 44 65 6c 6c 30 53 53 21 00 00 00 00 00 00 00 00
- 00 00 00 00
-generated rakp3 mac (20 bytes)
- c1 5f 1d 7b 82 9b 29 13 69 ee 63 f8 3a 69 9d 26
- f8 ee 4d 27
-session integrity key input (38 bytes)
- fe d2 f2 b3 7c e4 ac 7d 98 13 86 5b 73 07 0c 4e
- 93 23 b3 4d c9 58 cd 93 9d 6c e7 6d 4d 31 89 e2
- 14 04 72 6f 6f 74
-Generated session integrity key (20 bytes)
- 0f 86 c2 83 e8 74 e5 83 3d 8a 2b ec 44 ee a1 16
- 71 ef d5 ca
-Generated K1 (20 bytes)
- da 01 0b 1b 73 67 08 d2 42 00 48 5a 1c 48 27 c2
- 5f c5 8b 3c
-Generated K2 (20 bytes)
- e7 79 0c 27 99 e9 67 6f 52 ce 22 a7 5e 79 30 80
- da 32 63 eb
+ be 9b 7b b3 92 d3 8b 47 22 20 59 00 60 0c 7e a4
 >> SENDING A RAKP 3 MESSAGE
 
->> sending packet (44 bytes)
- 06 00 ff 07 06 14 00 00 00 00 00 00 00 00 1c 00
- 00 00 00 00 00 1b 00 02 c1 5f 1d 7b 82 9b 29 13
- 69 ee 63 f8 3a 69 9d 26 f8 ee 4d 27
-<< received packet (36 bytes)
- 06 00 ff 07 06 15 00 00 00 00 00 00 00 00 14 00
- 00 00 00 00 a4 a3 a2 a0 b3 62 59 92 ac 2b cc 55
- a5 43 c4 e3
-<<RAKP 4 MESSAGE
-<<  Message tag                   : 0x00
-<<  RMCP+ status                  : no errors
-<<  Console Session ID            : 0xa0a2a3a4
-<<  Key exchange auth code [sha1] : 0xb3625992ac2bcc55a543c4e3
-
->> rakp4 mac input buffer (36 bytes)
- fe d2 f2 b3 7c e4 ac 7d 98 13 86 5b 73 07 0c 4e
- 00 1b 00 02 44 45 4c 4c 38 00 10 52 80 36 c2 c0
- 4f 57 35 32
->> rakp4 mac key (sik) (20 bytes)
- 0f 86 c2 83 e8 74 e5 83 3d 8a 2b ec 44 ee a1 16
- 71 ef d5 ca
->> rakp4 mac as computed by the BMC (20 bytes)
- b3 62 59 92 ac 2b cc 55 a5 43 c4 e3 4d 31 89 e2
- 44 45 4c 4c
->> rakp4 mac as computed by the remote console (20 bytes)
- b3 62 59 92 ac 2b cc 55 a5 43 c4 e3 c4 02 5d 18
- 01 63 ee d4
+>> sending packet (24 bytes)
+ 06 00 ff 07 06 14 00 00 00 00 00 00 00 00 08 00
+ 00 00 00 00 82 05 00 00
+<< received packet (24 bytes)
+ 06 00 ff 07 06 15 00 00 00 00 00 00 00 00 08 00
+ 00 00 00 00 a4 a3 a2 a0
 IPMIv2 / RMCP+ SESSION OPENED SUCCESSFULLY
 
 
 >> Sending IPMI command payload
 >>    netfn   : 0x06
 >>    command : 0x3b
->>    data    : 0x04
+>>    data    : 0x04 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x01 cmd=0x3b
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
 >> sending packet (24 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 03 00 00 00 08 00
+ 06 00 ff 07 06 00 82 05 00 00 03 00 00 00 08 00
  20 18 c8 81 04 3b 04 3c
 << received packet (25 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 01 00 00 00 09 00
@@ -191,13 +118,13 @@ Set Session Privilege Level to ADMINISTRATOR
 >> Sending IPMI command payload
 >>    netfn   : 0x2c
 >>    command : 0x3e
->>    data    : 0x00 0x02
+>>    data    : 0x00 0x02 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x02 cmd=0x3e
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
 >> sending packet (25 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 04 00 00 00 09 00
+ 06 00 ff 07 06 00 82 05 00 00 04 00 00 00 09 00
  20 b0 30 81 08 3e 00 02 37
 << received packet (24 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 02 00 00 00 08 00
@@ -224,18 +151,18 @@ IPM Controller is not HPM.2 compatible
 >> Sending IPMI command payload
 >>    netfn   : 0x06
 >>    command : 0x01
->>    data    :
+>>    data    : 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x03 cmd=0x01
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 >> sending packet (23 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 05 00 00 00 07 00
+ 06 00 ff 07 06 00 82 05 00 00 05 00 00 00 07 00
  20 18 c8 81 0c 01 72
 << received packet (39 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 03 00 00 00 17 00
- 81 1c 63 20 0c 01 00 20 81 02 30 02 df a2 02 00
- 00 01 00 32 1e 1e 0c
+ 81 1c 63 20 0c 01 00 00 03 09 08 02 9f 91 12 00
+ 02 0f 00 00 00 00 6a
 << IPMI Response Session Header
 <<   Authtype                : RMCP+
 <<   Payload type            : IPMI (0)
@@ -253,19 +180,19 @@ Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 <<   Compl Code : 0x00
 IPMI Request Match found
 removed list entry seq=0x03 cmd=0x01
-Iana: 674
+Iana: 4753
 Running Get PICMG Properties my_addr 0x20, transit 0, target 0x20
 
 >> Sending IPMI command payload
 >>    netfn   : 0x2c
 >>    command : 0x00
->>    data    : 0x00
+>>    data    : 0x00 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x04 cmd=0x00
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 >> sending packet (24 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 06 00 00 00 08 00
+ 06 00 ff 07 06 00 82 05 00 00 06 00 00 00 08 00
  20 b0 30 81 10 00 00 6f
 << received packet (24 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 04 00 00 00 08 00
@@ -293,13 +220,13 @@ Running Get VSO Capabilities my_addr 0x20, transit 0, target 0x20
 >> Sending IPMI command payload
 >>    netfn   : 0x2c
 >>    command : 0x00
->>    data    : 0x03
+>>    data    : 0x03 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x05 cmd=0x00
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 >> sending packet (24 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 07 00 00 00 08 00
+ 06 00 ff 07 06 00 82 05 00 00 07 00 00 00 08 00
  20 b0 30 81 14 00 03 68
 << received packet (24 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 05 00 00 00 08 00
@@ -330,23 +257,23 @@ Interface address: my_addr 0x20 transit 0:0 target 0x20:0 ipmb_target 0
 >> Sending IPMI command payload
 >>    netfn   : 0x00
 >>    command : 0x01
->>    data    :
+>>    data    : 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x06 cmd=0x01
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 >> sending packet (23 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 08 00 00 00 07 00
+ 06 00 ff 07 06 00 82 05 00 00 08 00 00 00 07 00
  20 00 e0 81 18 01 66
-<< received packet (28 bytes)
- 06 00 ff 07 06 00 a4 a3 a2 a0 06 00 00 00 0c 00
- 81 04 7b 20 18 01 00 21 00 40 54 12
+<< received packet (27 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 06 00 00 00 0b 00
+ 81 04 7b 20 18 01 00 01 00 00 c6
 << IPMI Response Session Header
 <<   Authtype                : RMCP+
 <<   Payload type            : IPMI (0)
 <<   Session ID              : 0xa0a2a3a4
 <<   Sequence                : 0x00000006
-<<   IPMI Msg/Payload Length : 12
+<<   IPMI Msg/Payload Length : 11
 << IPMI Response Message Header
 <<   Rq Addr    : 81
 <<   NetFn      : 01
@@ -358,37 +285,18 @@ Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
 <<   Compl Code : 0x00
 IPMI Request Match found
 removed list entry seq=0x06 cmd=0x01
-System Power         : on
-Power Overload       : false
-Power Interlock      : inactive
-Main Power Fault     : false
-Power Control Fault  : false
-Power Restore Policy : previous
-Last Power Event     :
-Chassis Intrusion    : inactive
-Front-Panel Lockout  : inactive
-Drive Fault          : false
-Cooling/Fan Fault    : false
-Sleep Button Disable : not allowed
-Diag Button Disable  : allowed
-Reset Button Disable : not allowed
-Power Button Disable : allowed
-Sleep Button Disabled: false
-Diag Button Disabled : true
-Reset Button Disabled: false
-Power Button Disabled: false
 
 >> Sending IPMI command payload
 >>    netfn   : 0x06
 >>    command : 0x3c
->>    data    : 0x00 0x1b 0x00 0x02
+>>    data    : 0x82 0x05 0x00 0x00 
 
 BUILDING A v2 COMMAND
 added list entry seq=0x07 cmd=0x3c
 Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
 >> sending packet (27 bytes)
- 06 00 ff 07 06 00 00 1b 00 02 09 00 00 00 0b 00
- 20 18 c8 81 1c 3c 00 1b 00 02 0a
+ 06 00 ff 07 06 00 82 05 00 00 09 00 00 00 0b 00
+ 20 18 c8 81 1c 3c 82 05 00 00 a0
 << received packet (24 bytes)
  06 00 ff 07 06 00 a4 a3 a2 a0 07 00 00 00 08 00
  81 1c 63 20 1c 3c 00 88
@@ -409,4 +317,5 @@ Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
 <<   Compl Code : 0x00
 IPMI Request Match found
 removed list entry seq=0x07 cmd=0x3c
-Closed Session 02001b00
+Closed Session 00000582
+

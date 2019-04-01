@@ -97,6 +97,11 @@
 
 ;; TODO update for IPV6 sources
 
+(defn create-server-rn! []
+  (vec (nonce/random-nonce 16)))
+
+(defn create-server-sid! []
+  (rand-int (.pow (BigInteger. "2") 16)))
 
 (defn get-session-state [msg]
   (let [sender (:sender msg)
@@ -126,140 +131,125 @@
         false))))
 
 (defmulti send-message :type)
-(defmethod send-message :error-response [m]
+(defmethod send-message :error-response [{:keys [state remote-sid sa ta session-seq command seq-no function status csum a e]}]
   (log/info "Sending Response: ")
-  (let [{:keys [input]} m
-        message             (h/error-response-msg m)
-        codec               (c/compile-codec (:hash input))
+  (let [message             (h/error-response-msg remote-sid sa ta session-seq command seq-no function status csum a e )
+        codec               (c/compile-codec state)
         ipmi-encode         (partial encode codec)
         encoded-message     (ipmi-encode message)]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
 (defmulti send-message :type)
-(defmethod send-message :chassis-status [m]
+(defmethod send-message :chassis-status [{:keys [state remote-sid seq-no a e]}]
   (log/info "Sending Status Chassis Response: ")
-  (let [{:keys [input sid]} m
-        message             (h/chassis-status-response-msg m)
-        codec               (c/compile-codec (:hash input))
+  (let [message             (h/chassis-status-response-msg remote-sid seq-no a e)
+        codec               (c/compile-codec state)
         ipmi-encode         (partial encode codec)
         encoded-message     (ipmi-encode message)]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :device-id-req [m]
+(defmethod send-message :device-id-req [{:keys [state remote-sid seq-no a e]}]
   (log/info "Sending Device ID  Response: ")
-  (let [{:keys [input sid]} m
-        message             (h/device-id-response-msg m)
-        codec               (c/compile-codec (:hash input))
+  (let [message             (h/device-id-response-msg remote-sid seq-no a e)
+        codec               (c/compile-codec state)
         ipmi-encode         (partial encode codec)
         encoded-message     (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :chassis-reset [m]
+(defmethod send-message :chassis-reset [{:keys [state remote-sid session-seq seq-no a e]}]
   (log/info "Sending Chassis Reset Response")
-  (let [{:keys [input]} m
-        message         (h/chassis-reset-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/chassis-reset-response-msg remote-sid seq-no a e)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :get-channel-auth-cap-req [m]
+(defmethod send-message :get-channel-auth-cap-req [state seq-no]
   (log/info "Sending Chassis Auth Capability Response")
-  (let [{:keys [input]} m
-        message         (h/auth-capabilities-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/auth-capabilities-response-msg seq-no)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :auth-capabiities-request-msg [m]
-  (let [{:keys [input]} m
-        message         (h/auth-capabilities-request-msg m)
-        codec           (c/compile-codec (:hash input))
+(defmethod send-message :auth-capabiities-request-msg [{:keys [state]}]
+  (let [message         (h/auth-capabilities-request-msg)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :open-session-request [m]
-  (log/info "Sending Open Session Response " m)
-  (let [{:keys [input]} m
-        message         (h/rmcp-open-session-response-msg m)
-        codec           (c/compile-codec (:hash input))
+(defmethod send-message :open-session-request [{:keys [state remote-sid server-sid a i c]}]
+  (log/info "Sending Open Session Response ")
+  (let [message         (h/rmcp-open-session-response-msg remote-sid server-sid a i c)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :rmcp-rakp-2 [m]
+(defmethod send-message :rmcp-rakp-2 [state]
   (log/info "Sending RAKP2")
-  (let [{:keys [input]} m
-        message         (h/rmcp-rakp-2-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/rmcp-rakp-2-response-msg)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :rmcp-rakp-4 [m]
+(defmethod send-message :rmcp-rakp-4 [{:keys [state server-sid]}]
   (log/info "Sending RAKP4")
-  (let [{:keys [input sidm]} m
-        message              (h/rmcp-rakp-4-response-msg m)
-        codec                (c/compile-codec (:hash input))
+  (let [message              (h/rmcp-rakp-4-response-msg server-sid)
+        codec                (c/compile-codec state)
         ipmi-encode          (partial encode codec)
         encoded-message      (ipmi-encode message)]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :session-priv-level [m]
+(defmethod send-message :session-priv-level [{:keys [state remote-sid session-seq-no seq-no a e]}]
   (log/info "Sending Session Priv Level Response")
-  (let [{:keys [input sid]} m
-        message             (h/set-session-priv-level-rsp-msg m)
-        codec               (c/compile-codec (:hash input))
+  (let [message             (h/set-session-priv-level-rsp-msg remote-sid session-seq-no seq-no a e)
+        codec               (c/compile-codec state)
         ipmi-encode         (partial encode codec)
         encoded-message     (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :rmcp-close-session [m]
+(defmethod send-message :rmcp-close-session [{:keys [state remote-sid session-seq seq-no a e]}]
   (log/info "Sending Session Close Response")
-  (let [{:keys [input sid seq]} m
-        message                 (h/rmcp-close-response-msg m)
-        codec                   (c/compile-codec (:hash input))
+  (let [message                 (h/rmcp-close-response-msg remote-sid session-seq seq-no a e)
+        codec                   (c/compile-codec state)
         ipmi-encode             (partial encode codec)
         encoded-message         (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :asf-ping [m]
+(defmethod send-message :asf-ping [{:keys [state message-tag]}]
   (log/info "Sending Ping Response")
-  (let [{:keys [input message-tag]} m
-        message                     (h/presence-pong-msg message-tag)
-        codec                       (c/compile-codec (:hash input))
+  (let [message                     (h/presence-pong-msg message-tag)
+        codec                       (c/compile-codec state)
         ipmi-encode                 (partial encode codec)
         encoded-message             (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :hpm-capabilities-req [m]
+(defmethod send-message :hpm-capabilities-req [{:keys [state remote-sid seq-no a e]}]
   (log/info "Sending HPM Capabilities Response")
-  (let [{:keys [input]} m
-        message         (h/hpm-capabilities-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/hpm-capabilities-response-msg remote-sid seq-no a e)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :picmg-properties-req [m]
+(defmethod send-message :picmg-properties-req [{:keys [state remote-sid seq-no a e]}]
   (log/info "Sending PICMG Properties Response")
-  (let [{:keys [input]} m
-        message         (h/picmg-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/picmg-response-msg remote-sid seq-no a e)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
-(defmethod send-message :vso-capabilities-req [m]
+(defmethod send-message :vso-capabilities-req [{:keys [state remote-sid seq-no a e]}]
   (log/info "Sending VSO Capabilities Response")
-  (let [{:keys [input]} m
-        message         (h/vso-response-msg m)
-        codec           (c/compile-codec (:hash input))
+  (let [message         (h/vso-response-msg remote-sid seq-no a e)
+        codec           (c/compile-codec state)
         ipmi-encode     (partial encode codec)
         encoded-message (safe (ipmi-encode message))]
-    (safe (send-udp input encoded-message))))
+    (safe (send-udp state encoded-message))))
 
 ;; (defn send-rmcp-ack [session seq-no]
 ;;   (log/info "Sending rmcp-ack " seq-no)
@@ -363,6 +353,7 @@
     unamem   - Username (absent for null user names) """)
 
 (def ipmi-server-handler
+  "This datatype needs to take in the transformed IPMI decode to drive the statemachine"
   {:signal   :type
    :reducers {:init                     (fn [state _]
                                           #_(assoc state :state {}))
@@ -383,9 +374,7 @@
                                             state))
               :open-session-request     (fn [state input]
                                           (log/info "Open Session Request " "Input" input "State" state)
-                                          (let [;h     (:hash input)
-                                                ;;TODO bind to digital twin?
-                                                server-sid (rand-int (.pow (BigInteger. "2") 16))
+                                          (let [server-sid (create-server-sid!)
                                                 a          (get input :a)
                                                 i          (get input :i)
                                                 c          (get input :c)
@@ -393,7 +382,8 @@
                                                 rolem      (get input :rolem)
                                                 auth-codec (get input :auth-codec)
                                                 conf-codec (get input :conf-codec)
-                                                state      (assoc state :remote-sid  remote-sid
+                                                state      (assoc state
+                                                                  :remote-sid  remote-sid
                                                                   :server-sid  server-sid
                                                                   :rolem rolem
                                                                   :auth-codec auth-codec
@@ -405,25 +395,25 @@
                                                             :input      input
                                                             :remote-sid remote-sid
                                                             :server-sid server-sid}]
-                                        ;(update-login-state {:auth a :integ i :conf c} (:hash input))
                                             (send-message  m)
                                             state))
               :rmcp-rakp-1              (fn [state input]
                                           (log/info "RAKP-1 Request" "input" {:input input :state state})
-                                          (let [h           (:hash input)
-                                                remote-sid  (get state :remote-sid)
+                                          (let [remote-sid  (get state :remote-sid)
                                                 server-sid  (get state :server-sid)
                                                 auth        (get state :auth-codec)
-                                                ;;login-state (c/get-login-state h)
-                                                ;;auth        (c/get-authentication-codec h)
                                                 unamem      (get input :unamem)
                                                 remote-rn   (get input :remote-rn)
                                                 rolem       (get input :rolem)
-                                                server-rn   (vec (nonce/random-nonce 16))
+                                                server-rn   (create-server-rn!)
                                                 uid         (r/lookup-password-key unamem)
-                                                server-guid (r/get-device-id-bytes unamem)
-                                                state       (assoc state :unamem unamem :remote-rn remote-rn :rolem rolem :server-rn server-rn :server-guid server-guid)]
-
+                                                server-guid (r/get-device-guid-bytes unamem)
+                                                state       (assoc state
+                                                                   :unamem unamem
+                                                                   :remote-rn remote-rn
+                                                                   :rolem rolem
+                                                                   :server-rn server-rn
+                                                                   :server-guid server-guid)]
                                             (condp = auth
                                               :rmcp-rakp           (let [m {:type        :rmcp-rakp-2
                                                                             :input       input
@@ -441,7 +431,7 @@
                                                                                                          :server-rn   server-rn
                                                                                                          :server-guid server-guid
                                                                                                          :remote-sid  remote-sid
-                                                                                                         :server-sid  remote-sid
+                                                                                                         :server-sid  server-sid
                                                                                                          :unamem      unamem
                                                                                                          :rolem       rolem
                                                                                                          :uid         uid}))
@@ -483,7 +473,6 @@
                                    auth        (get state :auth-codec)
                                    server-guid (get state :server-guid)
                                    uid         (r/lookup-password-key unamem)
-                                        ;guid        (r/get-device-id-bytes unamem)
                                    ]
 
                                (condp = auth
@@ -494,7 +483,7 @@
                                                         (send-message m)
                                                         state)
                                  :rmcp-rakp-hmac-sha1 (let [kec          (get input :kec 0)
-                                                            sidc-hmac    (calc-rakp-3 {:server-sid server-sid
+                                                            sidc-hmac    (calc-rakp-3 {:remote-sid remote-sid
                                                                                        :server-rn  server-rn
                                                                                        :rolem      rolem
                                                                                        :unamem     unamem
@@ -515,8 +504,8 @@
                                                                           :input      input
                                                                           :server-sid server-sid
                                                                           :sidm-hmac  sidm-hmac-96}
-                                                            state        (assoc state :sidm-hmac sidm-hmac-96 :sik sik)]
-                                                        (upsert-sik (vec sik) h)
+                                                            state        (assoc state :sidm-hmac sidm-hmac-96 :sik (vec sik))]
+                                                        ;(upsert-sik (vec sik) h)
                                                         (send-message m)
                                                         state))))
 

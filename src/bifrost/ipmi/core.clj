@@ -73,49 +73,48 @@
 (def input-chan (async/chan))
 (def publisher (async/pub input-chan :host-map))
 
-(defn create-procesor
-   [hostmap]
-   (log/debug "read processor input" hostmap)
-  (let [subscriber (decode/make-server-decoder)
-        decoder (decode/make-server-decoder)]
-    (async/sub publisher hostmap subscriber)
+(defn create-processor
+  [hostmap]
+  (log/debug "read processor input" hostmap)
+  (let [decoder (decode/make-server-decoder)
+        subscriber (async/chan)]
+    (async/sub publisher hostmap decoder)
     #_(async/pipe subscriber decoder)
     (async/thread
       (loop []
-      (when-some [msg (async/<!! subscriber)]
-        (log/debug "found message" msg))
-      (recur)))))
+        (when-some [msg (async/<!! subscriber)]
+          (log/debug "found message" msg))
+        (recur)))))
 
 (defn server-handler  [udp-message]
-    (let [host-map (state/get-session-state udp-message)
-          h        (hash host-map)
-          decoder-chan (async/chan)]
-      (log/debug  "Packet In" (-> udp-message
-                                  :message
-                                  bs/to-byte-array
-                                  codecs/bytes->hex) "Port" (:port host-map))
-      (when-not (state/channel-exists? h)
-        (do
-          (log/debug "Creating subscriber for topic " h)
-          (state/upsert-chan h  {:created-at  (Date.)
-                                 :host-map    host-map
-                                 :state       {}})
-          (create-procesor h)
-          (async/put! input-chan {:host-map h
-                                  :message udp-message})))
-      (log/debug "Publish message on topic " h)
-      (async/put! input-chan   {:host-map h
-                                :message  udp-message})))
-
+  (let [host-map (state/get-session-state udp-message)
+        h        (hash host-map)]
+    (log/debug  "Packet In" (-> udp-message
+                                :message
+                                bs/to-byte-array
+                                codecs/bytes->hex) "Port" (:port host-map))
+    (when-not (state/channel-exists? h)
+      (do
+        (log/debug "Creating subscriber for topic " h)
+        (state/upsert-chan h  {:created-at  (Date.)
+                               :host-map    host-map
+                               :state       {}})
+        (create-processor h)
+        (async/put! input-chan {:host-map h
+                                :message udp-message})))
+    (log/debug "Publish message on topic " h)
+    (async/put! input-chan   {:host-map h
+                              :message  udp-message})))
 
 (defn start-server-consumer [server-socket]
-    (->> server-socket
-         (s/consume #(server-handler %))))
+  (->> server-socket
+       (s/consume #(server-handler %))))
 
 (defn run-command-loop [command-chan]
-   (async/go-loop [] (when-some [command (async/<! command-chan)]
-                       (log/debug "Received Command" command)
-                (recur))))
+  (async/go-loop []
+    (when-some [command (async/<! command-chan)]
+      (log/debug "Received Command" command)
+      (recur))))
 
 (defn start-udp-server
   [port]

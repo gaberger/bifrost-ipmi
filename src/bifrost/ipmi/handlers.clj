@@ -30,7 +30,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defn chassis-status-response-msg [{:keys [remote-sid seq-no a e]}]
+(defn chassis-status-response-msg [remote-sid seq-no a e]
     {:version 6
      :reserved 0,
      :sequence 255,
@@ -97,7 +97,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defn device-id-response-msg [{:keys [remote-sid seq-no a e]} ]
+(defn device-id-response-msg [remote-sid seq-no a e]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -195,7 +195,7 @@
       :supported-entities 0}},
     :type :asf-session}})
 
-(defn auth-capabilities-response-msg [{:keys [seq]}]
+(defn auth-capabilities-response-msg [seq-no]
     {:version 6,
      :reserved 0,
      :sequence 255,
@@ -222,7 +222,7 @@
                                                       :no-auth-support true},
                                                      :command 56,
                                                      :channel {:reserved 0, :channel-num 1},
-                                                     :source-lun {:seq-no seq :source-lun 0}
+                                                     :source-lun {:seq-no seq-no :source-lun 0}
                                                      :source-address 32,
                                                      :supported-connections {:reserved 0, :ipmi-2-0 true, :ipmi-1-5 true},
                                                      :checksum 11,
@@ -258,7 +258,7 @@
      :type :ipmi-1-5-session},
     :type :ipmi-session}})
 
-(defn rmcp-close-response-msg [{:keys [remote-sid seq seq-no a e]}]
+(defn rmcp-close-response-msg [remote-sid session-seq seq-no a e]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -266,7 +266,7 @@
      {:ipmi-session-payload
       {:ipmi-2-0-payload
        {:session-id       remote-sid,
-        :session-seq      seq
+        :session-seq      session-seq
         :payload-type     {:encrypted? e, :authenticated? a, :type 0},
         :command          60,
         :source-lun       {:seq-no seq-no :source-lun 0}
@@ -316,7 +316,7 @@
       :type :ipmi-session}}))
 
 
-(defn rmcp-open-session-response-msg [{:keys [remote-sid server-sid a i c]}]
+(defn rmcp-open-session-response-msg [remote-sid server-sid a i c]
     (comment Page 148)
     {:version  6,
      :reserved 0,
@@ -353,7 +353,7 @@
       :type :ipmi-session}})
 
 (defmulti rmcp-rakp-1-request-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-1-request-msg :rmcp-rakp [{:keys [server-sid remote-rn unamem rolem]}]
+(defmethod rmcp-rakp-1-request-msg :rmcp-rakp [server-sid remote-rn unamem rolem]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -415,7 +415,7 @@
       :type :ipmi-session}})
 
 (defmulti rmcp-rakp-2-response-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-2-response-msg :rmcp-rakp [{:keys [remote-sid server-rn server-guid status]}]
+(defmethod rmcp-rakp-2-response-msg :rmcp-rakp [remote-sid server-rn server-guid status]
   (log/debug "RMCP-RAKP Response")
     {:version  6,
      :reserved 0,
@@ -465,7 +465,7 @@
       :type :ipmi-session}})
 
 (defmulti rmcp-rakp-4-response-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-4-response-msg :rmcp-rakp [{:keys [server-sid]}]
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp [server-sid]
   (log/debug "RMCP-RAKP-4 Response")
     {:version 6,
      :reserved 0,
@@ -484,7 +484,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [{:keys [server-sid sidm-hmac]}]
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [server-sid sidm-hmac]
   (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")
     {:version    6,
      :reserved   0,
@@ -506,7 +506,7 @@
                    :type :ipmi-2-0-session},
                   :type :ipmi-session}})
 
-(defn hpm-capabilities-msg  [{:keys [remote-sid seq-no a e]}]
+(defn hpm-capabilities-msg  [remote-sid seq-no a e]
   (log/debug "HPM Capabilities")
     {:version  6,
      :reserved 0,
@@ -531,7 +531,7 @@
 
 
 
-(defn error-response-msg  [{:keys [remote-sid sa ta seq command seq-no function status csum a e]}]
+(defn error-response-msg  [remote-sid sa ta session-seq command seq-no function status csum a e]
   (log/debug "Send Error Response" )
     {:version  6,
      :reserved 0,
@@ -540,7 +540,7 @@
      {:ipmi-session-payload
       {:ipmi-2-0-payload
        {:session-id              remote-sid,
-        :session-seq             seq,
+        :session-seq             session-seq,
         :payload-type            {:encrypted? e, :authenticated? a, :type 0},
         :command                 command,
         :source-lun    {:seq-no seq-no :source-lun 0}
@@ -554,7 +554,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defn picmg-response-msg  [{:keys [remote-sid seq-no a e]}]
+(defn picmg-response-msg  [remote-sid seq-no a e]
   (log/debug "PICMG Response")
     {:version 6,
      :reserved 0,
@@ -577,7 +577,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defn vso-response-msg [{:keys [remote-sid seq-no a e]}]
+(defn vso-response-msg [remote-sid seq-no a e]
   (log/debug "VSO Capabilities")
   {:version 6,
    :reserved 0,
@@ -602,7 +602,7 @@
 
 
 
-(defn hpm-capabilities-response-msg [{:keys [remote-sid seq-no a e]}]
+(defn hpm-capabilities-response-msg [remote-sid seq-no a e]
   (log/debug "HPM Capabilities Response")
     {:version    6,
      :reserved   0,

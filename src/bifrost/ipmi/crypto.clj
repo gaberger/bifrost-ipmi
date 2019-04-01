@@ -24,11 +24,19 @@
         ulengthm     (byte-array 1 (byte (count unamem)))
         remote-sid'  (-> (encode int->bytes remote-sid) bs/to-byte-array reverse vec)
         server-sid'  (-> (encode int->bytes server-sid) bs/to-byte-array reverse vec)
-        rolem'       (byte-array 1 (byte 0x14))
+        rolem'       (byte-array 1 (byte 0x14)) ;;TODO do we have to pass this over or use default
         rakp2-input  (bytes/concat remote-sid' server-sid' remote-rn server-rn server-guid' rolem' ulengthm unamem')
         rakp2-hmac   (calc-sha1-key uid rakp2-input)]
+    (log/debug "rakp2 remote-sid" remote-sid)
+    (log/debug "rakp2 server-sid" server-sid)
+    (log/debug "rakp2 remote-rn" remote-rn)
+    (log/debug "rakp2 server-rn" server-rn)
+    (log/debug "rakp2 server-guid" server-guid)
+    (log/debug "rakp2 rolem" rolem)
+    (log/debug "rakp2 unamem" unamem)
+    (log/debug "rakp2 uid" uid)
     (log/debug "rakp2 input buffer" (codecs/bytes->hex rakp2-input))
-    (log/debug "rakp2 server-rn" (-> server-rn byte-array codecs/bytes->hex))
+    ;(log/debug "rakp2 server-rn" (-> server-rn byte-array codecs/bytes->hex))
     (log/debug "rakp2 key" (-> uid codecs/str->bytes codecs/bytes->hex))
     (log/debug "rakp2 hmac" (codecs/bytes->hex rakp2-hmac))
     rakp2-hmac))
@@ -41,8 +49,16 @@
         ulengthm         (byte-array 1 (byte (count unamem)))
         remote-sid'      (-> (encode int->bytes remote-sid) bs/to-byte-array reverse vec)
         rolem'           (byte-array 1 (byte 0x14))
+        ;;server-sid-input (bytes/concat server-rn remote-sid' rolem' ulengthm unamem')
         server-sid-input (bytes/concat server-rn remote-sid' rolem' ulengthm unamem')
         server-sid-hmac  (calc-sha1-key uid server-sid-input)]
+    (log/debug "rakp3 remote-sid" remote-sid)
+    (log/debug "rakp3 server-rn" server-rn)
+    (log/debug "rakp3 rolem" rolem)
+    (log/debug "rakp3 unamem" unamem)
+    (log/debug "rakp3 uid" uid)
+    (log/debug "rakp3 input" (-> server-sid-input codecs/bytes->hex))
+    (log/debug "rakp3 hmac" (-> server-sid-hmac codecs/bytes->hex))
     server-sid-hmac))
 
 (defn calc-rakp-4-sik
@@ -52,6 +68,13 @@
         rolem'    (byte-array 1 (byte 0x14))
         sik-input (bytes/concat remote-rn server-rn rolem' ulengthm unamem')
         sik-hmac  (calc-sha1-key uid sik-input)]
+    (log/debug "rakp4 remote-rn" remote-rn)
+    (log/debug "rakp4 server-rn" server-rn)
+    (log/debug "rakp4 rolem" rolem)
+    (log/debug "rakp4 unamem" unamem)
+    (log/debug "rakp4 uid" uid)
+    (log/debug "rakp4 input" (-> sik-input codecs/bytes->hex))
+    (log/debug "rakp4 hmac" (-> sik-hmac codecs/bytes->hex))
     sik-hmac))
 
 (defn calc-rakp-4-sidm
@@ -59,6 +82,10 @@
   (let [server-sid' (-> (encode int->bytes server-sid) bs/to-byte-array reverse vec)
         sidm-input  (bytes/concat remote-rn server-sid' server-guid)
         sidm-hmac   (calc-sha1-key sik sidm-input)]
+    (log/debug "rakp4 remote-rn" remote-rn)
+    (log/debug "rakp4 server-sid" server-sid)
+    (log/debug "rakp4 server-guid" server-guid)
+    (log/debug "rakp4 sik" (-> sik codecs/bytes->hex))
     sidm-hmac))
 
 (defn K1 [sik]
@@ -160,12 +187,11 @@
         _              (log/debug "decrypt buffer" "Count" (count buffer) (last buffer))
         padding-length (last buffer)
         _              (log/debug "Padding Length" padding-length)
-        new-buffer_    (log/spy (if (= (mod (count buffer) 16) 0)
-                                  (byte-array buffer)
-                                  (->
-                                   (take (- 16 (inc padding-length)) buffer)
-                                   byte-array)))
-        ]
+        new-buffer_     (if (> padding-length 0)
+                          (->
+                           (take (- 16 (inc padding-length)) buffer)
+                           byte-array)
+                          (butlast buffer))]
     (assert (bytes? new-buffer_))
     (log/debug "Decrypting with SIK" (codecs/bytes->hex sik'))
     (log/debug "Decrypting with payload "  payload)

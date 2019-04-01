@@ -36,7 +36,7 @@
     (with-mock m
       {:target :bifrost.ipmi.codec/get-authentication-codec
        :return :rmcp-rakp-hmac-sha1}
-      (let [codec   (compile-codec 012345)
+      (let [codec   (compile-codec)
             encode  (partial i/encode codec)
             payload (encode (decode/decode-message nil (byte-array (:rmcp-rakp-2 error-payloads))))]
         (is (=    {:version 6,
@@ -121,7 +121,7 @@
 
 (deftest  test-rmcp-presence
   (testing "Test PING"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-ping rmcp-payloads))))]
@@ -139,7 +139,7 @@
                :type :asf-session}}
              (decode payload)))))
   (testing "Test PONG"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode (decode (byte-array (:rmcp-pong rmcp-payloads))))]
@@ -164,7 +164,7 @@
 
 (deftest  test-rakp
   (testing "RAKP1 encoding"
-    (let [codec  (compile-codec 012345)
+    (let [codec  (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           decoded (i/decode codec
@@ -193,7 +193,7 @@
                 :type :ipmi-session}}
               (i/decode codec rakp1 false)))))
   (testing "RAKP2 encoding"
-    (let [codec  (compile-codec 012345)
+    (let [codec  (compile-codec)
           encode (partial i/encode codec)
           rakp2  (encode (decode/decode-message nil (byte-array (rmcp-payloads :rmcp-rakp-2))))]
       (is (= {:reserved   0
@@ -218,7 +218,7 @@
               :version    6}
              (decode/decode-message nil rakp2)))))
   (testing "RAKP3 encoding"
-    (let [codec  (compile-codec 012345)
+    (let [codec  (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           rakp3  (encode (decode (byte-array (rmcp-payloads :rmcp-rakp-3))))]
@@ -290,7 +290,7 @@
 
 (deftest rakp-4
   (testing "RAKP4 Cipher 0"
-    (let [codec  (compile-codec 012345)
+    (let [codec  (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           rakp4  (encode (decode (byte-array (rmcp-payloads :rmcp-rakp-4)) false))]
@@ -340,7 +340,7 @@
 
 (deftest test-open-close-session
   (testing "open session request"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           request (encode (decode (byte-array (rmcp-payloads :open-session-request))))]
@@ -377,7 +377,7 @@
                 :type :ipmi-session}}
               (decode request)))))
   (testing "open session response"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           decoded (i/decode codec (byte-array (rmcp-payloads :open-session-response)) false)
@@ -417,7 +417,7 @@
                :type :ipmi-session}}
              (decode response)))))
   (testing "close session request"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-close-session-req rmcp-payloads))))]
@@ -442,7 +442,7 @@
                    :type :ipmi-session}}
                  (decode payload)))))
   (testing "close session response"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode  (decode (byte-array (:rmcp-close-session-rsp rmcp-payloads))))]
@@ -470,7 +470,7 @@
 
 (deftest  test-channel-authentication
   (testing "Get Channel Auth Cap Request"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           request (encode  (decode (byte-array (rmcp-payloads :get-channel-auth-cap-req))))]
@@ -498,7 +498,7 @@
                   :type :ipmi-session}}
                 (decode request false)))))
   (testing "Get Channel Auth Cap Response"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           response (encode (decode (byte-array (rmcp-payloads :get-channel-auth-cap-rsp))))]
@@ -547,7 +547,7 @@
 
 (deftest  test-privilege-level_request
   (testing "Set Session Priv Level Request"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           encoded (encode (decode (byte-array (rmcp-payloads :set-sess-prv-level-req))))
@@ -575,7 +575,7 @@
                      :type :ipmi-session}}
                    (decode payload))))
     (testing "Set Session Priv Level Request from Handler"
-      (let [codec (compile-codec 012345)
+      (let [codec (compile-codec)
             decode (partial i/decode codec)
             encode (partial i/encode codec)
             payload (encode (h/set-session-priv-level-rsp-msg {:remote-sid 0x0a0a0a0a :seq-no 1 :session-seq-no 1 :a true :e true}))
@@ -604,7 +604,7 @@
                  :type :ipmi-session}}
                payload-decoded))))
     (testing "Set Session Priv Level Response"
-      (let [codec (compile-codec 012345)
+      (let [codec (compile-codec)
             decode (partial i/decode codec)
             encode (partial i/encode codec)
             payload (encode (decode (byte-array (rmcp-payloads :set-sess-prv-level-rsp))))]
@@ -633,7 +633,7 @@
 
 (deftest  test-chassis-command
   (testing "Get Chassis Status Request"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :chassis-status-req))))]
@@ -658,7 +658,7 @@
                   :type :ipmi-session}}
                 (decode payload)))))
   (testing "Get Chassis Status Response"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode  (decode (byte-array (rmcp-payloads :chassis-status-rsp))))]
@@ -709,7 +709,7 @@
 
 (deftest  chassis-reset
   (testing "chassis-reset-req"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload  (:chassis-reset-req rmcp-payloads)
@@ -736,7 +736,7 @@
                 :type :ipmi-session}}
               (decode result)))))
   (testing "Chassis Reset Response"
-    (let [codec (compile-codec 012345)
+    (let [codec (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           payload (encode (decode (byte-array (:chassis-reset-rsp rmcp-payloads))))]
@@ -764,7 +764,7 @@
 
 (deftest  test-device-id
   (testing "device-id-request"
-    (let [codec  (compile-codec 012345)
+    (let [codec  (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           result (encode (decode (byte-array (:device-id-req rmcp-payloads))))]
@@ -789,7 +789,7 @@
                :type :ipmi-session}}
              (decode result)))))
   (testing "device-id-response"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode (partial i/decode codec)
           encode (partial i/encode codec)
           result (encode (decode (byte-array (:device-id-rsp rmcp-payloads))))]
@@ -836,7 +836,7 @@
 
 (deftest group-extensions-test
   (testing "hpm properties request"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           encode  (partial i/encode codec)
           payload (encode (decode/decode-message nil (byte-array (rmcp-payloads :hpm-capabilities-req))))]
       (is (= {:version  6,
@@ -862,7 +862,7 @@
                :type :ipmi-session}}
              (decode/decode-message nil payload)))))
   (testing "hpm properties response"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :hpm-capabilities-rsp))))]
@@ -888,7 +888,7 @@
                 :type :ipmi-session}}
               (decode payload)))))
   (testing "vso capabilities req"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :vso-capabilities-req))))]
@@ -917,7 +917,7 @@
                    :type :ipmi-session}}
                  (decode payload)))))
   (testing "vso capabilities rsp"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :vso-capabilities-rsp))))]
@@ -947,7 +947,7 @@
                 (decode payload)))))
 
   (testing "picmg properties"
-    (let [codec   (compile-codec 012345)
+    (let [codec   (compile-codec)
           decode  (partial i/decode codec)
           encode  (partial i/encode codec)
           payload (encode (decode (byte-array (rmcp-payloads :picmg-properties-req))))]

@@ -9,24 +9,48 @@
             [clojure.test :refer :all]
             [taoensso.timbre :as log]))
 
-;; (deftest cryptotest
-;;   (testing "encrypt/decrypt 1"
-;;     (let [iv   (nonce/random-nonce 16)
-;;           sik  (byte-array [122 -75 -34 124 -60 80 21 -46 82 58 -109 -111 -50 -90 -9 -99 -92 0 -108 117])
-;;           key  (bytes/slice (sut/K2 sik) 0 16)
-;;           test "ABCDEFGHIJKLMNOPQRSTUVWXYZdsakjdsakdj"
-;;           data (codecs/str->bytes test)
-;;           _    (println (count data))
-;;           eng  (crypto/block-cipher :aes :cbc)
-;;           _    (crypto/init! eng {:key key :iv iv :opt :encrypt})
-;;           enc  (crypto/process-block! eng data)
-;;           _    (crypto/init! eng {:key key :iv iv :opt :decrypt})
-;;           dec  (crypto/process-block! eng data)
-;;           ]
-;;       (is  (=
-;;             (-> enc (codecs/bytes->str))
-;;             (-> dec (codecs/bytes->str))
-;;             )))))
+(deftest rakp2-kec
+  (testing ""
+    (let [remote-sid        2695013284
+          server-sid        33560577
+          remote-rn         [53 247 252 119 146 184 247 40 224 250 73 251 88 4 111 229]
+          server-rn         [102 592 561 21 86 38 104 41 344 288 579 309 513 520 115 22]
+          server-guid       [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239]
+          key-exchange-code [127 252 219 200 4 52 235 179 91 78 80 98 218 24 33 178 206 181 188 180]
+          rolem             4
+          unamem            "root"
+          uid               "ADMIN"
+          hmac-hex          (.toByteArray (biginteger 0x7ffcdbc80434ebb35b4e5062da1821b2ceb5bcb4))
+          hmac              (sut/calc-rakp-1 {:remote-sid  remote-sid
+                                              :server-sid  server-sid
+                                              :remote-rn   remote-rn
+                                              :server-rn   server-rn
+                                              :server-guid server-guid
+                                              :rolem       rolem
+                                              :unamem      unamem
+                                              :uid         uid})]
+      (is (= hmac-hex
+             hmac)))))
+
+
+ (deftest cryptotest
+   (testing "encrypt/decrypt 1"
+     (let [iv   (nonce/random-nonce 16)
+           sik  (byte-array [122 -75 -34 124 -60 80 21 -46 82 58 -109 -111 -50 -90 -9 -99 -92 0 -108 117])
+           key  (bytes/slice (sut/K2 sik) 0 16)
+           test "ABCDEFGHIJKLMNOPQRSTUVWXYZdsakjdsakdj"
+           data (codecs/str->bytes test)
+           _    (println (count data))
+           eng  (crypto/block-cipher :aes :cbc)
+           _    (crypto/init! eng {:key key :iv iv :opt :encrypt})
+           enc  (crypto/process-block! eng data)
+           _    (crypto/init! eng {:key key :iv iv :opt :decrypt})
+           dec  (crypto/process-block! eng data)
+           ]
+       (is  (=
+             (-> enc (codecs/bytes->str))
+             (-> dec (codecs/bytes->str))
+             )))))
 
 ;; (deftest test-crypto
 ;;   (testing "test no padding"

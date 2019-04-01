@@ -61,16 +61,16 @@
         @registration-db)
    first))
 
-(defn get-device-id-bytes [uname]
+(defn get-device-guid-bytes [uname]
   (if-not (empty? @registration-db)
     (some->
      (map (fn [u]
             (if (= (:user-key u)  uname)
               (vec (uuid/as-byte-array (:device-guid u)))
-              (vec (uuid/as-byte-array (uuid/null)))))
+              (-> (uuid/null) (uuid/as-byte-array) vec)))
           @registration-db)
      first)
-    (vec (uuid/as-byte-array uuid/null ))))
+    (-> (uuid/null) (uuid/as-byte-array) vec)))
 
 (defn add-packet-driver [user device api]
   (swap! plugin-db #(conj % {(keyword user) {:driver      :packet

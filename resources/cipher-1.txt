@@ -1,0 +1,370 @@
+
+>> Sending IPMI command payload
+>>    netfn   : 0x06
+>>    command : 0x38
+>>    data    : 0x8e 0x04 
+
+BUILDING A v1.5 COMMAND
+added list entry seq=0x00 cmd=0x38
+>> IPMI Request Session Header
+>>   Authtype   : NONE
+>>   Sequence   : 0x00000000
+>>   Session ID : 0x00000000
+>> IPMI Request Message Header
+>>   Rs Addr    : 20
+>>   NetFn      : 06
+>>   Rs LUN     : 0
+>>   Rq Addr    : 81
+>>   Rq Seq     : 00
+>>   Rq Lun     : 0
+>>   Command    : 38
+>> sending packet (23 bytes)
+ 06 00 ff 07 00 00 00 00 00 00 00 00 00 09 20 18
+ c8 81 00 38 8e 04 b5
+<< received packet (30 bytes)
+ 06 00 ff 07 00 00 00 00 00 00 00 00 00 10 81 1c
+ 63 20 00 38 00 01 97 04 03 00 00 00 00 09
+<< IPMI Response Session Header
+<<   Authtype                : NONE
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0x00000000
+<<   Sequence                : 0x00000000
+<<   IPMI Msg/Payload Length : 16
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 07
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 00
+<<   Rs Lun     : 0
+<<   Command    : 38
+<<   Compl Code : 0x00
+IPMI Request Match found
+removed list entry seq=0x00 cmd=0x38
+>> SENDING AN OPEN SESSION REQUEST
+
+>> sending packet (48 bytes)
+ 06 00 ff 07 06 10 00 00 00 00 00 00 00 00 20 00
+ 00 00 00 00 a4 a3 a2 a0 00 00 00 08 01 00 00 00
+ 01 00 00 08 00 00 00 00 02 00 00 08 00 00 00 00
+<< received packet (52 bytes)
+ 06 00 ff 07 06 11 00 00 00 00 00 00 00 00 24 00
+ 00 00 00 00 a4 a3 a2 a0 02 06 00 00 00 00 00 08
+ 01 00 00 00 01 00 00 08 00 00 00 00 02 00 00 08
+ 00 00 00 00
+>> Console generated random number (16 bytes)
+ a4 e7 66 f7 e1 7f c1 62 b9 0a 04 08 67 ca 09 34
+>> SENDING A RAKP 1 MESSAGE
+
+>> sending packet (49 bytes)
+ 06 00 ff 07 06 12 00 00 00 00 00 00 00 00 21 00
+ 00 00 00 00 02 06 00 00 a4 e7 66 f7 e1 7f c1 62
+ b9 0a 04 08 67 ca 09 34 14 00 00 05 41 44 4d 49
+ 4e
+<< received packet (76 bytes)
+ 06 00 ff 07 06 13 00 00 00 00 00 00 00 00 3c 00
+ 00 00 00 00 a4 a3 a2 a0 2e f9 3b 22 e3 7f 8b 8a
+ 19 58 f7 2c 5c 01 95 be a1 23 45 67 89 ab cd ef
+ a1 23 45 67 89 ab cd ef 33 f2 43 43 73 b7 76 cc
+ 0d b0 06 e1 4c d2 ab 57 b8 3d 5b 9a
+bmc_rand (16 bytes)
+ 2e f9 3b 22 e3 7f 8b 8a 19 58 f7 2c 5c 01 95 be
+>> rakp2 mac input buffer (63 bytes)
+ a4 a3 a2 a0 02 06 00 00 a4 e7 66 f7 e1 7f c1 62
+ b9 0a 04 08 67 ca 09 34 2e f9 3b 22 e3 7f 8b 8a
+ 19 58 f7 2c 5c 01 95 be a1 23 45 67 89 ab cd ef
+ a1 23 45 67 89 ab cd ef 14 05 41 44 4d 49 4e
+>> rakp2 mac key (20 bytes)
+ 41 44 4d 49 4e 00 00 00 00 00 00 00 00 00 00 00
+ 00 00 00 00
+>> rakp2 mac as computed by the remote console (20 bytes)
+ 33 f2 43 43 73 b7 76 cc 0d b0 06 e1 4c d2 ab 57
+ b8 3d 5b 9a
+>> rakp3 mac input buffer (27 bytes)
+ 2e f9 3b 22 e3 7f 8b 8a 19 58 f7 2c 5c 01 95 be
+ a4 a3 a2 a0 14 05 41 44 4d 49 4e
+>> rakp3 mac key (20 bytes)
+ 41 44 4d 49 4e 00 00 00 00 00 00 00 00 00 00 00
+ 00 00 00 00
+generated rakp3 mac (20 bytes)
+ 68 3e a1 3e 1d 03 2b bf 28 0c dd 47 39 d5 51 66
+ 5f 83 86 b6
+session integrity key input (39 bytes)
+ a4 e7 66 f7 e1 7f c1 62 b9 0a 04 08 67 ca 09 34
+ 2e f9 3b 22 e3 7f 8b 8a 19 58 f7 2c 5c 01 95 be
+ 14 05 41 44 4d 49 4e
+Generated session integrity key (20 bytes)
+ ed f4 c3 30 ed f4 e4 d2 9e ea df 71 4b d9 dc 26
+ d0 ed 3a 5f
+Generated K1 (20 bytes)
+ 25 10 26 1b f3 91 a1 f1 e2 dd 08 7b a6 96 ac 74
+ 9c 59 33 d5
+Generated K2 (20 bytes)
+ 7d 87 57 46 a1 27 62 f6 15 7d 1a ce c8 3f b8 14
+ 86 11 3b 00
+>> SENDING A RAKP 3 MESSAGE
+
+>> sending packet (44 bytes)
+ 06 00 ff 07 06 14 00 00 00 00 00 00 00 00 1c 00
+ 00 00 00 00 02 06 00 00 68 3e a1 3e 1d 03 2b bf
+ 28 0c dd 47 39 d5 51 66 5f 83 86 b6
+<< received packet (36 bytes)
+ 06 00 ff 07 06 15 00 00 00 00 00 00 00 00 14 00
+ 00 00 00 00 a4 a3 a2 a0 3c a7 8f 38 ce 6d 68 2c
+ 50 26 bf 88
+>> rakp4 mac input buffer (36 bytes)
+ a4 e7 66 f7 e1 7f c1 62 b9 0a 04 08 67 ca 09 34
+ 02 06 00 00 a1 23 45 67 89 ab cd ef a1 23 45 67
+ 89 ab cd ef
+>> rakp4 mac key (sik) (20 bytes)
+ ed f4 c3 30 ed f4 e4 d2 9e ea df 71 4b d9 dc 26
+ d0 ed 3a 5f
+>> rakp4 mac as computed by the BMC (20 bytes)
+ 3c a7 8f 38 ce 6d 68 2c 50 26 bf 88 5c 01 95 be
+ a1 23 45 67
+>> rakp4 mac as computed by the remote console (20 bytes)
+ 3c a7 8f 38 ce 6d 68 2c 50 26 bf 88 bc a3 dc 2f
+ 4a c3 a0 fc
+IPMIv2 / RMCP+ SESSION OPENED SUCCESSFULLY
+
+
+>> Sending IPMI command payload
+>>    netfn   : 0x06
+>>    command : 0x3b
+>>    data    : 0x04 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x01 cmd=0x3b
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
+>> sending packet (24 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 03 00 00 00 08 00
+ 20 18 c8 81 04 3b 04 3c
+<< received packet (25 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 01 00 00 00 09 00
+ 81 1c 63 20 04 3b 00 04 9d
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000001
+<<   IPMI Msg/Payload Length : 9
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 07
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 01
+<<   Rs Lun     : 0
+<<   Command    : 3b
+<<   Compl Code : 0x00
+IPMI Request Match found
+removed list entry seq=0x01 cmd=0x3b
+set_session_privlvl (1 bytes)
+ 04
+Set Session Privilege Level to ADMINISTRATOR
+
+
+>> Sending IPMI command payload
+>>    netfn   : 0x2c
+>>    command : 0x3e
+>>    data    : 0x00 0x02 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x02 cmd=0x3e
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
+>> sending packet (25 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 04 00 00 00 09 00
+ 20 b0 30 81 08 3e 00 02 37
+<< received packet (24 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 02 00 00 00 08 00
+ 81 b4 cb 20 08 3e c1 d9
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000002
+<<   IPMI Msg/Payload Length : 8
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 2d
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 02
+<<   Rs Lun     : 0
+<<   Command    : 3e
+<<   Compl Code : 0xc1
+IPMI Request Match found
+removed list entry seq=0x02 cmd=0x3e
+IPM Controller is not HPM.2 compatible
+
+>> Sending IPMI command payload
+>>    netfn   : 0x06
+>>    command : 0x01
+>>    data    : 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x03 cmd=0x01
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
+>> sending packet (23 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 05 00 00 00 07 00
+ 20 18 c8 81 0c 01 72
+<< received packet (39 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 03 00 00 00 17 00
+ 81 1c 63 20 0c 01 00 00 03 09 08 02 9f 91 12 00
+ 02 0f 00 00 00 00 6a
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000003
+<<   IPMI Msg/Payload Length : 23
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 07
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 03
+<<   Rs Lun     : 0
+<<   Command    : 01
+<<   Compl Code : 0x00
+IPMI Request Match found
+removed list entry seq=0x03 cmd=0x01
+Iana: 4753
+Running Get PICMG Properties my_addr 0x20, transit 0, target 0x20
+
+>> Sending IPMI command payload
+>>    netfn   : 0x2c
+>>    command : 0x00
+>>    data    : 0x00 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x04 cmd=0x00
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
+>> sending packet (24 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 06 00 00 00 08 00
+ 20 b0 30 81 10 00 00 6f
+<< received packet (24 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 04 00 00 00 08 00
+ 81 b4 cb 20 10 00 c1 0f
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000004
+<<   IPMI Msg/Payload Length : 8
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 2d
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 04
+<<   Rs Lun     : 0
+<<   Command    : 00
+<<   Compl Code : 0xc1
+IPMI Request Match found
+removed list entry seq=0x04 cmd=0x00
+Error response 0xc1 from Get PICMG Properities
+Running Get VSO Capabilities my_addr 0x20, transit 0, target 0x20
+
+>> Sending IPMI command payload
+>>    netfn   : 0x2c
+>>    command : 0x00
+>>    data    : 0x03 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x05 cmd=0x00
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
+>> sending packet (24 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 07 00 00 00 08 00
+ 20 b0 30 81 14 00 03 68
+<< received packet (24 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 05 00 00 00 08 00
+ 81 b4 cb 20 14 00 c1 0b
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000005
+<<   IPMI Msg/Payload Length : 8
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 2d
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 05
+<<   Rs Lun     : 0
+<<   Command    : 00
+<<   Compl Code : 0xc1
+IPMI Request Match found
+removed list entry seq=0x05 cmd=0x00
+Invalid completion code received: Invalid command
+Acquire IPMB address
+Discovered IPMB address 0x0
+Interface address: my_addr 0x20 transit 0:0 target 0x20:0 ipmb_target 0
+
+
+>> Sending IPMI command payload
+>>    netfn   : 0x00
+>>    command : 0x01
+>>    data    : 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x06 cmd=0x01
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 1
+>> sending packet (23 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 08 00 00 00 07 00
+ 20 00 e0 81 18 01 66
+<< received packet (27 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 06 00 00 00 0b 00
+ 81 04 7b 20 18 01 00 01 00 00 c6
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000006
+<<   IPMI Msg/Payload Length : 11
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 01
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 06
+<<   Rs Lun     : 0
+<<   Command    : 01
+<<   Compl Code : 0x00
+IPMI Request Match found
+removed list entry seq=0x06 cmd=0x01
+
+>> Sending IPMI command payload
+>>    netfn   : 0x06
+>>    command : 0x3c
+>>    data    : 0x02 0x06 0x00 0x00 
+
+BUILDING A v2 COMMAND
+added list entry seq=0x07 cmd=0x3c
+Local RqAddr 0x20 transit 0:0 target 0x20:0 bridgePossible 0
+>> sending packet (27 bytes)
+ 06 00 ff 07 06 00 02 06 00 00 09 00 00 00 0b 00
+ 20 18 c8 81 1c 3c 02 06 00 00 1f
+<< received packet (24 bytes)
+ 06 00 ff 07 06 00 a4 a3 a2 a0 07 00 00 00 08 00
+ 81 1c 63 20 1c 3c 00 88
+<< IPMI Response Session Header
+<<   Authtype                : RMCP+
+<<   Payload type            : IPMI (0)
+<<   Session ID              : 0xa0a2a3a4
+<<   Sequence                : 0x00000007
+<<   IPMI Msg/Payload Length : 8
+<< IPMI Response Message Header
+<<   Rq Addr    : 81
+<<   NetFn      : 07
+<<   Rq LUN     : 0
+<<   Rs Addr    : 20
+<<   Rq Seq     : 07
+<<   Rs Lun     : 0
+<<   Command    : 3c
+<<   Compl Code : 0x00
+IPMI Request Match found
+removed list entry seq=0x07 cmd=0x3c
+Closed Session 00000602
+
