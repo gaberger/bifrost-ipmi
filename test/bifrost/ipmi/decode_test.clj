@@ -1238,47 +1238,48 @@
   (let [b-array (take 8 (u/create-rmcp-stream "cipher-3.hex"))
         res     (mapv #(sut/decode {:auth-codec :rmcp-rakp-hmac-sha1
                                     :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality} %) b-array)]
-    (is (= [{:type :get-channel-auth-cap-req, :command 56, :function 6}
-            {:type :get-channel-auth-cap-rsp, :command 56, :function 7}
-            {:payload-type 16,
-             :integ-codec  :rmcp-rakp-1-hmac-sha1-96-integrity,
-             :a?           false,
-             :type         :open-session-request,
-             :e?           false,
-             :c            1,
-             :auth-codec   :rmcp-rakp-hmac-sha1,
-             :remote-sid   2695013284,
-             :rolem        0,
-             :conf-codec   :rmcp-rakp-1-aes-cbc-128-confidentiality,
-             :i            1,
-             :a            1}
-            {:type         :open-session-response,
-             :payload-type 17,
-             :server-sid   1794,
-             :remote-sid   2695013284,
-             :rolem        0,
-             :auth-codec   :rmcp-rakp-hmac-sha1,
-             :integ-codec  :rmcp-rakp-1-hmac-sha1-96-integrity,
-             :conf-codec   :rmcp-rakp-1-aes-cbc-128-confidentiality}
-            {:type         :rmcp-rakp-1,
-             :payload-type 18,
-             :a?           false,
-             :e?           false,
-             :unamem       "ADMIN",
-             :remote-rn
-             [65 69 218 159 110 213 102 167 0 0 238 14 229 117 167 176]}
-            {:type         :rmcp-rakp-2,
-             :payload-type 19,
-             :server-guid
-             [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
-             :server-rn    [74 123 83 211 243 11 250 190 126 105 53 3 214 148 24 69],
-             :a?           false,
-             :e?           false}
-            {:type         :rmcp-rakp-3,
-             :payload-type 20,
-             :a?           false,
-             :e?           false,
-             :kec
-             [255 197 199 229 30 50 81 233 18 34 86 94 11 61 254 242 146 211 251 226]}
-            {:type :rmcp-rakp-4, :payload-type 21, :a? false, :e? false}]
-           res))))
+    (is (=       [{:type :get-channel-auth-cap-req, :command 56, :function 6}          
+           {:type :get-channel-auth-cap-rsp, :command 56, :function 7}
+           {:payload-type 16,
+            :integ-codec :rmcp-rakp-1-hmac-sha1-96-integrity,
+            :a? false,
+            :type :open-session-request,
+            :e? false,
+            :c 1,
+            :auth-codec :rmcp-rakp-hmac-sha1,
+            :remote-sid 2695013284,
+            :rolem 0,
+            :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality,
+            :i 1,
+            :a 1}
+           {:type :open-session-response,
+            :payload-type 17,
+            :server-sid 1794,
+            :remote-sid 2695013284,
+            :rolem 0,
+            :auth-codec :rmcp-rakp-hmac-sha1,
+            :integ-codec :rmcp-rakp-1-hmac-sha1-96-integrity,
+            :conf-codec :rmcp-rakp-1-aes-cbc-128-confidentiality}
+           {:type :rmcp-rakp-1,
+            :payload-type 18,
+            :a? false,
+            :e? false,
+            :unamem "ADMIN",
+            :remote-rn
+            [65 69 218 159 110 213 102 167 0 0 238 14 229 117 167 176]}
+           {:type :rmcp-rakp-2,
+            :payload-type 19,
+            :server-guid
+            [161 35 69 103 137 171 205 239 161 35 69 103 137 171 205 239],
+            :server-rn [74 123 83 211 243 11 250 190 126 105 53 3 214 148 24 69],
+            :server-kec [162 180 109 108 70 7 197 189 102 53 109 71 174 121 173 122 141 139 100 129],
+            :a? false,
+            :e? false}
+           {:type :rmcp-rakp-3,
+            :payload-type 20,
+            :a? false,
+            :e? false,
+            :remote-kec
+            [255 197 199 229 30 50 81 233 18 34 86 94 11 61 254 242 146 211 251 226]}
+           {:type :rmcp-rakp-4, :payload-type 21, :a? false, :e? false}]
+      res))))

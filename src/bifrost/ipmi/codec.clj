@@ -6,7 +6,7 @@
                                 string enum repeated]]
             [gloss.io :refer [decode to-buf-seq]]
             [byte-streams :as bs]
-            [bifrost.ipmi.crypto :refer [decrypt encrypt  calc-integrity-96]]
+            [bifrost.ipmi.crypto :as crypto]
             [gloss.core.structure :refer [convert-map convert-sequence]]
             [gloss.core.protocols :refer [reader? compose-callback Reader Writer read-bytes write-bytes sizeof]]
             [gloss.data.primitives :refer [primitive-codecs]]
@@ -254,8 +254,8 @@
                                                       :integ-codec  integ-codec
                                                       :conf-codec   conf-codec})
                                                    18 ;;rmcp-rakp-1
-                                                   (let  [unamem      (get session :user-name)
-                                                          remote-rn   (get session :remote-console-random-number)]
+                                                   (let  [unamem    (get session :user-name)
+                                                          remote-rn (get session :remote-console-random-number)]
                                                      {:type         :rmcp-rakp-1
                                                       :payload-type 18
                                                       :a?           authenticated?
@@ -265,22 +265,24 @@
                                                    19 ;;rmcp-rakp-2
                                                    (let [server-guid (get session :managed-system-guid)
                                                          server-rn   (get session :managed-system-random-number)
-                                                         remote-sid  (get session :remote-session-console-id)]
+                                                         remote-sid  (get session :remote-session-console-id)
+                                                         server-kec  (get session :key-exchange-code)]
                                                      {:type        :rmcp-rakp-2 :payload-type 19
                                                       :server-guid server-guid
                                                       :server-rn   server-rn
+                                                      :server-kec  server-kec
                                                       :a?          authenticated?
                                                       :e?          encrypted?}
                                                      )
                                                    20 ;; rmcp-rakp-3
                                                    (if (contains? session :key-exchange-code)
-                                                     {:type :rmcp-rakp-3 :payload-type 20
-                                                      :a?   authenticated?
-                                                      :e?   encrypted?
-                                                      :kec  (get session :key-exchange-code)}
-                                                     {:type :rmcp-rakp-3 :payload-type 20
-                                                      :a?   authenticated?
-                                                      :e?   encrypted?})
+                                                     {:type       :rmcp-rakp-3 :payload-type 20
+                                                      :a?         authenticated?
+                                                      :e?         encrypted?
+                                                      :remote-kec (get session :key-exchange-code)}
+                                                     {:type :rmcp-rakp-3   :payload-type 20
+                                                      :a?   authenticated? :e?           encrypted?
+                                                      })
                                                    21 {:type :rmcp-rakp-4 :payload-type 21
                                                        :a?   authenticated?
                                                        :e?   encrypted?}
@@ -969,9 +971,9 @@
                             (log/debug "aes-post-decoder")
                             (let [iv         (get-in a [:payload :iv])
                                   data       (get-in a [:payload :data])
-                                  sik        (get state :sik)
+                                  sik        (get state :server-sik)
                                   decrypted  (try
-                                               (decrypt sik iv data)
+                                               (crypto/decrypt sik iv data)
                                                (catch Exception e
                                                  (throw (ex-info "Decrypt error"
                                                                  {:error (.getMessage e)
@@ -1001,7 +1003,7 @@
                                   iv                (-> (nonce/random-nonce 16) vec)
                                   sik               (get state :sik)
                                   encrypted         (-> (try
-                                                          (encrypt sik iv payload')
+                                                          (crypto/encrypt sik iv payload')
                                                           (catch Exception e
                                                             (throw (ex-info "Encrypt Error"
                                                                             {:message (.getMessage e)
@@ -1035,7 +1037,7 @@
                                                      :padding-length 2
                                                      :rmcp           7}
                                   auth-code-data    (-> (i/encode (compile-frame aes-session-codec) auth-code) bs/to-byte-array)
-                                  integrity         (calc-integrity-96 sik auth-code-data)
+                                  integrity         (crypto/calc-integrity-96 sik auth-code-data)
                                   _                 (log/debug "iv+data?" (-> iv+data byte-array codecs/bytes->hex))
                                   aes-payload       {:iv+data        iv+data
                                                      :padding        [0xff 0xff]

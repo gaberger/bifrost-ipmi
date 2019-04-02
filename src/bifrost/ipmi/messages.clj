@@ -79,11 +79,24 @@
         encoded-message  (encode-message nil message)]
     (u/safe (send-udp state encoded-message))))
 
+(defmethod send-message :rmcp-rakp-1 [{:keys [state server-sid remote-rn rolem unamem]}]
+  (log/info "Sending RAKP1")
+  (let [message         (h/rmcp-rakp-1-request-msg server-sid remote-rn rolem unamem)
+        encoded-message (encode-message nil message)]
+    (u/safe (send-udp state encoded-message))))
+
 (defmethod send-message :rmcp-rakp-2 [state]
   (log/info "Sending RAKP2")
   (let [message         (h/rmcp-rakp-2-response-msg)
         encoded-message (encode-message nil message)]
     (u/safe (send-udp state encoded-message))))
+
+(defmethod send-message :rmcp-rakp-3 [{:keys [auth state remote-sid server-sid kec]}]
+(log/info "Sending RAKP1")
+(let [message         (h/rmcp-rakp-3-request-msg {:auth auth :remote-sid remote-sid :server-sid server-sid :kec kec})
+  encoded-message (encode-message state message)]
+(u/safe (send-udp state encoded-message))))
+
 
 (defmethod send-message :rmcp-rakp-4 [{:keys [state server-sid]}]
   (log/info "Sending RAKP4")

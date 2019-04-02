@@ -134,3 +134,7 @@
       (if (= (first acc) -1)
         (recur (inc cnt) (next acc))
         (v-buf-seq (into [] (conj (next acc) cnt)))))))
+
+;;TODO 
+(defn get-user-account [])
+(defn get-remote-rn [])

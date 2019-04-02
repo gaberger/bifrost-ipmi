@@ -352,8 +352,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defmulti rmcp-rakp-1-request-msg :auth :default :rmcp-rakp)
-(defmethod rmcp-rakp-1-request-msg :rmcp-rakp [server-sid remote-rn unamem rolem]
+(defn rmcp-rakp-1-request-msg  [server-sid remote-rn rolem unamem]
     {:version  6,
      :reserved 0,
      :sequence 255,
@@ -484,7 +483,7 @@
        :type :ipmi-2-0-session},
       :type :ipmi-session}})
 
-(defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [server-sid sidm-hmac]
+(defmethod rmcp-rakp-4-response-msg :rmcp-rakp-hmac-sha1 [server-sid hmac-sik]
   (log/debug "RMCP-RAKP-4-HMAC-SHA1 Response")
     {:version    6,
      :reserved   0,
@@ -502,7 +501,7 @@
                     :status-code                0,
                     :reserved                   [0 0],
                     :managed-console-session-id server-sid
-                    :integrity-check sidm-hmac},
+                    :integrity-check hmac-sik},
                    :type :ipmi-2-0-session},
                   :type :ipmi-session}})
 

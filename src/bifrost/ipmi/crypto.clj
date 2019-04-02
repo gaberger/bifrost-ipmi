@@ -17,7 +17,19 @@
   (let [hmac (mac/hash input {:key k :alg :hmac :digest :sha1})]
     hmac))
 
-(defn calc-rakp-1
+(comment
+  "" "
+    sidm     - Remote console session ID                      - remote-sid
+    sidc     - BMC (Managed-System) session ID                - server-sid
+    rm       - Remote console random number                   - remote-rn
+    rc       - BMC (Managed-System) random number             - server-rn
+    guidc    - BMC guid                                       - server-guid
+    rolem    - Requested privilege level 
+    unamem   - Username (absent for null user names) " "")
+
+(defn calc-rakp-message-2
+  "SIDM, RC, GUIDC,
+  HMACK[UID] (SIDM, SIDC, RM, RC, GUIDC, RoleM, ULengthM, < UNameM >)"
   [{:keys [remote-sid server-sid remote-rn server-rn server-guid rolem unamem uid]}]
   (let [unamem'      (codecs/str->bytes unamem)
         server-guid' (byte-array server-guid)
@@ -41,15 +53,16 @@
     (log/debug "rakp2 hmac" (codecs/bytes->hex rakp2-hmac))
     rakp2-hmac))
 
-(defn calc-rakp-3
-  [{:keys [remote-sid server-rn rolem unamem uid]}]
+(defn calc-rakp-message-3
+  "SIDC,
+  HMACK[UID] (RC, SIDM, RoleM, ULengthM, < UNameM >)
+  Key Exchange Authentication Code"
+  [{:keys [server-rn remote-sid rolem unamem uid]}]
   {:pre [(string? unamem)]}
-  (let [;uid         (bytes/slice (codecs/str->bytes unamem) 0 20)
-        unamem'          (codecs/str->bytes unamem)
+  (let [unamem'          (codecs/str->bytes unamem)
         ulengthm         (byte-array 1 (byte (count unamem)))
         remote-sid'      (-> (encode int->bytes remote-sid) bs/to-byte-array reverse vec)
         rolem'           (byte-array 1 (byte 0x14))
-        ;;server-sid-input (bytes/concat server-rn remote-sid' rolem' ulengthm unamem')
         server-sid-input (bytes/concat server-rn remote-sid' rolem' ulengthm unamem')
         server-sid-hmac  (calc-sha1-key uid server-sid-input)]
     (log/debug "rakp3 remote-sid" remote-sid)
@@ -61,32 +74,35 @@
     (log/debug "rakp3 hmac" (-> server-sid-hmac codecs/bytes->hex))
     server-sid-hmac))
 
-(defn calc-rakp-4-sik
-  [{:keys [server-rn remote-rn rolem unamem uid]}]
+(defn calc-sik
+  "SIK = HMACKG (RM | RC | RoleM | ULengthM | < UNameM >)"
+  [{:keys [remote-rn server-rn rolem unamem uid]}]
   (let [unamem'   (codecs/str->bytes unamem)
         ulengthm  (byte-array 1 (byte (count unamem)))
         rolem'    (byte-array 1 (byte 0x14))
         sik-input (bytes/concat remote-rn server-rn rolem' ulengthm unamem')
-        sik-hmac  (calc-sha1-key uid sik-input)]
-    (log/debug "rakp4 remote-rn" remote-rn)
-    (log/debug "rakp4 server-rn" server-rn)
-    (log/debug "rakp4 rolem" rolem)
-    (log/debug "rakp4 unamem" unamem)
-    (log/debug "rakp4 uid" uid)
-    (log/debug "rakp4 input" (-> sik-input codecs/bytes->hex))
-    (log/debug "rakp4 hmac" (-> sik-hmac codecs/bytes->hex))
-    sik-hmac))
+        sik  (calc-sha1-key uid sik-input)]
+    (log/debug "rakp sik remote-rn" remote-rn)
+    (log/debug "rakp sik server-rn" server-rn)
+    (log/debug "rakp sik rolem" rolem)
+    (log/debug "rakp sik unamem" unamem)
+    (log/debug "rakp sik uid" uid)
+    (log/debug "rakp sik input" (-> sik-input codecs/bytes->hex))
+    (log/debug "rakp sik" (-> sik codecs/bytes->hex))
+    sik))
 
-(defn calc-rakp-4-sidm
+(defn calc-rakp-message-4
+  "SIDM,
+  HMACSIK (RM, SIDC, GUIDC)"
   [{:keys [remote-rn server-sid server-guid sik]}]
   (let [server-sid' (-> (encode int->bytes server-sid) bs/to-byte-array reverse vec)
         sidm-input  (bytes/concat remote-rn server-sid' server-guid)
-        sidm-hmac   (calc-sha1-key sik sidm-input)]
+        hmac-sik   (calc-sha1-key sik sidm-input)]
     (log/debug "rakp4 remote-rn" remote-rn)
     (log/debug "rakp4 server-sid" server-sid)
     (log/debug "rakp4 server-guid" server-guid)
-    (log/debug "rakp4 sik" (-> sik codecs/bytes->hex))
-    sidm-hmac))
+    (log/debug "rakp4 hmac-sik" (-> hmac-sik codecs/bytes->hex))
+    hmac-sik))
 
 (defn K1 [sik]
   (let [const1 (byte-array [01 01 01 01 01 01 01 01 01 01
@@ -169,9 +185,10 @@
     (log/debug "Encrypted Payload" (codecs/bytes->hex buffer) "Count" (count buffer))
     buffer))
 
-(defn decrypt
-  [sik iv payload]
-  (log/debug "decrypt" sik iv payload)
+(defn decrypt [sik iv payload]
+  (log/debug "Decrypting with SIK" sik)
+  (log/debug "Decrypting with payload "  payload)
+  (log/debug "Decrypting with IV " iv)
   (let [engine         (crypto/block-cipher :aes :cbc)
         iv'            (byte-array iv)
         sik'           (byte-array sik)
@@ -194,7 +211,6 @@
                           (butlast buffer))]
     (assert (bytes? new-buffer_))
     (log/debug "Decrypting with SIK" (codecs/bytes->hex sik'))
-    (log/debug "Decrypting with payload "  payload)
     (log/debug "Decrypting with IV " (codecs/bytes->hex iv'))
     (log/debug "Decrypting with key " (codecs/bytes->hex key))
     (log/debug "Decrypted Payload" (codecs/bytes->hex new-buffer_) "Count" (count new-buffer_))

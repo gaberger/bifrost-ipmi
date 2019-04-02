@@ -3,6 +3,8 @@
             [automat.core :as a]
             [buddy.core.nonce :as nonce]
             [taoensso.timbre :as log]
+            [bifrost.ipmi.crypto :as crypto]
+            [bifrost.ipmi.utils :as u]
             [bifrost.ipmi.messages :as messages]))
 
 
@@ -69,46 +71,108 @@
                                             state))
               :open-session-response    (fn [state input]
                                           (log/debug "Open Session Response" input)
-                                          (let [remote-sid  (get input :remote-sid)
-                                                server-sid  (get input :server-sid)
-                                                rolem       (get input :rolem)
-                                                auth-codec  (get input :auth-codec)
-                                                conf-codec  (get input :conf-codec)
-                                                integ-codec (get input :integ-codec)
-                                                msg-type    (get input :type)
-                                                state       (assoc state
-                                                                   :remote-sid  remote-sid
-                                                                   :server-sid  server-sid
-                                                                   :rolem rolem
-                                                                   :auth-codec auth-codec
-                                                                   :integ-codec integ-codec
-                                                                   :conf-codec conf-codec)]
+                                          (let [remote-sid   (get input :remote-sid)
+                                                server-sid   (get input :server-sid)
+                                                rolem        (get input :rolem)
+                                                auth-codec   (get input :auth-codec)
+                                                conf-codec   (get input :conf-codec)
+                                                integ-codec  (get input :integ-codec)
+                                                msg-type     (get input :type)
+                                                [unamem uid] (u/get-user-account)
+                                                remote-rn    (u/get-remote-rn)
+                                                state        (assoc state
+                                                                    :remote-sid  remote-sid
+                                                                    :server-sid  server-sid
+                                                                    :remote-rn remote-rn
+                                                                    :rolem rolem
+                                                                    :auth-codec auth-codec
+                                                                    :integ-codec integ-codec
+                                                                    :conf-codec conf-codec
+                                                                    :unamem unamem
+                                                                    :uid uid)]
+                                            ;; send RAKP1
+                                            ;; server-sid
+                                            ;; remote-rn
+                                            ;; rolem
+                                            ;; unamem
+                                            (messages/send-message {:type       :rmcp-rakp-1
+                                                                    :server-sid server-sid
+                                                                    :remote-rn  remote-rn
+                                                                    :rolem      rolem
+                                                                    :unamem     unamem})
                                             state))
               :rmcp-rakp-2              (fn [state input]
-                                          (let [server-rn   (get input :server-rn)
+                                          (let [auth        (get state :auth-codec)
+                                                remote-rn   (get state :remote-rn)
+                                                server-rn   (get input :server-rn)
                                                 server-guid (get input :server-guid)
                                                 msg-type    (get input :type)
-                                                state       (assoc state
-                                                                   :server-rn server-rn
-                                                                   :server-guid server-guid)]
-                                            state))
-              :rmcp-rakp-4              (fn [state input]
-                                          state)
-              :device-id-rsp            (fn [state input]
-                                          (log/debug "Device ID Response")
-                                          state)
-              :hpm-capabilities-rsp     (fn [state input]
-                                          state)
-              :picmg-properties-rsp     (fn [state input]
-                                          state)
-              :vso-capabilities-rsp     (fn [state input]
-                                          state)
-              :session-priv-level-rsp   (fn [state input]
-                                          state)
-              :chassis-reset-rsp        (fn [state input]
-                                          state)
-              :rmcp-close-session-rsp   (fn [state input]
-                                          state)}})
+                                                server-kec  (get input :kec)
+                                                remote-sid  (get state :remote-sid)
+                                                server-sid  (get state :server-sid)
+                                                rolem       (get state :rolem)
+                                                unamem      (get state :unamem)
+                                                uid         (get state :uid)]
+                                        ; state       (assoc state
+                                        ;                    :server-rn server-rn
+                                        ;                   :server-guid server-guid
+                                        ;                  :kec kec)]
+                                            (condp = auth
+                                              :rmcp-rakp           (let [m {:type       :rmcp-rakp-3
+                                                                            :auth       auth
+                                                                            :input      input
+                                                                            :server-sid server-sid}]
+                                                                     (messages/send-message m)
+                                                                     state)
+                                              :rmcp-rakp-hmac-sha1 (let [remote-kec (crypto/calc-rakp-message-3 {:remote-sid remote-sid
+                                                                                                                 :server-rn  server-rn
+                                                                                                                 :rolem      rolem
+                                                                                                                 :unamem     unamem})
+                                                                         sik        (crypto/calc-sik {:remote-rn remote-rn
+                                                                                                      :server-rn server-rn
+                                                                                                      :rolem     rolem
+                                                                                                      :unamem    unamem
+                                                                                                      :uid       uid})
+                                                                         state      (assoc state
+                                                                                           :server-kec server-kec
+                                                                                           :remote-kec remote-kec
+                                                                                           :sik (vec sik))]
+                                                                     (messages/send-message {:type       :rmcp-rakp-3
+                                                                                             :auth       auth
+                                                                                             :state      state
+                                                                                             :remote-sid remote-sid
+                                                                                             :server-sid server-sid
+                                                                                             :kec        remote-kec
+                                                                                             })
+                                                                     state))))
+
+
+              ;; Calculate rakp2 HMAC
+              ;; Calculate rakp3 HMAC
+              ;; Calculate SIK
+              ;; Generate K1
+              ;; Generate K2
+              ;; Send rakp-3
+
+              :rmcp-rakp-4 (fn [state input]
+                             ;; Calculate RAKP4 MAC
+
+                             state)
+              :device-id-rsp          (fn [state input]
+                                        (log/debug "Device ID Response")
+                                        state)
+              :hpm-capabilities-rsp   (fn [state input]
+                                        state)
+              :picmg-properties-rsp   (fn [state input]
+                                        state)
+              :vso-capabilities-rsp   (fn [state input]
+                                        state)
+              :session-priv-level-rsp (fn [state input]
+                                        state)
+              :chassis-reset-rsp      (fn [state input]
+                                        state)
+              :rmcp-close-session-rsp (fn [state input]
+                                        state)}})
 (comment
   "" "
     sidm     - Remote console session ID                      - remote-sid
